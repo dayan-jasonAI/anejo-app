@@ -14,7 +14,7 @@ export const cateringProducts = [
   { id: 'empanada', category: 'Cuban Food', en: 'Empanada · 1.25 oz', es: 'Empanada · 1.25 oz', unit: ['pieces', 'unidades'], flavorKey: 'empanada' },
   { id: 'croqueta', category: 'Cuban Food', en: 'Croqueta · 1.20 oz fried', es: 'Croqueta · 1.20 oz frita', unit: ['pieces', 'unidades'], flavorKey: 'croqueta' },
   { id: 'salad', category: 'Cuban Food', en: 'Cold macaroni salad · 6 oz per serving', es: 'Ensalada fría de coditos · 6 oz por porción', unit: ['servings', 'porciones'] },
-  { id: 'skewer', category: 'Cuban Food', en: 'Grape, ham, guava, cheese & pineapple skewer', es: 'Pincho de uva, jamón, guayaba, queso y piña', unit: ['pieces', 'unidades'] },
+  { id: 'skewer', category: 'Cuban Food', en: 'Grape, salami, guava, cheese & pineapple skewer', es: 'Pincho de uva, salami, guayaba, queso y piña', unit: ['pieces', 'unidades'] },
   // Added 2026-09-09. Every one of these has had a published tray price on the live menu all
   // along; none of them was offered here, so ordering any of them meant filing an "Other custom
   // request" that no instant quote could price. Yuca is the one that broke Dayan's own order.

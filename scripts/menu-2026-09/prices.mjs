@@ -38,10 +38,11 @@ export const FLAVORS = {
 // one — ham, beef, chorizo, sausage and tuna included. A wrong photo of the right food is worse
 // than an honest generic: the customer only finds out when the box is opened.
 export const FLAVOR_IMAGES = {
+  'papa-res': 'gourmet-2026-10/beef-papa-rellena.webp',
   'croq-pollo': 'menu-launch/food-croq-pollo.webp',
   'croq-res': 'menu-launch/food-croq-res.webp',
   'emp-guava': 'menu-launch/food-emp-guava.webp',
-  'cup-fresa': 'menu-launch/cup-fresa.webp',
+  'cup-fresa': 'gourmet-2026-10/strawberry-tres-leches.webp',
   'cup-chocolate': 'menu-launch/cup-chocolate.webp',
 };
 
@@ -53,7 +54,7 @@ export const FLAVOR_IMAGES = {
 //   · "Cuban tamal" alone does not say it is three slices, which is what the price is for
 export const NAME_OVERRIDES = {
   traditional_dressed: ['Dressed croqueta', 'Croqueta preparada'],
-  traditional_skewer: ['Grape, ham, guava, cheese & pineapple skewer', 'Pincho de uva, jamón, guayaba, queso y piña'],
+  traditional_skewer: ['Grape, salami, guava, cheese & pineapple skewer', 'Pincho de uva, salami, guayaba, queso y piña'],
   'catering_skewer-10': ['Skewers — 10 pieces', 'Pinchos — 10 unidades'],
   'catering_skewer-25': ['Skewers — 25 pieces', 'Pinchos — 25 unidades'],
   'catering_skewer-50': ['Skewers — 50 pieces', 'Pinchos — 50 unidades'],
@@ -76,7 +77,7 @@ export const PRODUCTS = [
     note: 'plated with sauces', image: 'menu-launch/tray-croquetas.webp' },
   { key: 'dressed', base: 'dressed', label: 'Dressed croqueta platter', labelEs: 'Bandeja de croquetas preparadas',
     flavors: null, single: 325, trays: [[30, 4500], [60, 9000], [90, 13500]], unit: 'pieces',
-    image: 'menu-launch/tray-dressed.webp' },
+    image: 'gourmet-2026-10/dressed-croqueta.webp' },
 
   // ---------------------------------------------------------------- empanadas (D4, D15)
   { key: 'empA', base: 'emp', label: 'Empanada', labelEs: 'Empanada',
@@ -99,7 +100,7 @@ export const PRODUCTS = [
     image: 'menu-launch/food-bocadito.webp' },
   { key: 'skewer', base: 'skewer', label: 'Skewer', labelEs: 'Brocheta',
     flavors: null, single: 300, trays: [[10, 3000], [25, 6500], [50, 10000]], unit: 'pieces',
-    image: 'menu-launch/food-skewer.webp' },
+    image: 'gourmet-2026-10/skewer.webp' },
   { key: 'papaA', base: 'papa', label: 'Papa rellena', labelEs: 'Papa rellena',
     flavors: FLAVORS.papaA, single: 200, trays: [[10, 2000], [25, 5000], [50, 7500]], unit: 'pieces',
     image: null },
@@ -119,7 +120,7 @@ export const PRODUCTS = [
     image: 'menu-launch/yuca-single.webp' },
   { key: 'fria', base: 'fria', label: 'Cold macaroni salad', labelEs: 'Ensalada fría de coditos',
     flavors: null, single: 500, trays: [[10, 4500], [25, 6500], [50, 10000]], unit: 'servings',
-    image: 'menu-launch/fria-single.webp' },
+    image: 'gourmet-2026-10/pasta-salad.webp' },
   { key: 'verde', base: 'verde', label: 'Fresh salad', labelEs: 'Ensalada fresca',
     flavors: null, single: 450, trays: [[10, 3000], [25, 4500], [50, 6000]], unit: 'servings',
     image: 'menu-launch/salad-side.webp' },
@@ -130,7 +131,7 @@ export const PRODUCTS = [
   // ---------------------------------------------------------------- dessert
   { key: 'cups', base: 'cup', label: 'Tres leches cup', labelEs: 'Vasito de tres leches',
     flavors: FLAVORS.dessert, single: 550, trays: [[10, 4000], [25, 7000], [50, 11000]], unit: 'cups',
-    image: 'menu-launch/cup-fresa.webp' },
+    image: 'gourmet-2026-10/strawberry-tres-leches.webp' },
 
   // ---------------------------------------------------------------- la cajita
   { key: 'cajita', base: 'cajita', label: 'La Cajita', labelEs: 'La Cajita',
