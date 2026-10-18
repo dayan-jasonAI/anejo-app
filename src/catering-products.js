@@ -30,6 +30,8 @@ let estimate = null;      // last /api/catering-estimate result
 let estimateSequence = 0;
 let estimateTimer;
 let uid = 0;
+let paymentPending = false;
+const pickerDrafts = new Map(); // Preserve deliberate quantities/flavors across guidance or language refreshes.
 
 const es = () => document.documentElement.lang.startsWith('es');
 const t = (en, spanish) => (es() ? spanish : en);
@@ -38,6 +40,11 @@ const money = (cents) => new Intl.NumberFormat(es() ? 'es-US' : 'en-US', { style
 const catalogFor = (id) => catalog?.products.find((p) => p.id === id) || null;
 const productFor = (id) => cateringProducts.find((p) => p.id === id) || null;
 const label = (p) => (p ? (es() ? p.es : p.en) : '');
+const guestCount = () => {
+  const n = Number(document.getElementById('guests')?.value);
+  return Number.isInteger(n) && n > 0 && n <= 5000 ? n : null;
+};
+const guestSized = product => !product?.custom && !product?.addon && ['pieces', 'servings', 'cups', 'bowls', 'boxes'].includes(product?.unit?.[0]) && product.id !== 'cajita-custom';
 const CATEGORY_ES = { 'Añejo Fit Menu': 'Menú Añejo Fit', 'Cuban Food': 'Comida cubana', 'Individual Cajitas': 'Cajitas individuales' };
 
 // Rendered once. Scoped under .aq- so it cannot reach the rest of the page, and built from the
@@ -103,6 +110,10 @@ const STYLE = `
 .aq-chip{border:1px solid var(--line,rgba(26,61,46,.18));background:#fff;border-radius:999px;padding:8px 14px;font:inherit;font-size:13px;cursor:pointer;display:inline-flex;gap:7px;align-items:center}
 .aq-chip:hover{border-color:var(--gold,#C6A85B)}
 .aq-chip b{color:var(--green,#1A3D2E)}
+.aq-guidance{margin:18px 0;padding:16px;border:1px solid var(--gold,#C6A85B);border-radius:var(--aq-r);background:#fffaf0}
+.aq-guidance p{margin:5px 0 12px;font-size:14px;line-height:1.55;color:var(--green,#1A3D2E)}
+.aq-guidance .aq-chip{min-height:44px}
+.aq-quantity-note{margin:5px 0 0;font-size:12px;line-height:1.45;color:var(--muted,#62645f)}
 .aq-ladder{display:flex;flex-wrap:wrap;gap:7px;margin:12px 0 0}
 .aq-tier{font-size:11.5px;border:1px solid var(--line,rgba(26,61,46,.18));border-radius:999px;padding:5px 11px;color:var(--muted,#62645f)}
 .aq-tier.on{border-color:var(--gold,#C6A85B);background:#fffaf0;color:var(--gold-dark,#8B6B3E);font-weight:700}
@@ -181,7 +192,8 @@ function picker(product, entry) {
   const box = el('div', 'aq-pick');
   el('h5', null, box, label(product));
 
-  const state = { quantity: null, flavor: product.flavorKey ? CAJITA_DEFAULT_FLAVORS[product.flavorKey] : undefined, notes: '' };
+  const state = pickerDrafts.get(product.id) || { quantity: null, flavor: product.flavorKey ? CAJITA_DEFAULT_FLAVORS[product.flavorKey] : undefined, notes: '' };
+  pickerDrafts.set(product.id, state);
 
   let flavorSel;
   if (product.flavorKey) {
@@ -229,15 +241,25 @@ function picker(product, entry) {
   const wrapQ = el('div', null, box);
   el('span', 'aq-lab', wrapQ, `${t('Quantity', 'Cantidad')} (${product.unit[es() ? 1 : 0]})`);
   const qty = el('input', 'aq-in', wrapQ);
-  Object.assign(qty, { type: 'number', min: '1', max: '5000', step: '1', value: '' });
+  Object.assign(qty, { type: 'number', min: '1', max: '5000', step: '1', value: state.quantity == null ? '' : String(state.quantity) });
   qty.inputMode = 'numeric';
   qty.placeholder = t('Any amount', 'Cualquier cantidad');
   qty.setAttribute('aria-label', t('Quantity', 'Cantidad'));
+
+  const guests = guestCount();
+  if (guests && guestSized(product)) {
+    const suggestion = el('div', 'aq-row', wrapQ);
+    const use = el('button', 'aq-chip', suggestion, t(`Use guest count · ${guests}`, `Usar número de invitados · ${guests}`));
+    use.type = 'button';
+    use.addEventListener('click', () => { state.quantity = guests; qty.value = String(guests); mark(); });
+    el('p', 'aq-quantity-note', wrapQ, t('Optional starting point: one unit per guest. Adjust for your menu and appetite.', 'Punto de partida opcional: una unidad por invitado. Ajusta según tu menú y apetito.'));
+  }
 
   const wrapN = el('div', null, box);
   el('span', 'aq-lab', wrapN, t('Changes or special instructions', 'Cambios o instrucciones especiales'));
   const notes = el('textarea', 'aq-note', wrapN);
   notes.maxLength = 500;
+  notes.value = state.notes;
   notes.setAttribute('aria-label', t('Changes or special instructions', 'Cambios o instrucciones especiales'));
   const mustDescribe = Boolean(product.custom || product.id === 'cajita-custom');
   if (mustDescribe) notes.required = true;
@@ -250,7 +272,7 @@ function picker(product, entry) {
   add.type = 'button';
   const cancel = el('button', 'aq-btn aq-ghost', row, t('Cancel', 'Cancelar'));
   cancel.type = 'button';
-  cancel.addEventListener('click', () => { open = null; render(); });
+  cancel.addEventListener('click', () => { pickerDrafts.delete(product.id); open = null; render(); });
 
   function mark() { if (typeof markSizes === 'function') markSizes(); update(); }
   function update() {
@@ -260,14 +282,15 @@ function picker(product, entry) {
     add.textContent = pack ? t(`Add — ${money(pack.cents)}`, `Agregar — ${money(pack.cents)}`) : t('Add to quote', 'Agregar a la cotización');
   }
   qty.addEventListener('input', () => { state.quantity = Number(qty.value); mark(); });
-  notes.addEventListener('input', update);
-  update();
+  notes.addEventListener('input', () => { state.notes = notes.value; update(); });
+  mark();
 
   add.addEventListener('click', () => {
     const n = Number(qty.value);
     if (!Number.isInteger(n) || n < 1 || n > 5000) return;
     if (cart.length >= 50) return;
     cart.push({ uid: ++uid, category: product.category, id: product.id, flavor: state.flavor, quantity: n, notes: notes.value.trim() });
+    pickerDrafts.delete(product.id);
     open = null;
     render();
   });
@@ -275,6 +298,59 @@ function picker(product, entry) {
   // Clicking inside the panel must not bubble to the card and collapse it.
   box.addEventListener('click', (e) => e.stopPropagation());
   return box;
+}
+
+// Suggestions never alter the cart until the customer explicitly chooses an action.
+function renderGuidance(parent) {
+  if (!menus().includes('Cuban Food') || !catalog?.live) return;
+  const selected = readCart();
+  const hasCroquetas = selected.some(row => ['croqueta', 'croqueta-platter', 'croqueta-dressed'].includes(row.id));
+  const entry = catalogFor('croqueta');
+  const product = productFor('croqueta');
+  const flavor = Object.keys(entry?.flavors || {}).find(key =>
+    CAJITA_FLAVORS.croqueta.some(option => option[0] === key) && entry.flavors[key]?.packs?.length);
+  const guests = guestCount();
+  const packs = flavor ? entry.flavors[flavor].packs : [];
+  const price = guests ? exactCost(packs, guests) : null;
+  if (!hasCroquetas && product && !entry?.custom && flavor && price != null) {
+    const box = el('div', 'aq-guidance', parent);
+    el('strong', null, box, t('The house signature · croquetas', 'La especialidad de la casa · croquetas'));
+    el('p', null, box, t('A welcome bite for the table. Optional, priced separately, and added only if you choose it.', 'Un bocado para compartir. Opcional, con precio aparte y solo se agrega si lo eliges.'));
+    const knownFlavor = CAJITA_FLAVORS.croqueta.find(option => option[0] === flavor);
+    const flavorName = knownFlavor[es() ? 2 : 1];
+    const add = el('button', 'aq-chip', box, t(`Add ${guests} ${flavorName.toLowerCase()} croquetas · one per guest · ${money(price)}`, `Agregar ${guests} croquetas de ${flavorName.toLowerCase()} · una por invitado · ${money(price)}`));
+    add.type = 'button';
+    add.disabled = cart.length >= 50;
+    add.addEventListener('click', () => {
+      if (cart.length >= 50 || readCart().some(row => ['croqueta', 'croqueta-platter', 'croqueta-dressed'].includes(row.id))) return;
+      cart.push({uid:++uid,category:product.category,id:product.id,flavor,quantity:guests,notes:''});
+      render();
+    });
+    const choose = el('button', 'aq-chip', box, t('Choose flavor or quantity', 'Elegir sabor o cantidad'));
+    choose.type = 'button';
+    choose.addEventListener('click', () => { open = product.id; render(); root.querySelector('.aq-pick')?.scrollIntoView({block:'nearest'}); });
+  } else if (!hasCroquetas && product && !entry?.custom && flavor) {
+    const box = el('div', 'aq-guidance', parent);
+    el('strong', null, box, t('The house signature · croquetas', 'La especialidad de la casa · croquetas'));
+    el('p', null, box, t('Optional: add our signature croquetas. Choose a flavor and quantity to see the live price.', 'Opcional: agrega nuestras croquetas. Elige sabor y cantidad para ver el precio en vivo.'));
+    const choose = el('button','aq-chip',box,t('Explore croquetas','Ver croquetas'));
+    choose.type='button'; choose.addEventListener('click',()=>{open=product.id;render();});
+  }
+  if (!selected.length) return;
+  const suggestions = [];
+  if (!selected.some(row => ['lechon','pizza','cajita-standard','cajita-custom'].includes(row.id) || row.id.startsWith('fit-'))) suggestions.push(['lechon',t('Explore a main · roast pork','Explorar plato principal · lechón')]);
+  if (selected.some(row => row.id === 'lechon') && !selected.some(row => ['congri','yuca','tamales'].includes(row.id))) suggestions.push(['congri',t('Explore a side · congrí','Explorar acompañamiento · congrí')]);
+  if (!selected.some(row => ['cup-fresa','cup-chocolate','cake-fresa','cake-chocolate'].includes(row.id))) suggestions.push(['cup-fresa',t('Optional sweet finish · tres leches','Postre opcional · tres leches')]);
+  const available = suggestions.filter(([id]) => { const p = catalogFor(id); return p && !p.custom && p.from_cents != null && p.packs?.length; });
+  if (!available.length) return;
+  const box = el('div','aq-addons',parent);
+  el('div','aq-cat',box,t('Ideas for your table','Ideas para tu mesa'));
+  el('p','aq-sub',box,t('Explore an accompaniment or dessert. Nothing is added automatically.','Explora un acompañamiento o postre. Nada se agrega automáticamente.'));
+  const chips = el('div','aq-chips',box);
+  for (const [id,text] of available) {
+    const button = el('button','aq-chip',chips,text); button.type='button';
+    button.addEventListener('click',()=>{open=id;render();root.querySelector('.aq-pick')?.scrollIntoView({block:'nearest'});});
+  }
 }
 
 // ---------------------------------------------------------------- add-ons
@@ -347,6 +423,11 @@ function renderSummary(parent) {
     if (flavor) bits.push(flavor[es() ? 2 : 1]);
     if (row.notes) bits.push(t('quoted by hand', 'cotizado a mano'));
     el('div', 'aq-l-meta', main, bits.join(' · '));
+    const guests = guestCount();
+    const quantity = cart.filter(item => item.id === row.id && menus().includes(item.category)).reduce((sum,item) => sum + item.quantity, 0);
+    if (guests && guestSized(product) && quantity !== guests) {
+      el('p','aq-quantity-note',main,t(`${quantity} total selected for this dish · ${guests} guests. This may be intentional for a mixed menu; review your quantities.`,`${quantity} en total de este plato · ${guests} invitados. Puede ser intencional en un menú variado; revisa las cantidades.`));
+    }
     const amount = row.notes ? null : lineAmount(row);
     el('div', 'aq-l-amt', line, amount == null ? '—' : money(amount));
     const x = el('button', 'aq-x', line, '×');
@@ -363,7 +444,14 @@ function renderSummary(parent) {
   paintPrice();
 }
 
+function builderLocked() {
+  // Intake submission freezes the real menu controls, including an uncertain retry.
+  // An incomplete picker only disables its Add button and is not an operation lock.
+  return paymentPending || [...form.querySelectorAll('[name="menu_option"]')].some(control => control.disabled);
+}
+
 function paintPrice() {
+  if (builderLocked()) return;
   const box = root.querySelector('.aq-price-host');
   if (!box) return;
   box.replaceChildren();
@@ -445,7 +533,7 @@ function renderPay(box) {
   const label = `${Math.round(pct * 100)}%`;
   const hold = el('button', 'aq-btn aq-wide', pay, t(`Hold the date — ${label} deposit, ${money(deposit)}`, `Reserva la fecha — ${label} de depósito, ${money(deposit)}`));
   hold.type = 'button';
-  hold.addEventListener('click', () => startDeposit(hold));
+  hold.addEventListener('click', () => bookDeposit(hold));
   el('p', null, pay, t(
     `The balance of ${money(estimate.total_cents - deposit)} is due the day before the event.`,
     `El saldo de ${money(estimate.total_cents - deposit)} vence el día antes del evento.`));
@@ -478,6 +566,7 @@ function handoff(mode) {
 const DEPOSIT_FIELDS = [['name', 'name'], ['email', 'email'], ['event-date', 'event_date'], ['guests', 'guests']];
 
 async function bookDeposit(button) {
+  if (builderLocked()) return;
   const values = {};
   for (const [domId, key] of DEPOSIT_FIELDS) {
     const field = document.getElementById(domId);
@@ -494,6 +583,9 @@ async function bookDeposit(button) {
   values.phone = (document.getElementById('phone')?.value || '').trim();
 
   const original = button.textContent;
+  const lockedControls = [...form.querySelectorAll('input,select,textarea,button')].map(control => ({control,disabled:control.disabled}));
+  lockedControls.forEach(({control}) => { control.disabled = true; });
+  paymentPending = true;
   button.disabled = true;
   button.textContent = t('Opening secure checkout…', 'Abriendo el pago seguro…');
   try {
@@ -505,6 +597,8 @@ async function bookDeposit(button) {
     if (!response.ok || !result?.url) throw new Error(result?.error || 'deposit');
     location.href = result.url;
   } catch (err) {
+    paymentPending = false;
+    lockedControls.forEach(({control,disabled}) => { control.disabled = disabled; });
     button.disabled = false;
     button.textContent = original;
     button.insertAdjacentElement('afterend', el('p', 'aq-rev', null,
@@ -518,7 +612,7 @@ async function bookDeposit(button) {
 // ---------------------------------------------------------------- render + estimate
 
 function render() {
-  if (!root.isConnected) return;
+  if (!root.isConnected || builderLocked()) return;
   styleOnce();
   root.replaceChildren();
   root.classList.add('aq');
@@ -530,10 +624,12 @@ function render() {
     el('p', 'aq-rev', root, t('Live prices are unavailable right now — send the request below and we will quote it.', 'Los precios en vivo no están disponibles — envía la solicitud y te la cotizamos.'));
   }
   renderBrowse(root);
+  renderGuidance(root);
   renderAddons(root);
   renderSummary(root);
   el('p', 'aq-sub', root, t('Standard catering: minimum 48 hours. Custom printing: minimum 72 hours.', 'Catering estándar: mínimo 48 horas. Impresión personalizada: mínimo 72 horas.')).style.marginTop = '16px';
   queueEstimate();
+  document.dispatchEvent(new CustomEvent('anejo:catering-cartchange', {detail:{products:readCart()}}));
 }
 
 function queueEstimate() {
@@ -569,10 +665,11 @@ const readCart = () => cart
 
 form.addEventListener('input', queueEstimate);
 form.addEventListener('change', queueEstimate);
+document.getElementById('guests')?.addEventListener('change', render);
 form.querySelectorAll('[name="menu_option"]').forEach((elm) => elm.addEventListener('change', render));
 document.addEventListener('anejo:langchange', () => {
-  // A language switch must never recreate controls that a locked retry disabled.
-  if (!root.querySelector('button:disabled, select:disabled, input:disabled')) render();
+  // Ordinary invalid/empty pickers still translate; active submissions and payments stay frozen.
+  if (!builderLocked()) render();
 });
 
 // Deep link from the menu: /catering?item=lechon opens that product's size picker.
