@@ -542,6 +542,7 @@ function renderPay(box) {
 // Hand the priced cart to the full-payment checkout. The items are SKUs and quantities only —
 // every price is recomputed server-side, so nothing a browser can edit decides what is charged.
 function handoff(mode) {
+  if (builderLocked() || !estimate?.checkout_eligible) return;
   try {
     sessionStorage.setItem('anejo-catering-cart', JSON.stringify({ items: estimate.items, mode, created: Date.now() }));
   } catch {
@@ -566,7 +567,7 @@ function handoff(mode) {
 const DEPOSIT_FIELDS = [['name', 'name'], ['email', 'email'], ['event-date', 'event_date'], ['guests', 'guests']];
 
 async function bookDeposit(button) {
-  if (builderLocked()) return;
+  if (builderLocked() || !estimate?.checkout_eligible) return;
   const values = {};
   for (const [domId, key] of DEPOSIT_FIELDS) {
     const field = document.getElementById(domId);
@@ -623,8 +624,8 @@ function render() {
   if (catalog && !catalog.live) {
     el('p', 'aq-rev', root, t('Live prices are unavailable right now — send the request below and we will quote it.', 'Los precios en vivo no están disponibles — envía la solicitud y te la cotizamos.'));
   }
-  renderBrowse(root);
   renderGuidance(root);
+  renderBrowse(root);
   renderAddons(root);
   renderSummary(root);
   el('p', 'aq-sub', root, t('Standard catering: minimum 48 hours. Custom printing: minimum 72 hours.', 'Catering estándar: mínimo 48 horas. Impresión personalizada: mínimo 72 horas.')).style.marginTop = '16px';
@@ -633,10 +634,15 @@ function render() {
 }
 
 function queueEstimate() {
+  if (builderLocked()) return;
   const sequence = ++estimateSequence;
   clearTimeout(estimateTimer);
   const products = readCart();
-  if (!products.length) { estimate = null; return; }
+  // Old prices and payment actions belong to the previous payload. Invalidate them
+  // synchronously, before the debounce/network window, and restore only for this sequence.
+  estimate = null;
+  paintPrice();
+  if (!products.length) return;
   const needsReview = ['event-theme', 'theme-colors', 'design-notes', 'dietary', 'details'].some((id) => document.getElementById(id)?.value?.trim())
     || [...form.querySelectorAll('input[type=file]')].some((elm) => elm.files.length);
   estimateTimer = setTimeout(async () => {

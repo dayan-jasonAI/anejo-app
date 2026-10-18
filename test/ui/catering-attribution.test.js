@@ -29,3 +29,12 @@ test('conditional migration changes only active legacy catering target and is id
  for(const row of [['ig-catering',1,'/#tasting'],['ig-catering',0,'/#tasting'],['ig-catering',1,'/custom'],['other',1,'/#tasting']])db.prepare('INSERT INTO tracked_links VALUES (?,?,?,1,?)').run(...row,'original');
  const sql=readFileSync(new URL('../../migrations/0129_catering_bio_destination.sql',import.meta.url),'utf8');db.exec(sql);const rows=db.prepare('SELECT * FROM tracked_links ORDER BY rowid').all();assert.equal(rows[0].dest_url,'/catering#quote');assert.deepEqual(rows.slice(1).map(r=>r.dest_url),['/#tasting','/custom','/#tasting']);assert.ok(rows.every(r=>r.utm_campaign==='original'));db.exec(sql);assert.deepEqual(db.prepare('SELECT * FROM tracked_links ORDER BY rowid').all(),rows);db.close();
 });
+test('external referral origin and public entry route survive navigation without retaining private query data',()=>{
+ let saved=null;
+ const sessionStorage={getItem:()=>saved,setItem:(_k,v)=>{saved=v;}};
+ function visit(path,referrer){const window={location:{search:'',origin:'https://anejocateringco.com',pathname:path}};vm.runInNewContext(script,{window,document:{referrer},sessionStorage,URL,URLSearchParams});return JSON.parse(JSON.stringify(window.AnejoAttribution.read()));}
+ assert.deepEqual(visit('/','https://www.google.com/search?q=private+words'),{referrer:'https://www.google.com',entry_path:'/'});
+ assert.deepEqual(visit('/catering','https://anejocateringco.com/'),{referrer:'https://www.google.com',entry_path:'/'});
+ saved=null;assert.equal(visit('/q/secret-token','javascript:private'),null);
+ saved=null;assert.deepEqual(visit('/catering','https://anejocateringco.com/client/private'),{entry_path:'/catering'});
+});

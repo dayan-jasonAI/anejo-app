@@ -128,7 +128,7 @@ test('language refresh is allowed for incomplete Add-disabled picker but blocked
   assert.equal(f.run('refreshes'),1,'uncertain submission keeps actual controls frozen');
   f.menuControls[0].disabled=false;
   for(const id of ['name','email','event-date','guests'])f.get(id).value=id==='guests'?'35':'test';
-  f.run('fetch=()=>new Promise(()=>{});');
+  f.run('estimate={checkout_eligible:true,total_cents:10000};fetch=()=>new Promise(()=>{});');
   const pay=new f.Element('button');f.run('bookDeposit')(pay);
   assert.equal(f.run('paymentPending'),true);
   f.document.dispatchEvent(new CustomEvent('anejo:langchange'));
@@ -144,4 +144,36 @@ test('render emits one read-only cart refresh event and locked render emits none
   payload[0].quantity=999;
   assert.equal(f.run('cart[0].quantity'),20,'event listeners receive a copy, never live cart objects');
   f.menuControls[0].disabled=true;f.run('originalRender();');assert.equal(events,1);
+});
+
+test('failed deposit restores prior disabled states and releases the explicit operation lock',async()=>{
+  const f=fixture();
+  for(const id of ['name','email','event-date','guests'])f.get(id).value=id==='guests'?'35':'test';
+  const pay=new f.Element('button'), editable=new f.Element('input'), incomplete=new f.Element('button');
+  pay.disabled=false;editable.disabled=false;incomplete.disabled=true;
+  const form=f.get('cateringForm'), originalQuery=form.querySelectorAll;
+  form.querySelectorAll=selector=>selector==='input,select,textarea,button'?[pay,editable,incomplete]:originalQuery(selector);
+  f.run('estimate={checkout_eligible:true,total_cents:10000};fetch=async()=>{throw new Error("Network unavailable");};');
+  const pending=f.run('bookDeposit')(pay);
+  assert.equal(editable.disabled,true);
+  await pending;
+  assert.equal(editable.disabled,false);assert.equal(incomplete.disabled,true);assert.equal(pay.disabled,false);
+  assert.equal(f.run('builderLocked()'),false);
+});
+
+
+test('cart change synchronously clears stale total and payment actions before debounce finishes',()=>{
+  const f=fixture();
+  const host=new f.Element();host.className='aq-price-host';f.get('quote-products').append(host);
+  f.run('estimate={checkout_eligible:true,total_cents:13500,items:[{id:"pork",qty:35}]};');
+  f.run('renderPay')(host);
+  const oldFull=f.find(host,'Pay in full'),oldDeposit=f.find(host,'Hold the date');
+  assert.ok(oldFull);assert.ok(oldDeposit);
+  f.run('setTimeout=()=>1;clearTimeout=()=>{};cart=[{uid:1,id:"lechon",category:"Cuban Food",quantity:35,notes:""},{uid:2,id:"croqueta",category:"Cuban Food",flavor:"ham",quantity:35,notes:""}];queueEstimate();');
+  assert.equal(f.run('estimate'),null);
+  assert.ok(!f.find(host,'Pay in full'));assert.ok(!f.find(host,'Hold the date'));
+  assert.match(host.textContent,/Pricing/);
+  assert.doesNotThrow(()=>oldFull.fire('click'),'detached stale full-payment handler fails closed');
+  assert.doesNotThrow(()=>oldDeposit.fire('click'),'detached stale deposit handler fails closed');
+  assert.equal(f.run('paymentPending'),false);
 });
