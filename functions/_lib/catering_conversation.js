@@ -80,13 +80,14 @@ export async function syncCateringQuoteSms(env, quoteId) {
   let next=new URL(path,'https://api.twilio.com');next.searchParams.set('To','+1'+digits);next.searchParams.set('PageSize','100');
   const candidates=new Map();
   for(let page=0;page<3;page++){
-    let data;
+    let data, response;
     try{
-      const response=await fetch(next.href,{method:'GET',headers:{Authorization:'Basic '+btoa(`${env.TWILIO_ACCOUNT_SID}:${env.TWILIO_AUTH_TOKEN}`)},signal:AbortSignal.timeout(15000),redirect:'error'});
-      if(!response.ok)return {ok:false,status:502,error:'Twilio history could not be read. No text was sent.'};
-      data=await response.json();
-      if(!Array.isArray(data.messages))throw Error('Invalid provider list');
-    }catch{return {ok:false,status:502,error:'Provider history unavailable. No outcome has been assumed.'};}
+      response=await fetch(next.href,{method:'GET',headers:{Authorization:'Basic '+btoa(`${env.TWILIO_ACCOUNT_SID}:${env.TWILIO_AUTH_TOKEN}`)},signal:AbortSignal.timeout(15000),redirect:'error'});
+    }catch(error){return {ok:false,status:502,error:'Provider history is unavailable. Please retry receipt sync later; no new text was sent.',diagnostic:{stage:'provider_history',category:['TimeoutError','AbortError'].includes(error?.name)?'timeout':'network_error'}};}
+    if(!response.ok)return {ok:false,status:502,error:`Provider history returned HTTP ${response.status}. Please retry receipt sync later; no new text was sent.`,diagnostic:{stage:'provider_history',category:'http_error',http_status:response.status}};
+    try{data=await response.json();}
+    catch(error){return {ok:false,status:502,error:'Provider history could not be read. Please retry receipt sync later; no new text was sent.',diagnostic:{stage:'provider_history',category:['TimeoutError','AbortError'].includes(error?.name)?'timeout':'invalid_json'}};}
+    if(!Array.isArray(data?.messages)||data.messages.some(message=>!message||typeof message!=='object'||Array.isArray(message)))return {ok:false,status:502,error:'Provider history has an unsupported format. No new text was sent.',diagnostic:{stage:'provider_history',category:'invalid_response'}};
     for(const message of data.messages){
       const time=Date.parse(message.date_created||message.date_sent||'');
       const body=typeof message.body==='string'?message.body:'';
@@ -96,7 +97,7 @@ export async function syncCateringQuoteSms(env, quoteId) {
       candidates.set(message.sid,{...message,observed_at:time});
     }
     if(!data.next_page_uri){next=null;break;}
-    try{next=new URL(data.next_page_uri,'https://api.twilio.com');if(next.origin!=='https://api.twilio.com'||next.pathname!==path)throw Error('Invalid next page');}catch{return {ok:false,status:502,error:'Provider pagination could not be validated.'};}
+    try{next=new URL(data.next_page_uri,'https://api.twilio.com');if(next.origin!=='https://api.twilio.com'||next.pathname!==path)throw Error('Invalid next page');}catch{return {ok:false,status:502,error:'Provider pagination could not be validated.',diagnostic:{stage:'provider_history',category:'invalid_pagination'}};}
   }
   if(next)return {ok:false,status:409,error:'Provider scan reached its three-page bound. Reconcile manually; no receipt was imported.'};
   if(candidates.size!==1)return {ok:false,status:409,error:candidates.size?'Multiple matching provider messages; owner reconciliation required.':'No exact provider message matched this quote. No text was reconstructed.'};
