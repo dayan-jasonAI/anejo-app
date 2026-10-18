@@ -24,6 +24,7 @@ import { isTwilioConfigured } from './twilio.js';
 import { leadForPhone, ensureCateringConversation, sendCateringSms, cateringSmsOptedOut } from './catering_conversation.js';
 import { cateringQuoteEmail } from './catering_quote_email.js';
 import { renderLines, DEPOSIT_PCT } from './catering_terms.js';
+import { loadMenu } from './menu.js';
 
 const SITE = 'https://anejocateringco.com';
 
@@ -69,11 +70,40 @@ export function quoteSms({ customerName, totalCents, eventDate, url, lang = 'en'
   ].join('\n');
 }
 
+// Historical owner-written lines did not retain catalog IDs or images. These explicit
+// aliases identify the three dishes in the affected quote; no substring/fuzzy food matching.
+const LEGACY_IMAGE_PRODUCTS = {
+  'hawaiian roll with spread': 'traditional_bocadito',
+  'yuca, onion & chicharrones · 6 oz per serving': 'traditional_yuca',
+  'roast pork · 6 oz per serving': 'catering_lechon-10',
+};
+const exactName = value => String(value || '').normalize('NFKC').replace(/\s+/g, ' ').trim().toLowerCase();
+
+/** Resolve display assets only. Never replace quoted names, quantities, or prices. */
+export function quoteLinesWithImages(lines, menu) {
+  const items = Array.isArray(menu?.items) ? menu.items : [];
+  return lines.map(line => {
+    if (line.image) return { ...line };
+    const id = line.menu_item_id || line.product_id || line.sku || line.id || LEGACY_IMAGE_PRODUCTS[exactName(line.name)];
+    let candidates = id ? items.filter(item => item.id === id) : items.filter(item =>
+      [item.name, item.name_es].some(name => name && [line.name, line.name_es].some(n => n && exactName(n) === exactName(name))));
+    // Several exact-name rows may exist only when they all point to the same picture.
+    const images = [...new Set(candidates.map(item => item.image || item.img).filter(Boolean))];
+    return images.length === 1 ? { ...line, image: images[0] } : { ...line };
+  });
+}
+
+/** Shared asynchronous adapter used by email sending and the hosted quote. */
+export async function loadQuoteEmailArgs(env, row, options = {}) {
+  const menu = await loadMenu(env);
+  return quoteEmailArgs(row, { ...options, menu });
+}
+
 /**
  * Turn a stored quote row into the arguments cateringQuoteEmail() wants.
  * Pure. Shared by the send path and the hosted page, so the two cannot disagree.
  */
-export function quoteEmailArgs(row, { lang, baseUrl = SITE } = {}) {
+export function quoteEmailArgs(row, { lang, baseUrl = SITE, menu } = {}) {
   const language = lang || row.lang || 'en';
   let breakdown = null;
   try { breakdown = row.quote_json ? JSON.parse(row.quote_json) : null; } catch { /* a bad blob shows as no lines, never a crash */ }
@@ -88,7 +118,8 @@ export function quoteEmailArgs(row, { lang, baseUrl = SITE } = {}) {
     eventTime: breakdown?.event_time || null,
     guests: row.guests,
     quoteId: row.id,
-    lines: Array.isArray(breakdown?.lines) ? breakdown.lines : [],
+    lines: quoteLinesWithImages(Array.isArray(breakdown?.lines) ? breakdown.lines : [], menu),
+    deliveryFeeConfirmed: Number.isInteger(breakdown?.delivery_fee_cents) && breakdown.delivery_fee_cents >= 0,
     recommendations: Array.isArray(breakdown?.recommendations) ? breakdown.recommendations : [],
     subtotalCents: breakdown?.subtotal_cents ?? row.total_cents,
     discountCents: breakdown?.discount_cents ?? 0,
@@ -133,7 +164,7 @@ export async function sendQuote(env, row, { baseUrl = SITE, force = false } = {}
     // A previous hard bounce or unsubscribe. Sending anyway is how a sending domain dies.
     result.email = { sent: false, skipped: 'address is suppressed' };
   } else {
-    const { subject, html, text } = cateringQuoteEmail(quoteEmailArgs(row, { lang, baseUrl }));
+    const { subject, html, text } = cateringQuoteEmail(await loadQuoteEmailArgs(env, row, { lang, baseUrl }));
     // sendEmail THROWS on a provider error and returns the Resend body on success; a suppressed
     // address comes back as { skipped: true }. There is no `.ok` on it — checking for one is how
     // a successful send reads as a failure.

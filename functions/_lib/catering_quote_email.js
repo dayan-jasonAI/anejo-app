@@ -73,6 +73,10 @@ const COPY = {
     intro: 'Thank you for trusting us with your celebration. Here is your quote, itemised exactly as you asked for it.',
     eventFor: 'Event',
     guests: 'Guests',
+    deliveryHead: 'Delivered to your celebration',
+    deliveryNote: 'Delivery only — customer pickup is not available. Delivery charges depend on distance and order size.',
+    deliveryPending: 'Your delivery fee is pending confirmation and is not included in the total shown unless separately itemized.',
+    deliveryConfirmed: 'Your confirmed delivery fee is included in this quote.',
     serving: 'Serving',
     yourMenu: 'Your menu',
     qty: 'Qty',
@@ -106,6 +110,10 @@ const COPY = {
     intro: 'Gracias por confiarnos su celebración. Aquí tiene su cotización, detallada exactamente como la solicitó.',
     eventFor: 'Evento',
     guests: 'Invitados',
+    deliveryHead: 'Entregado en su celebración',
+    deliveryNote: 'Solo entrega a domicilio; no ofrecemos recogida. El costo de entrega depende de la distancia y el tamaño del pedido.',
+    deliveryPending: 'El costo de entrega está pendiente de confirmación y no está incluido en el total mostrado, salvo que figure como una partida separada.',
+    deliveryConfirmed: 'El costo de entrega confirmado está incluido en esta cotización.',
     serving: 'Se sirve',
     yourMenu: 'Su menú',
     qty: 'Cant.',
@@ -152,9 +160,9 @@ function lineRow(line, lang) {
   const detail = escHtml((lang === 'es' ? (line.detail_es || line.detail) : line.detail) || '');
   const img = imageUrl(line.image);
   const thumb = img
-    ? `<img src="${escHtml(img)}" alt="" width="56" height="56"
+    ? `<img src="${escHtml(img)}" alt="${name}" width="56" height="56"
          style="display:block;border:0;outline:none;border-radius:5px;object-fit:cover;background:#f0ece1">`
-    : `<div style="width:56px;height:56px;border-radius:5px;background:#f0ece1"></div>`;
+    : '';
   return `<tr>
     <td width="56" style="padding:11px 12px 11px 0;vertical-align:top;line-height:0">${thumb}</td>
     <td style="padding:11px 10px 11px 0;vertical-align:top;font-family:Georgia,serif;font-size:14px;color:${INK};line-height:1.4">
@@ -193,6 +201,7 @@ export function cateringQuoteEmail({
   quoteId,
   lines = [],
   recommendations = [],
+  deliveryFeeConfirmed = false,
   subtotalCents = 0,
   discountCents = 0,
   totalCents = 0,
@@ -232,6 +241,11 @@ export function cateringQuoteEmail({
         <span style="color:${MUTED};font-size:11px;letter-spacing:.12em;text-transform:uppercase">${escHtml(k)}</span><br>${escHtml(v)}</div>`).join('')}
     </td></tr>
   </table>
+
+  <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="border-collapse:collapse;border-left:3px solid ${GOLD};background:#f6f2e7;margin:0 0 24px"><tr><td style="padding:14px 18px;font-family:Georgia,serif;color:${INK};font-size:14px;line-height:1.6">
+    <strong>${escHtml(c.deliveryHead)}</strong><br>${escHtml(c.deliveryNote)}<br>
+    <span style="font-size:13px;color:${MUTED}">${escHtml(deliveryFeeConfirmed ? c.deliveryConfirmed : c.deliveryPending)}</span>
+  </td></tr></table>
 
   <!-- Itemised menu -->
   <p style="margin:0 0 10px;font-family:Georgia,serif;font-size:12px;letter-spacing:.14em;
@@ -348,6 +362,10 @@ export function cateringQuoteEmail({
     `${c.eventFor}: ${dateLong}`,
     guests ? `${c.guests}: ${guests}` : null,
     eventTime ? `${c.serving}: ${clockTime(eventTime, L)}` : null,
+    '',
+    c.deliveryHead,
+    c.deliveryNote,
+    deliveryFeeConfirmed ? c.deliveryConfirmed : c.deliveryPending,
     '',
     c.yourMenu.toUpperCase(),
     ...lines.map((l) => `  ${l.qty} × ${(L === 'es' ? (l.name_es || l.name) : l.name)} — ${money(l.cents)}`),
