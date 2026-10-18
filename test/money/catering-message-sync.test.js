@@ -23,3 +23,30 @@ test('unknown quote send cannot be retried into a second provider call',async()=
  const {sendQuote}=await import('../../functions/_lib/catering_quote_delivery.js');const env=fixture();env.DB.sqlite.prepare("UPDATE catering_quotes SET id='quote_test_12345',sms_sent_at=NULL").run();const row={...env.DB.sqlite.prepare('SELECT * FROM catering_quotes').get(),sms_consent:1,customer_email:null};let calls=0;const original=globalThis.fetch;globalThis.fetch=async()=>{calls++;throw Error('lost response');};
  try{assert.equal((await sendQuote(env,row)).sms.sent,false);assert.equal((await sendQuote(env,row)).sms.sent,false);assert.equal(calls,1);}finally{globalThis.fetch=original;}
 });
+const syncRequest=()=>new Request('https://example.com/api/hub/owner/catering-messages-sync',{method:'POST',headers:{cookie:OWNER_COOKIE,'Content-Type':'application/json'},body:JSON.stringify({quote_id:'q'})});
+test('HTML provider 401 becomes explicit JSON503 with sanitized numeric evidence, never a text',async()=>{
+ const env=fixture(),original=globalThis.fetch;let calls=0;
+ globalThis.fetch=async(_url,init)=>{calls++;assert.equal(init.method,'GET');return new Response('<html>SECRET provider body phone +15615551234</html>',{status:401,headers:{'Content-Type':'text/html'}});};
+ try{const r=await onRequestPost({env,request:syncRequest()});assert.equal(r.status,503);assert.equal(r.headers.get('Content-Type'),'application/json');const data=await r.json();assert.match(data.error,/HTTP 401/);assert.deepEqual(data.diagnostic,{stage:'provider_history',category:'http_error',http_status:401});const receipt=env.DB.one("SELECT properties FROM activity_log WHERE event='catering.sms_receipt.lookup_failed'");const props=JSON.parse(receipt.properties);assert.equal(props.quote_id,'q');assert.equal(props.http_status,401);assert.ok(Number.isInteger(props.elapsed_ms));assert.doesNotMatch(receipt.properties,/SECRET|15615551234|AUTH|https|\.com/);assert.equal(env.DB.one('SELECT COUNT(*) AS n FROM messages').n,0);assert.equal(calls,1);}finally{globalThis.fetch=original;}
+});
+test('provider timeout, network and malformed responses retain bounded diagnostic enums only',async()=>{
+ for(const [category,provider] of [
+  ['timeout',async()=>{throw new DOMException('SECRET caller and token','TimeoutError');}],
+  ['network_error',async()=>{throw Error('SECRET transport address');}],
+  ['invalid_json',async()=>new Response('SECRET not json',{status:200})],
+  ['invalid_response',async()=>new Response(JSON.stringify({secret:'SECRET'}),{status:200})],
+  ['invalid_response',async()=>new Response(JSON.stringify({messages:[null]}),{status:200})],
+  ['timeout',async()=>{const r=new Response('{}');r.json=async()=>{throw new DOMException('SECRET body read','TimeoutError');};return r;}],
+ ]){const env=fixture(),original=globalThis.fetch;globalThis.fetch=provider;
+  try{const r=await onRequestPost({env,request:syncRequest()});assert.equal(r.status,503);const data=await r.json();assert.deepEqual(data.diagnostic,{stage:'provider_history',category});assert.doesNotMatch(JSON.stringify(data),/SECRET/);const props=JSON.parse(env.DB.one("SELECT properties FROM activity_log WHERE event='catering.sms_receipt.lookup_failed'").properties);assert.equal(props.category,category);assert.equal(props.http_status,undefined);assert.equal(env.DB.one('SELECT COUNT(*) AS n FROM messages').n,0);}finally{globalThis.fetch=original;}
+ }
+});
+test('authentication infrastructure throw returns JSON503 without invoking provider history',async()=>{
+ const env=fixture(),original=globalThis.fetch;env.SESSIONS.get=async()=>{throw Error('SECRET KV failure');};let calls=0;globalThis.fetch=async()=>{calls++;throw Error('Must not call');};
+ try{const r=await onRequestPost({env,request:syncRequest()});assert.equal(r.status,503);const data=await r.json();assert.deepEqual(data.diagnostic,{stage:'authentication',category:'unavailable'});assert.doesNotMatch(JSON.stringify(data),/SECRET/);assert.equal(calls,0);const props=JSON.parse(env.DB.one("SELECT properties FROM activity_log WHERE event='catering.sms_receipt.lookup_failed'").properties);assert.equal(props.quote_id,null);assert.equal(props.stage,'authentication');}finally{globalThis.fetch=original;}
+});
+test('diagnostic persistence failure cannot hide provider failure or send a text',async()=>{
+ const env=fixture(),originalFetch=globalThis.fetch,originalPrepare=env.DB.prepare;globalThis.fetch=async()=>new Response('SECRET',{status:503});
+ env.DB.prepare=query=>{if(query.includes('INSERT INTO activity_log'))throw Error('SECRET log failure');return originalPrepare(query);};
+ try{const r=await onRequestPost({env,request:syncRequest()});assert.equal(r.status,503);const data=await r.json();assert.deepEqual(data.diagnostic,{stage:'provider_history',category:'http_error',http_status:503});assert.doesNotMatch(JSON.stringify(data),/SECRET/);assert.equal(env.DB.one('SELECT COUNT(*) AS n FROM messages').n,0);}finally{globalThis.fetch=originalFetch;}
+});
