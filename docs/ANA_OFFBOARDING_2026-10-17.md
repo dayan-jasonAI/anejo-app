@@ -20,4 +20,13 @@ Instagram is NOT verified restored. Current worker reports identity_unavailable,
 
 ## Validation and release
 
-Focused tests and lint passed; full local suite/release checks and post-deployment supported-browser acceptance pending. Deployment, provider connection and live behavior are separate states. No customer DM/comment/SMS was used as a test.
+All 3,754 local tests passed; deployment guard passed; lint had zero errors and ten existing warnings; Pages Functions compiled. PR #210 hosted checks passed and merged as 1e26ae4af2de36a65cdbcc08f9c31d40d445f723. Cloudflare production deployment ed6e8d83-5ca3-45ac-af98-8c721072084e reported success. Supported browser confirms the new offboarded account panel, disabled ordering links for both offices and a successful $10 daily-lunch answer. Deployment, provider connection and live behavior are separate states. No customer DM/comment/SMS was used as a test.
+
+
+## Live follow-up evidence
+
+The real Instagram provider rejection is now visible: "Session has expired on Monday, 28-Sep-26 13:39:37 PDT." Instagram remains blocked on renewing its existing connection. Meta for Developers was opened using the documented existing app ID; sign-in is pending. No tokens or credentials changed.
+
+A separate production read found zero daily-lunch schedule dates on or after October 17 (configuration version 3, nine historical dates). Ana correctly avoided promising an unscheduled lunch. Publishing future meal dates requires actual menu/date confirmation, not an invented recurrence.
+
+Live screenshots: ../evidence/office-offboarding-2026-10-17/live-offboarded.png and live-ana-daily-lunch.png. Local test log: /tmp/anejo-offboarding-predeploy-final.log. Current release receipt: ../evidence/office-offboarding-2026-10-17/release.json.

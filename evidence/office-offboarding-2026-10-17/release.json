@@ -1,0 +1,27 @@
+{
+  "observed_at": "2026-10-18T01:39:15.913790+00:00",
+  "pr": "https://github.com/dayan-jasonAI/anejo-app/pull/210",
+  "merge_commit": "1e26ae4af2de36a65cdbcc08f9c31d40d445f723",
+  "production_deployment": "ed6e8d83-5ca3-45ac-af98-8c721072084e",
+  "local_tests": {
+    "total": 3754,
+    "pass": 3754,
+    "fail": 0
+  },
+  "lint": {
+    "errors": 0,
+    "existing_warnings": 10
+  },
+  "functions_build": "passed",
+  "live_browser": {
+    "dgp_account": "terminated",
+    "both_office_intake_links": "rejected",
+    "new_offboarding_panel": "visible",
+    "website_ana": "successful current daily lunch guidance",
+    "instagram": "provider rejected expired token; renewal pending",
+    "daily_lunch_future_schedule_dates": 0
+  },
+  "credential_changes": false,
+  "customer_sends": false,
+  "paid_order_uplift": "not measured"
+}
