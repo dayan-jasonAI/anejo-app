@@ -97,7 +97,7 @@ function forcedBase(env) {
 async function selfInfo(env, base) {
   const isIg = hostLabel(base) === 'instagram_login';
   if (!isIg && !env.IG_USER_ID) {
-    return { ok: false, error: 'The Facebook Login path needs IG_USER_ID as well as the token.' };
+    return { ok: false, reason: 'missing_user_id', error: 'The Facebook Login path needs IG_USER_ID as well as the token.' };
   }
   const fields = `${isIg ? 'user_id' : 'id'},username,followers_count,media_count`;
   const r = await graph(env, isIg ? '/me' : `/${env.IG_USER_ID}`, { params: { fields } }, base);
@@ -129,13 +129,16 @@ export async function resolveTarget(env) {
 
   // Instagram Login first: it is the path we recommend, so it is the one most likely to hit.
   const bases = forced ? [forced] : [HOSTS.instagram, HOSTS.facebook];
-  let last = null;
+  let last = null, firstProviderError = null;
   for (const base of bases) {
     const r = await selfInfo(env, base);
     if (r.ok) { targetMemo.set(key, r); return r; }
+    // A fallback path lacking configuration must not hide the provider rejection that
+    // actually prevented the primary Instagram connection. Successful fallback still wins.
+    if (r.reason !== 'missing_user_id' && !firstProviderError) firstProviderError = r;
     last = r;
   }
-  return last || { ok: false, error: 'Instagram did not accept the token.' };
+  return firstProviderError || last || { ok: false, error: 'Instagram did not accept the token.' };
 }
 
 /** Who are we posting as? Also the cheapest way to prove a token still works. */

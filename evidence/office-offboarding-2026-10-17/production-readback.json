@@ -1,0 +1,44 @@
+{
+  "observed_at": "2026-10-18T01:13Z",
+  "authorization": "Dayan direct-session: offboard DGP Pompano and Delray immediately; service terminated October 7",
+  "effective_date": "2026-10-07",
+  "readback": [
+    [
+      {
+        "id": "acct_dgp",
+        "status": "terminated"
+      }
+    ],
+    [
+      {
+        "id": "site_dgp_delray",
+        "active": 0
+      },
+      {
+        "id": "site_dgp_pompano",
+        "active": 0
+      }
+    ],
+    [
+      {
+        "eligible_reminder_sites": 0
+      }
+    ],
+    [
+      {
+        "id": "cte_offboard_site_dgp_delray_1792286017930",
+        "event": "offboarded",
+        "after_json": "{\"active\": 0, \"account_status\": \"terminated\", \"effective_date\": \"2026-10-07\"}"
+      },
+      {
+        "id": "cte_offboard_site_dgp_pompano_1792286017930",
+        "event": "offboarded",
+        "after_json": "{\"active\": 0, \"account_status\": \"terminated\", \"effective_date\": \"2026-10-07\"}"
+      }
+    ]
+  ],
+  "orders_after_termination": 0,
+  "existing_open_contract_site_alerts_before": 0,
+  "customer_messages_sent": 0,
+  "invoices_and_orders_preserved": true
+}

@@ -56,5 +56,8 @@ test('only owners can offboard; terminated account cannot be silently reactivate
   assert.equal((await onRequestPost({ env, request: request(body, 'anejo_sess=tok-kitchen') })).status, 403);
   await onRequestPost({ env, request: request(body) });
   assert.equal((await onRequestPost({ env, request: request({ op: 'activate', account_id: 'off_test', price_per_lunch_cents: 850 }) })).status, 409);
+  for (const op of ['add_staff', 'set_headcount', 'add_site']) {
+    assert.equal((await onRequestPost({ env, request: request({ op, account_id: 'off_test', site_id: 'off_site', name: 'New staff' }) })).status, 409);
+  }
   assert.equal((await onRequestPost({ env, request: request({ op: 'edit_terms', account_id: 'off_test', site_id: 'off_site', active: 1 }) })).status, 400);
 });
