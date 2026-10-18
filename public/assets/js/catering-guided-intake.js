@@ -32,7 +32,7 @@
     noNeeds.textContent=text('No dietary needs to report','Sin necesidades alimentarias');
     reviewTitle.textContent=text('Your request, at a glance','Tu solicitud, en resumen');var guests=document.getElementById('guests').value,day=document.getElementById('event-date').value,city=document.getElementById('location').value;
     var products=window.AnejoQuoteProducts&&window.AnejoQuoteProducts.read?window.AnejoQuoteProducts.read():[];
-    reviewText.textContent=[guests?guests+' '+text('guests','invitados'):text('Add your guest count','Añade invitados'),day||text('Choose a date','Elige fecha'),city||text('Add city / ZIP','Añade ciudad / ZIP'),products.length+' '+text('menu selections','selecciones de menú')].join(' · ');
+    reviewText.textContent=[guests?guests+' '+text('guests','invitados'):text('Add your guest count','Añade invitados'),day||text('Choose a date','Elige fecha'),city||text('Add city / ZIP','Añade ciudad / ZIP'),products.length+' '+(products.length===1?text('menu selection','selección de menú'):text('menu selections','selecciones de menú'))].join(' · ');
     reviewDelivery.textContent=text('Delivery only. The delivery fee depends on distance and order size and will be confirmed with your quote. Review each dish quantity above; the guest count does not automatically change your food quantities.','Solo entrega. El cargo depende de la distancia y el tamaño del pedido y se confirma con la cotización. Revisa la cantidad de cada plato; el número de invitados no cambia automáticamente la comida.');
   }
   form.addEventListener('input',update);form.addEventListener('change',update);document.addEventListener('anejo:langchange',update);document.addEventListener('anejo:catering-cartchange',update);update();
