@@ -37,5 +37,7 @@
   "final_app_revision": "8a42e0019ddd9f71f9bec6c204709913812af786",
   "final_app_production_deployment": "4803cbc2-4ea6-4c95-9d68-e126abe0624f",
   "live_owner_readiness": "Automatic booking disabled; customer confirmations/reminders disabled; 0 callback requests and 0 saved calendar verifications",
-  "final_browser_observed_at": "2026-10-18T02:51:25.867213+00:00"
+  "final_browser_observed_at": "2026-10-18T02:51:25.867213+00:00",
+  "evidence_correction_revision": "f29ee0d045a4912758326dfc821dc34eabd82642",
+  "evidence_correction_deployment": "a883d0e6-1832-482a-9adb-6f3be30eb15b"
 }

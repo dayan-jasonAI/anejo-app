@@ -53,3 +53,5 @@ Repository visibility verified public during final review. The original live-quo
 
 ## Verified application releases
 PR212 merged6564a99; production3c2d8c2b-44ff-4215-bbb1-faa2b7592e2c succeeded. PR213 cache correction merged8a42e0019ddd9f71f9bec6c204709913812af786;production4803cbc2-4ea6-4c95-9d68-e126abe0624f succeeded. All PR212/213 exact-head hosted checks passed. Same supported browser session now visibly shows Automatic booking is disabled; Customer confirmation and reminder emails are disabled;0requests/0savedcalendarverification. Screenshot live-callback-readiness.png replaced with final observed state. No actual appointment/send/payment/customer quote change. PR214 mergedf29ee0d045a4912758326dfc821dc34eabd82642; the current screenshot is replaced on main. Historical cleanup remains pending Dayan authorization.
+
+PR214 documentation/evidence release productiona883d0e6-1832-482a-9adb-6f3be30eb15b succeeded. Current main screenshot SHA256 matches non-identifying editor screenshot5d7da343615a82bd43a74baf568abcdc1c36bba322554a1e39900e6e9e51ad35. Historical Git retention remains unresolved; no history rewrite performed.
