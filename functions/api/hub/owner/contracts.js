@@ -4,6 +4,7 @@ import { json, bad, randToken, now, id, isEmail, appBaseUrl } from '../../../_li
 import { requireRole } from '../../../_lib/roles.js';
 import { sendEmail, emailShell, escHtml, normalizeEmail } from '../../../_lib/email.js';
 import { activateAccount, generateInvoice, getInvoice, setSiteContact, revokeDevice, listDevices, listEvents, parseDeliveryDays, addSite, registerAccount, listSiteStaff, addSiteStaff, setStaffActive, maskSiteStaff, ownerSetHeadcount, sendStaffInvite, createInvoicePaymentLink, DOW_NAMES, MAX_ROTATION_WEEKS, isIsoMonday, mondayOf, addDaysIso, etDate, rotationWeekFor, quoteContractDay } from '../../../_lib/contract.js';
+import { offboardContractAccount } from '../../../_lib/contract_offboarding.js';
 import { capture } from '../../../_lib/track.js';
 import { holidayOutlook, loadHolidaySettings, MIN_CLOSURE_LEAD_DAYS } from '../../../_lib/holiday_notices.js';
 import { OBSERVANCE_KEYS, daysUntil, upcomingObservances } from '../../../_lib/holidays.js';
@@ -148,6 +149,7 @@ async function writeTermsEvent(env, ev) {
 async function updateTerms(env, ctx, b) {
   const account = await env.DB.prepare('SELECT id, name, status FROM contract_accounts WHERE id = ?').bind(b.account_id).first().catch(() => null);
   if (!account) return { ok: false, error: 'Account not found.' };
+  if (account.status === 'terminated' && activeField(b.active).v === 1) return { ok: false, error: 'This account is offboarded. Ordering access cannot be restored through Edit terms.' };
   if (account.status === 'pending') return { ok: false, error: 'This account is still pending — set its terms with Activate.' };
 
   const fields = {
@@ -830,6 +832,8 @@ export const onRequestPost = async ({ request, env }) => {
     if (!b || !b.site_id) return bad('Missing site_id.');
     const site = await env.DB.prepare('SELECT id, account_id FROM contract_sites WHERE id = ?').bind(String(b.site_id)).first().catch(() => null);
     if (!site) return bad('Site not found.', 404);
+    const serviceAccount = await env.DB.prepare('SELECT status FROM contract_accounts WHERE id = ?').bind(site.account_id).first();
+    if (serviceAccount?.status === 'terminated' && (op === 'add_staff' || op === 'set_headcount' || (op === 'set_staff_active' && b.active))) return bad('This account is offboarded. New orders and ordering access are disabled.', 409);
 
     if (op === 'add_staff') {
       const r = await addSiteStaff(env, {
@@ -878,6 +882,8 @@ export const onRequestPost = async ({ request, env }) => {
 
   // A second/third clinic on an account that already exists.
   if (op === 'add_site') {
+    const serviceAccount = await env.DB.prepare('SELECT status FROM contract_accounts WHERE id = ?').bind(b.account_id).first();
+    if (serviceAccount?.status === 'terminated') return bad('This account is offboarded. New locations are disabled.', 409);
     const r = await addSite(env, { ...b, account_id: b.account_id });
     if (!r.ok) return bad(r.error || 'Could not add the location.', 400);
     await writeTermsEvent(env, {
@@ -893,7 +899,16 @@ export const onRequestPost = async ({ request, env }) => {
     return json(r);
   }
 
+  if (op === 'offboard') {
+    try {
+      const r = await offboardContractAccount(env, ctx, b);
+      return r.ok ? json(r) : bad(r.error, 400);
+    } catch { return bad('Offboarding failed. No changes were saved; retry after the error is resolved.', 500); }
+  }
+
   if (op === 'activate') {
+    const account = await env.DB.prepare('SELECT status FROM contract_accounts WHERE id = ?').bind(b.account_id).first();
+    if (account?.status === 'terminated') return bad('This account is offboarded. Reactivation requires a separate reviewed onboarding.', 409);
     const r = await activateAccount(env, b.account_id, b);
     if (!r.ok) return bad(r.error || 'Could not activate.', 400);
     // Snapshot the opening terms so the history starts at activation, not at the first edit.

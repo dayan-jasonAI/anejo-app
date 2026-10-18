@@ -15,6 +15,8 @@ import { BASE_BOWL_PRICE_USD } from './sizing.js';
 import { trainingContext } from './training.js';
 import { retrieve, formatPassages } from './knowledge.js';
 import { loadBrand, CUSTOMER_FACING_SECTIONS } from './brand_source.js';
+import { loadDailyLunch, dailyOperating, dailyDay, DAILY_PRICE_CENTS, DAILY_GROUP_FREE_DELIVERY_MIN_QTY } from './daily_lunch.js';
+import { etDayParts } from './operating.js';
 
 // Drafts are cheap and frequent (every unanswered DM and comment), so they ride Haiku; the
 // website chat keeps Sonnet in chat.js. Same knowledge, different cost profile.
@@ -176,6 +178,7 @@ export const anaSystemPrompt = (menu, brand) => `You are "Aña", the warm, conci
 WHAT AÑEJO OFFERS (these are the current prices — quote them exactly, never a range)
 ${menuSection(menu)}
 - Weekly meal-plan subscriptions in 5, 10, or 12-bowl plans (we recommend 12). Members manage everything themselves: pause, skip a week, or cancel anytime. Their TRAINER can be part of the plan, and accountability check-ins help members follow through on their goals and eating habits. Each bowl is portion-sized to the member's goal from our macro calculator: a standard bowl is 16 oz (~${BASE_BOWL_USD}); lighter goals get smaller bowls that cost less, higher-calorie goals get larger bowls that cost more. Weekly price = the member's per-bowl price × bowls per week. To get an exact quote, point people to the free calculator at /calculator, then /subscribe. (The à-la-carte bowl prices above are for single retail bowls.)
+- Daily lunch is a separate service from Fit subscriptions. For daily lunch / almuerzo diario questions, lead with the live DAILY LUNCH context below and anejocateringco.com/order?category=daily; do not replace that answer with Fit bowls or weekly subscriptions.
 - A free AI macro calculator at /calculator (informational only, NOT medical or dietary advice) — it sets daily macros and sizes each Añejo bowl (and its price) to the person's goal.
 - Trainer/gym partner program AND the Founding Creators affiliate program: full details, requirements and how to apply live at anejocateringco.com/affiliate — point partners, gyms, trainers and influencers THERE first (email dayan@anejocateringco.com works too). Do NOT quote specific commission or revenue-share rates yourself; the page states what is public.
 
@@ -190,7 +193,7 @@ FOOD SAFETY / ALLERGENS
 HOW TO HELP
 - For Cajitas, catering trays and events, use anejocateringco.com/catering. Ask for event date, city and guest count; confirm menu, availability, personalization and quote before promising fulfillment. Standard Traditional/Catering orders require at least 48 hours; custom printing requires at least 72 hours and quote review. A city mentioned in an inquiry is not confirmed service coverage. Do not promise a design, price or delivery slot absent from the live catalog/quote.
 - Answer questions about the menu, nutrition, delivery, subscriptions, and the brand.
-- To order à-la-carte, point them to /order. To subscribe, /subscribe. To reserve a tasting or ask about catering or partnerships, the form on the home page (#tasting) or /catering. Añejo does NOT sell wholesale, bulk, or frozen product — if asked, say so plainly and offer catering instead.
+- To order à-la-carte, point them to /order. To subscribe, /subscribe. To reserve a tasting or ask about catering or partnerships, the form on the home page (#tasting) or /catering. Corporate lunch orders are available through the daily lunch ordering page subject to its current policy; larger or custom bulk requests require a catering quote. Do not promise wholesale or frozen-product service.
 - For COMPLAINTS or order problems: apologize sincerely, keep it brief, and direct them to dayan@anejocateringco.com or 561-778-7474, and let them know the team responds within 1 business day. Ask for their name, email, and order details so the team can follow up.
 
 CURRENT STATUS (be honest, do not over-promise)
@@ -375,6 +378,36 @@ const ANA_PROGRAM_BUDGET = 900;
 const ANA_KB_TOPK = 3;
 const ANA_KB_BUDGET = 1200;
 
+// Uses the same validated settings and per-date availability rules as checkout, read afresh
+// for both channels. Never uses weekday templates as proof a date is scheduled.
+export async function anaDailyLunchContext(env, at = new Date()) {
+  if (!env?.DB) return '';
+  try {
+    const { config, version } = await loadDailyLunch(env);
+    const ops = await dailyOperating(env);
+    const today = etDayParts(at).date;
+    const days = Array.from({ length: 14 }, (_, index) => {
+      const date = new Date(Date.parse(today + 'T12:00:00Z') + index * 86400000).toISOString().slice(0, 10);
+      const day = dailyDay(config, date, ops, at);
+      return { date, meal: day.name || null, description: day.description || null,
+        orderable: day.orderable, reason: day.reason, free_delivery: day.free_delivery };
+    });
+    return '\n\nLIVE DAILY LUNCH — authoritative for this service, supersedes old lunch notes.\n' +
+      'Answer daily lunch questions first with this service, not Fit subscriptions. One featured meal per scheduled date; never offer every meal as same-day choices. ' +
+      'Order and pay securely at https://anejocateringco.com/order?category=daily; weekly schedule: https://anejocateringco.com/daily-lunch#this-week. ' +
+      'Do not take card details in chat. Availability is checked again at checkout and is not a reservation. ' +
+      'A false orderable value means do not say that date can currently be purchased; explain the recorded reason and offer a later available date. ' +
+      'Do not promote individual office/client accounts or their private pricing.\n' +
+      JSON.stringify({ observed_at: at.toISOString(), today_eastern: today, config_version: version,
+        price_usd: DAILY_PRICE_CENTS / 100, same_day_cutoff_eastern: config.settings.same_day_cutoff,
+        previous_day_preorder_cutoff_eastern: config.settings.preorder_cutoff,
+        delivery_area_label: ops.area_label, delivery_window_eastern: [ops.lunch_start, ops.lunch_end],
+        free_delivery: 'Advance preorders, or ' + DAILY_GROUP_FREE_DELIVERY_MIN_QTY + '+ meals to one address. Otherwise see checkout for the current delivery fee.', days });
+  } catch {
+    return '\n\nLIVE DAILY LUNCH: current schedule and cutoffs could not be verified. Do not guess a meal, price, deadline, delivery fee or availability. Direct daily lunch questions to https://anejocateringco.com/order?category=daily and https://anejocateringco.com/daily-lunch#this-week.';
+  }
+}
+
 export async function anaCustomerContext(env, question) {
   let block = '';
   try {
@@ -408,6 +441,7 @@ export async function anaCustomerContext(env, question) {
       }
     }
   } catch { /* retrieval is additive; no VECTORIZE/AI binding must degrade to silence, not failure */ }
+  block += await anaDailyLunchContext(env);
   return block;
 }
 

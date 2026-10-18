@@ -105,6 +105,33 @@
   var origin = location.origin;
   var SITES = {};   // site_id → the stored row, so edits can be sent as a diff
 
+  function offboardPanel(acc) {
+    if (acc.status === 'terminated') return '<div class="card" role="status"><b>Account offboarded</b><p class="row-sub">Ordering access and recurring service reminders are stopped. Orders, invoices and history remain available below.</p></div>';
+    var aid = acc.id;
+    return '<details class="terms-edit"><summary>Offboard account — stop service</summary><div class="body">' +
+      '<p>Stops every location immediately, revokes ordering access and stops service reminders. Existing orders and invoices are preserved; no cancellations or refunds are made.</p>' +
+      '<div class="terms-grid"><div><label for="offdate_' + aid + '">Service ended on</label><input id="offdate_' + aid + '" type="date" required></div>' +
+      '<div><label for="offreason_' + aid + '">Reason</label><input id="offreason_' + aid + '" maxlength="500" required></div></div>' +
+      '<p><label><input type="checkbox" id="offconfirm_' + aid + '"> I confirm offboarding all locations on this account.</label></p>' +
+      '<p id="offerror_' + aid + '" role="alert"></p><button class="btn block" style="min-height:44px" onclick="__offboard(\'' + aid + '\',this)">Offboard account</button></div></details>';
+  }
+  window.__offboard = function (aid, btn) {
+    var date = document.getElementById('offdate_' + aid).value;
+    var reason = document.getElementById('offreason_' + aid).value.trim();
+    var confirmed = document.getElementById('offconfirm_' + aid).checked;
+    var feedback = document.getElementById('offerror_' + aid);
+    if (!date || !reason || !confirmed) { feedback.textContent = 'Enter the service end date and reason, then confirm all locations.'; return; }
+    if (!window.confirm('Offboard this account and all its locations now? Existing orders and invoices will stay unchanged.')) return;
+    btn.disabled = true; btn.textContent = 'Offboarding…'; feedback.textContent = '';
+    Hub.api('/api/hub/owner/contracts', { method: 'POST', body: { op: 'offboard', account_id: aid, effective_date: date, reason: reason, confirm: true } })
+      .then(function (r) {
+        if (!r || !r.ok) throw new Error((r && r.error) || 'Could not offboard.');
+        Hub.toast('Account offboarded');
+        if (r.warnings && r.warnings.length) window.alert(r.warnings.join('\n'));
+        render();
+      }).catch(function (err) { feedback.textContent = err.message || 'Could not offboard.'; btn.disabled = false; btn.textContent = 'Offboard account'; });
+  };
+
   function copyLink(btn, url) {
     try { navigator.clipboard.writeText(url).then(function(){ btn.textContent='Copied ✓'; setTimeout(function(){ btn.textContent='Copy'; },1500); }); }
     catch(e){ btn.textContent='—'; }
@@ -986,9 +1013,10 @@
         var badge = pending ? '<span class="badge warn">pending</span>' : (acc.status === 'active' ? '<span class="badge ok">active</span>' : '<span class="badge">' + esc(acc.status || '') + '</span>');
         var unbilled = (a.recent || []).filter(function (r) { return !r.invoiced; }).reduce(function (s, r) { return s + (r.total_cents || 0); }, 0);
         return '<div class="hub-section"><h2>🏢 ' + esc(acc.name) + ' ' + badge + ' <span class="row-sub" style="font-weight:400">· ' + esc(acc.billing_model || acc.invoice_cadence || '') + (acc.billing_email ? ' · ' + esc(acc.billing_email) : '') + '</span></h2>' +
+          offboardPanel(acc) +
           (pending ? activateForm(acc) : billingBlock(acc)) +
           a.sites.map(function (s) { return siteCard(s, a.recent, acc.id, pending); }).join('') +
-          addSiteForm(acc.id) +
+          (acc.status === 'terminated' ? '' : addSiteForm(acc.id)) +
           menuBlock(acc.id) +
           (pending ? '' :
             devicesBlock(acc.id, a.devices) +

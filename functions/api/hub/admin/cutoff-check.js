@@ -64,8 +64,8 @@ export const onRequestPost = async ({ request, env }) => {
     const r = await env.DB.prepare(
       `SELECT s.id, s.name, s.cutoff_time, s.delivery_days, s.contact_name, s.contact_phone,
               a.name AS account
-         FROM contract_sites s LEFT JOIN contract_accounts a ON a.id = s.account_id
-        WHERE s.active = 1`
+         FROM contract_sites s JOIN contract_accounts a ON a.id = s.account_id
+        WHERE s.active = 1 AND a.status = 'active'`
     ).all();
     sites = (r && r.results) || [];
   } catch { sites = []; }
