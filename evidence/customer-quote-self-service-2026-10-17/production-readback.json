@@ -1,0 +1,36 @@
+{
+  "phase1_revision": "34fb084ca120865c8d4871b2858a0edbadde3492",
+  "phase1_production_deployment": "63558e8e-5650-441f-8a3e-974155a564aa",
+  "migration0152_applied": true,
+  "readback": [
+    [
+      {
+        "calendar_email": "dayan@anejocateringco.com",
+        "enabled": 0,
+        "enabled_at": null,
+        "customer_emails_enabled": 0,
+        "duration_minutes": null,
+        "availability_json": null
+      }
+    ],
+    [
+      {
+        "requests": 0
+      }
+    ],
+    [
+      {
+        "jobs": 0
+      }
+    ],
+    [
+      {
+        "total_cents": 24875,
+        "deposit_status": "unpaid",
+        "updated_at": 1792282272423
+      }
+    ]
+  ],
+  "live_acceptance": "Hosted photos/editor read-only; no save, appointment, message or payment.",
+  "recorded_at": "2026-10-18T02:41:05.521138+00:00"
+}
