@@ -69,8 +69,8 @@ test('all catalog names, descriptions and presets have local Spanish copy', () =
   }
   for (const preset of presets) assert.equal(f.run(`Object.hasOwn(spanish, ${JSON.stringify(preset.name)})`), true, preset.name);
   assert.match(f.get('food-salad').textContent, /Ensalada de fiesta/);
-  assert.match(f.get('food-skewer').textContent, /Uva, jamón, guayaba, queso y piña/);
-  assert.equal(f.get('count-skewer').attributes['aria-label'], 'Brocheta de frutas y jamón por caja');
+  assert.match(f.get('food-skewer').textContent, /Uva, salami, guayaba, queso y piña/);
+  assert.equal(f.get('count-skewer').attributes['aria-label'], 'Brocheta de frutas y salami por caja');
 });
 
 test('language switching rerenders copy without replacing controls or changing user content and canonical configuration', () => {
