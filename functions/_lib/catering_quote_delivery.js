@@ -17,10 +17,11 @@
 //      email still goes. We never fall back to a phone number nobody agreed to.
 //   4. A FAILED SEND NEVER LOSES THE QUOTE. The row and the Square link are written first. If
 //      email or SMS fails, that is recorded on the row and reported; the booking still exists.
-//   5. SENDING IS IDEMPOTENT PER CHANNEL. email_sent_at / sms_sent_at mean "already delivered";
+//   5. SENDING IS IDEMPOTENT PER CHANNEL. email_sent_at / sms_sent_at mean provider acceptance was recorded;
 //      a retry re-sends only the channel that has not landed.
 import { sendEmail, isSuppressed, normalizeEmail } from './email.js';
-import { sendSms, isTwilioConfigured } from './twilio.js';
+import { isTwilioConfigured } from './twilio.js';
+import { leadForPhone, ensureCateringConversation, sendCateringSms, cateringSmsOptedOut } from './catering_conversation.js';
 import { cateringQuoteEmail } from './catering_quote_email.js';
 import { renderLines, DEPOSIT_PCT } from './catering_terms.js';
 
@@ -88,6 +89,7 @@ export function quoteEmailArgs(row, { lang, baseUrl = SITE } = {}) {
     guests: row.guests,
     quoteId: row.id,
     lines: Array.isArray(breakdown?.lines) ? breakdown.lines : [],
+    recommendations: Array.isArray(breakdown?.recommendations) ? breakdown.recommendations : [],
     subtotalCents: breakdown?.subtotal_cents ?? row.total_cents,
     discountCents: breakdown?.discount_cents ?? 0,
     totalCents: row.total_cents,
@@ -166,6 +168,8 @@ export async function sendQuote(env, row, { baseUrl = SITE, force = false } = {}
   } else if (!consented) {
     // Rule 3. The email still went; this is not an error, it is a boundary.
     result.sms = { sent: false, skipped: 'no SMS consent on file' };
+  } else if (env.DB && await cateringSmsOptedOut(env,phone)) {
+    result.sms = { sent:false, skipped:'Customer has opted out of text messages.' };
   } else if (!isTwilioConfigured(env)) {
     result.sms = { sent: false, skipped: 'SMS is not configured' };
   } else {
@@ -173,9 +177,19 @@ export async function sendQuote(env, row, { baseUrl = SITE, force = false } = {}
       customerName: row.customer_name, totalCents: row.total_cents,
       eventDate: row.event_date, url, lang,
     });
-    const sent = await sendSms(env, { to: phone, body, thread_id: `catering-quote:${row.id}` })
-      .catch((e) => ({ ok: false, error: String((e && e.message) || e).slice(0, 200) }));
-    result.sms = sent && sent.sent ? { sent: true, at: t } : { sent: false, error: (sent && sent.error) || (sent && sent.noop ? 'SMS is not configured' : 'send failed') };
+    let lead = null;
+    try {
+      const detail = typeof row.quote_json === 'string' ? JSON.parse(row.quote_json) : row.quote_json;
+      if (row.lead_id || detail?.lead_id) lead = await env.DB.prepare("SELECT id,name,phone,sms_consent FROM leads WHERE id=? AND kind='catering'").bind(row.lead_id || detail.lead_id).first();
+      if (!lead) lead = await leadForPhone(env,phone);
+    } catch { /* standalone quote retains a named conversation */ }
+    const thread = await ensureCateringConversation(env,{lead,quote:row});
+    const sent = await sendCateringSms(env, {thread,lead:{phone,sms_consent:consented?1:0},body,
+      actorId:null,requestId:`quote_sms_${row.id}`})
+      .catch((e) => ({ok:false,error:String(e?.message||e).slice(0,200)}));
+    if(sent.record_error)result.conversation_error=sent.record_error;
+    result.sms = sent.ok ? {sent:true,at:t,...sent.sms,thread_id:thread.id,replayed:!!sent.replayed}
+      : {sent:false,error:sent.error||'SMS outcome could not be verified; reconcile before retrying.'};
   }
 
   // ---------------------------------------------------------------- record it on the row

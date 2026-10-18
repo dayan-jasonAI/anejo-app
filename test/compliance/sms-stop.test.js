@@ -16,6 +16,8 @@ function harness() {
   const capture = (label) => ({ sql, args }) => { wrote.push({ label, sql, args }); return 1; };
   const DB = makeD1([
     [/UPDATE clients SET sms_consent/i, capture('clients.sms_consent')],
+    [/UPDATE leads SET sms_consent/i, capture('leads.sms_consent')],
+    [/SELECT id,name,phone,sms_consent FROM leads/i, () => ({results:[]})],
     [/UPDATE clients SET marketing_sms_consent/i, capture('clients.marketing')],
     [/UPDATE leads SET marketing_sms_consent/i, capture('leads.marketing')],
     [/INSERT INTO campaign_unsubscribes/i, capture('campaign_unsubscribes')],
@@ -51,10 +53,11 @@ for (const kw of ['STOP', 'stop', 'UNSUBSCRIBE', 'Quit', 'END', 'STOPALL', 'CANC
   test(`"${kw}" clears marketing consent AND records a durable unsubscribe`, async () => {
     const { DB, wrote } = harness();
     const res = await post(kw, envFor(DB));
-    assert.equal(res.status, 200, 'Twilio must always get TwiML back or it retry-storms');
+    assert.equal(res.status, 200, 'Successfully persisted STOP and legacy thread return TwiML');
 
     const labels = wrote.map((w) => w.label);
     assert.ok(labels.includes('clients.sms_consent'), 'transactional flag still cleared');
+    assert.ok(labels.includes('leads.sms_consent'), 'lead transactional consent is cleared too');
     assert.ok(labels.includes('clients.marketing'), 'marketing consent must be cleared');
     assert.ok(labels.includes('leads.marketing'), 'a lead who never ordered must be cleared too');
     assert.ok(

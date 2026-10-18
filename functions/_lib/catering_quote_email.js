@@ -192,6 +192,7 @@ export function cateringQuoteEmail({
   guests,
   quoteId,
   lines = [],
+  recommendations = [],
   subtotalCents = 0,
   discountCents = 0,
   totalCents = 0,
@@ -241,6 +242,13 @@ export function cateringQuoteEmail({
     ${discountCents > 0 ? totalsRow(c.discount, discountCents, { credit: true }) : ''}
     ${totalsRow(c.total, totalCents, { strong: true })}
   </table>
+
+  ${recommendations.map((r) => `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 24px;border:1px solid ${RULE};background:#f6f2e7"><tr><td style="padding:18px">
+    <p style="margin:0 0 8px;font-family:Georgia,serif;color:${GOLD}">${L === 'es' ? 'Una recomendación de la casa' : 'A signature recommendation'}</p>
+    <p style="margin:0 0 8px;color:${INK};font-family:Georgia,serif">${escHtml(L === 'es' ? r.name_es || r.name : r.name)} · ${escHtml(r.pieces)} ${L === 'es' ? 'piezas' : 'pieces'} · +${money(r.cents)}</p>
+    <p style="margin:0 0 12px;color:${MUTED};font-family:Georgia,serif;font-size:14px">${L === 'es' ? 'Opcional. No incluido en el total ni en el depósito. Solicitarlo no cambia su pedido ni genera un cobro.' : 'Optional. Excluded from your total and deposit. Requesting it does not change your order or charge you.'}</p>
+    ${button(modifyUrl ? `${modifyUrl}${modifyUrl.includes('?') ? '&' : '?'}recommendation=${encodeURIComponent(r.sku)}` : '#preview', L === 'es' ? 'Me interesan estas croquetas' : 'Ask about these croquetas', { solid: false })}
+  </td></tr></table>`).join('')}
 
   <!-- The two ways to pay -->
   <p style="margin:0 0 6px;font-family:Georgia,serif;font-size:12px;letter-spacing:.14em;
@@ -344,6 +352,7 @@ export function cateringQuoteEmail({
     c.yourMenu.toUpperCase(),
     ...lines.map((l) => `  ${l.qty} × ${(L === 'es' ? (l.name_es || l.name) : l.name)} — ${money(l.cents)}`),
     '',
+    ...recommendations.map((r) => `${L === 'es' ? 'Opcional, no incluido' : 'Optional, excluded'}: ${r.name} · ${r.pieces} · +${money(r.cents)}`),
     discountCents > 0 ? `${c.subtotal}: ${money(subtotalCents)}` : null,
     discountCents > 0 ? `${c.discount}: −${money(discountCents)}` : null,
     `${c.total}: ${money(totalCents)}`,

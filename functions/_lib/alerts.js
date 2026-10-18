@@ -15,6 +15,7 @@ import { captureSystem } from './track.js';
 import { sendPushTickle } from './push.js';
 
 export const ALERT_TYPES = [
+  'catering_followup_due',
   'eod_missing', 'temp_excursion', 'delivery_failed', 'late_clock_in',
   'expense_pending', 'low_stock', 'negative_sentiment',
   // Instagram performance detection (instagram_insights.js:alertsForSignals) — one type covers
@@ -169,11 +170,12 @@ export async function raiseAlert(env, opts = {}) {
     // waking the whole roster for a temp excursion is how people turn notifications off.
     const extra = Array.isArray(opts.notifyRoles) ? opts.notifyRoles.filter(Boolean) : [];
     const audience = ['owner', ...extra.filter((r) => r !== 'owner')];
-    try { await sendPushTickle(env, { roles: audience, notification: {
+    let push = { sent: 0, unverified: true };
+    try { push = await sendPushTickle(env, { roles: audience, notification: {
       type: alert_type, id: aid, refId: opts.ref_id || null, url: opts.url,
     } }); } catch { /* best-effort */ }
 
-    return { ok: true, id: aid, deduped: false };
+    return { ok: true, id: aid, deduped: false, push };
   } catch {
     return { ok: false };
   }

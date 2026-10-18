@@ -16,6 +16,8 @@
 // fires message.received {channel}. Responds with empty TwiML.
 import { id, now, ctEq } from '../../_lib/util.js';
 import { capture } from '../../_lib/track.js';
+import { leadForPhone, ensureCateringConversation, projectSms } from '../../_lib/catering_conversation.js';
+import { sendPushTickle } from '../../_lib/push.js';
 import { logInbound } from '../../_lib/twilio.js';
 import { recordUnsubscribe } from '../../_lib/audience.js';
 import { recordHolidayReply } from '../../_lib/holiday_notices.js';
@@ -83,6 +85,9 @@ export const onRequestPost = async ({ request, env }) => {
           "UPDATE clients SET sms_consent = ?, updated_at = ? WHERE replace(replace(replace(replace(replace(phone,'+',''),'-',''),' ',''),'(',''),')','') LIKE ?"
         ).bind(consent, ts, like).run();
       } catch { /* best-effort */ }
+      try {
+        await env.DB.prepare("UPDATE leads SET sms_consent=? WHERE replace(replace(replace(replace(replace(phone,'+',''),'-',''),' ',''),'(',''),')','') LIKE ?").bind(consent,like).run();
+      } catch { /* legacy records remain carrier-blocked */ }
       // STOP is the single most important opt-out signal there is, and it must clear MARKETING
       // consent too — not just the transactional flag. Broadcast audiences read
       // marketing_sms_consent + campaign_unsubscribes and deliberately ignore sms_consent, so
@@ -142,6 +147,22 @@ export const onRequestPost = async ({ request, env }) => {
         "SELECT id, name, role, team, phone FROM staff WHERE active = 1 AND phone IS NOT NULL AND phone != ''"
       ).all();
       staff = (results || []).find((r) => digits(r.phone).slice(-10) === fromDigits) || null;
+    }
+
+    // Catering replies return to the same lead conversation, with provider SID dedupe.
+    if (!staff) {
+      const lead = await leadForPhone(env,from);
+      if (lead) {
+        const sid = params.get('MessageSid') || '';
+        if (!/^SM[a-fA-F0-9]{32}$/.test(sid)) return new Response('Missing provider message ID',{status:400});
+        const existing = await env.DB.prepare('SELECT id FROM messages WHERE id=?').bind(`msg_twilio_${sid}`).first();
+        if (existing) return twiml();
+        const thread = await ensureCateringConversation(env,{lead});
+        const smsLogId = await logInbound(env,{from,to,body,channel,thread_id:thread.id});
+        await projectSms(env,{thread,logId:smsLogId,body,direction:'inbound',providerSid:sid});
+        await sendPushTickle(env,{roles:['owner'],notification:{type:'new_message',id:`msg_twilio_${sid}`,url:'/hub/comms.html?thread='+encodeURIComponent(thread.id)}});
+        return twiml();
+      }
     }
 
     // Find (or create) the thread.
@@ -212,7 +233,7 @@ export const onRequestPost = async ({ request, env }) => {
       properties: { channel, thread_id: thread.id, known_sender: !!staff },
     });
   } catch {
-    /* best-effort: always answer Twilio with TwiML so it doesn't retry-storm */
+    return new Response('Message persistence unavailable; retry required.',{status:503});
   }
 
   return twiml();

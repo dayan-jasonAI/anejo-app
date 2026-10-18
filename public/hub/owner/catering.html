@@ -59,6 +59,7 @@
     lt.addEventListener('click', function () { var n = window.AnejoLang.get() === 'es' ? 'en' : 'es'; window.AnejoLang.set(n); lt.textContent = n === 'es' ? 'EN' : 'ES'; });
   }
 
+  var revisionSource = null, revisionPreview = null;
   var ENDPOINT = '/api/hub/owner/catering-deposit';
 
   // Dollars typed by a human → integer cents. The API refuses anything over $100,000 as a
@@ -102,6 +103,8 @@
   function giftHtml(q) {
     var on = q.gift === 'tres-leches-fresa';
     var balPaid = q.balance_status === 'paid';
+    var summary = {};
+    try { summary = JSON.parse(q.quote_json || '{}'); } catch (e) { /* historical bare total */ }
     return '<div class="gift" style="margin-top:10px;padding:10px 12px;border:1px solid #2a4a28;border-radius:8px">' +
       '<label class="row-sub" style="display:block;margin-bottom:6px">Gift for this customer</label>' +
       '<select data-gift-for="' + esc(q.id) + '" style="width:100%">' +
@@ -120,6 +123,8 @@
   function quoteCard(q) {
     var paid = q.deposit_status === 'paid';
     var balPaid = q.balance_status === 'paid';
+    var summary = {};
+    try { summary = JSON.parse(q.quote_json || '{}'); } catch (e) { /* historical bare total */ }
     return '<div class="qcard">' +
       '<div class="nm">' + esc(q.customer_name || 'Quote ' + q.id) + '</div>' +
       '<div class="row-sub">' + (q.guests || 0) + ' guests' +
@@ -135,6 +140,8 @@
           '📋 Open the production plan &rarr;</a>'
         : '') +
 
+      (summary.revised_from ? '<p class="row-sub">Revised from ' + esc(summary.revised_from) + '</p>' : '') +
+      (Array.isArray(summary.lines) && summary.lines.length ? '<details class="terms"><summary>View quoted menu</summary>' + summary.lines.map(function (line) { return '<p class="row-sub">' + esc(line.qty || '') + ' ' + esc(line.name || '') + ' · ' + money(line.cents) + '</p>'; }).join('') + '</details>' : '') +
       // The split, straight off the row: deposit + balance were computed by depositSplit() at
       // creation and stored, so they always sum to the total on screen exactly as they do in D1.
       '<div class="split">' +
@@ -152,12 +159,13 @@
       '</div>' +
 
 
-      (q.payment_link_url
+      (q.payment_link_url && q.deposit_status !== 'void'
         ? '<div class="row-sub lnk">Deposit link: <a href="' + esc(q.payment_link_url) + '" target="_blank" rel="noopener">' + esc(q.payment_link_url) + '</a></div>'
         : '<div class="row-sub">No deposit link on this quote.</div>') +
 
       (q.balance_payment_link_url && !balPaid ? '<div class="row-sub lnk">Balance link: <a href="'+esc(q.balance_payment_link_url)+'" target="_blank" rel="noopener">Pay final balance through Square</a></div>' : '') +
       (!balPaid && paid && !q.balance_payment_link_url ? '<button class="btn gold block" data-balance-link="'+esc(q.id)+'">Create Square balance link</button>' : '') +
+      (q.deposit_status === 'unpaid' || q.deposit_status === 'void' ? '<button class="btn ghost block" data-revise="' + esc(JSON.stringify(q)) + '">' + (q.deposit_status === 'void' ? 'View / recover replacement' : 'Edit / revise quote') + '</button>' : '') +
       giftHtml(q) +
       termsHtml(q) +
 
@@ -203,11 +211,13 @@
         (r.company ? ' · ' + esc(r.company) : '') +
         (r.created_at ? ' · ' + C.label('received') + ' ' + day(r.created_at) : '') + '</div>' +
       (contact ? '<div class="row-sub">' + esc(contact) + '</div>' : '') +
-      '<div class="rbody"><b>' + C.label('Original request (as submitted)') + '</b><br>' + (r.message ? esc(r.message) : C.label('No event details provided.')) + '</div>' +
+      '<div class="rbody"><b>'+esc(msgField(r.message,'Event type')||'Event')+'</b><br>'+esc(msgField(r.message,'Event date'))+' · '+esc(msgField(r.message,'Serving time'))+'<br>'+esc(msgField(r.message,'Guest count'))+' guests · '+esc(msgField(r.message,'Location'))+'</div>'+
+      '<details class="rbody"><summary>' + C.label('Original request (as submitted)') + '</summary>' + (r.message ? esc(r.message) : C.label('No event details provided.')) + '</details>' +
       (r.cajita_configuration || r.cajita_summary ? '<details class="rbody"><summary>' + C.label('Exact Cajita configuration') + '</summary>' + C.summaryHtml(r.cajita_configuration,r.cajita_summary) + '</details>' : '') +
       (files ? '<div class="rfiles"><b>' + C.label('Private design files · owner only') + '</b>' + files + '</div>' : '') +
       suggestionHtml(r.suggested) +
       '<div class="ractions">' +
+        '<a class="btn ghost" href="/hub/owner/catering-service.html?lead='+encodeURIComponent(r.id)+'">Messages &amp; follow-up</a>'+
         '<button class="btn ghost" type="button" data-prefill="' + esc(JSON.stringify(payload)) + '">' + C.label('Start a quote') + '</button>' +
         (r.email ? '<a class="btn ghost" href="mailto:' + esc(encodeURIComponent(r.email)) + '?subject=' + encodeURIComponent('Your Añejo catering request') + '">' + C.label('Email customer') + '</a>' : '') +
       '</div></article>';
@@ -240,7 +250,7 @@
 
   // ---------- the create form ----------
   function formHtml(d) {
-    return '<div class="hub-section"><h2>New catering quote</h2><div class="card">' +
+    return '<div class="hub-section"><h2 id="q-editor-title">New catering quote</h2><div class="card">' +
       '<div class="field"><label>Customer name</label><input id="q-name" type="text" placeholder="Who the event is for"></div>' +
       '<div class="field"><label>Email</label><input id="q-email" type="email" placeholder="For the deposit link"></div>' +
       '<div class="field"><label>Phone</label><input id="q-phone" type="tel"></div>' +
@@ -255,6 +265,8 @@
         '<div id="q-lines-sum" class="row-sub" style="margin-top:8px"></div>' +
       '</div>' +
       '<div class="field"><label>Agreed total (dollars)</label><input id="q-total" type="text" inputmode="decimal" placeholder="1200.00"></div>' +
+      '<fieldset style="border:1px solid var(--line);border-radius:10px;padding:14px;margin:14px 0"><legend>Optional signature croquetas</legend><p class="row-sub">Choose a published pack for this party. Excluded from the quote total and deposit; the customer can ask about it before you add it.</p><label for="q-recommendation">Pack and filling</label><select id="q-recommendation"><option value="">No recommendation</option></select><label for="q-recommendation-packs">Number of packs</label><input id="q-recommendation-packs" type="number" min="1" max="20" step="1" value="1"><p id="q-recommendation-summary" class="row-sub" role="status"></p></fieldset>' +
+      '<p id="q-revision-status" class="row-sub" role="status"></p><button id="q-revision-cancel" class="btn ghost" type="button" hidden>Exit revision / new quote</button>' +
       '<div class="field"><label>Note (optional)</label><input id="q-note" type="text"></div>' +
       // WHAT SHE READ THE SITE IN IS NOT ALWAYS WHAT SHE WANTS TO BE SOLD IN. The quote defaults
       // to the language on her lead, and this overrides it. Dayan hit exactly this on 2026-09-09:
@@ -279,6 +291,9 @@
 
   function body() {
     return {
+      quote_id: revisionSource ? revisionSource.id : undefined,
+      expected_updated_at: revisionSource ? revisionSource.updated_at : undefined,
+      recommendations: document.getElementById('q-recommendation').value ? [{ sku: document.getElementById('q-recommendation').value, packs: Number(document.getElementById('q-recommendation-packs').value), expected_cents: Number(document.getElementById('q-recommendation').selectedOptions[0].dataset.cents) * Number(document.getElementById('q-recommendation-packs').value) }] : [],
       customer_name: document.getElementById('q-name').value.trim(),
       customer_email: document.getElementById('q-email').value.trim(),
       customer_phone: document.getElementById('q-phone').value.trim(),
@@ -303,7 +318,7 @@
 
   function lineRowHtml(v) {
     v = v || {};
-    return '<div class="q-line" style="display:flex;gap:6px;margin-bottom:6px;align-items:flex-start">' +
+    return '<div class="q-line" data-metadata="' + esc(JSON.stringify(v.metadata || {})) + '" style="display:flex;gap:6px;margin-bottom:6px;align-items:flex-start">' +
       '<input class="q-l-name" type="text" placeholder="Lech\u00f3n asado" value="' + esc(v.name || '') + '" style="flex:3">' +
       '<input class="q-l-qty" type="text" inputmode="numeric" placeholder="30" value="' + esc(v.qty || '') + '" style="flex:1;min-width:52px">' +
       '<input class="q-l-price" type="text" inputmode="decimal" placeholder="95.00" value="' + esc(v.price || '') + '" style="flex:1;min-width:72px">' +
@@ -326,7 +341,9 @@
       var priceRaw = rows[i].querySelector('.q-l-price').value.trim();
       var qty = rows[i].querySelector('.q-l-qty').value.trim();
       if (!name && !priceRaw) continue;
-      out.push({ name: name, qty: qty || undefined, cents: priceRaw === '' ? null : toCents(priceRaw) });
+      var metadata = {};
+      try { metadata = JSON.parse(rows[i].getAttribute('data-metadata') || '{}'); } catch (e) { /* manual row */ }
+      out.push(Object.assign({}, metadata, { name: name, qty: qty || undefined, cents: priceRaw === '' ? null : toCents(priceRaw) }));
     }
     return out;
   }
@@ -443,12 +460,13 @@
 
   function wireForm() {
     wireLines();
+    document.getElementById('q-revision-cancel').addEventListener('click', function () { render(); });
     document.getElementById('q-preview').addEventListener('click', function () {
       var b = body();
       // Either the lines carry the money or the bare total does. Preview the same one the create
       // path will use, so the split on screen is the split that gets charged.
       if (!b.lines && (!Number.isFinite(b.total_cents) || b.total_cents <= 0)) { Hub.toast('Enter the agreed total, or add a line'); return; }
-      Hub.api(ENDPOINT, { method: 'POST', body: { op: 'preview', total_cents: b.total_cents, lines: b.lines, event_date: b.event_date } }).then(function (r) {
+      Hub.api(ENDPOINT, { method: 'POST', body: { op: 'preview', quote_id: b.quote_id, total_cents: b.total_cents, lines: b.lines, event_date: b.event_date } }).then(function (r) {
         var el = document.getElementById('q-split');
         if (!r || !r.ok) { Hub.toast((r && r.error) || 'Could not price that'); el.innerHTML = ''; return; }
         el.innerHTML = '<div class="split" style="margin-top:10px">' +
@@ -460,8 +478,8 @@
       // And the email itself, rendered from these exact values. Sandboxed: it is a customer-facing
       // document being shown inside the Hub, so it gets no script, no forms and no same-origin.
       Hub.api(ENDPOINT, { method: 'POST', body: {
-        op: 'render', total_cents: b.total_cents, lines: b.lines, event_date: b.event_date,
-        guests: b.guests, customer_name: b.customer_name, lang: b.lang || 'en',
+        op: 'render', quote_id: b.quote_id, total_cents: b.total_cents, lines: b.lines, event_date: b.event_date,
+        guests: b.guests, customer_name: b.customer_name, lang: b.lang || 'en', recommendations: b.recommendations,
       } }).then(function (r) {
         var el = document.getElementById('q-mail');
         if (!r || !r.ok) { el.innerHTML = '<p class="row-sub">Could not render the email: ' + esc((r && r.error) || 'unknown') + '</p>'; return; }
@@ -469,6 +487,7 @@
           '<iframe sandbox="" title="The email she would receive" style="width:100%;height:70vh;border:1px solid #2a4a28;border-radius:8px;margin-top:6px;background:#fff"></iframe>' +
           '<p class="row-sub" style="margin-top:6px">This is what she reads. The Pay button is inert here — the live link is minted when you create the checkout.</p>';
         el.querySelector('iframe').srcdoc = r.html;
+        revisionPreview = JSON.stringify(b);
       });
     });
 
@@ -477,15 +496,23 @@
       var amount = b.lines ? b.lines.reduce(function (n, l) { return n + (Number.isInteger(l.cents) ? l.cents : 0); }, 0) : b.total_cents;
       if (!Number.isFinite(amount) || amount <= 0) { Hub.toast('Enter the agreed total, or add a line'); return; }
       if (!Number.isFinite(b.guests) || b.guests <= 0) { Hub.toast('Enter the guest count'); return; }
-      if (!window.confirm('Create a deposit checkout for ' + money(amount) + '?\n\n'
+      if (revisionSource && revisionPreview !== JSON.stringify(b)) { Hub.toast('Read the updated email preview before saving this revision.'); return; }
+      if (revisionSource && !window.confirm('Retire the old Square checkout and replace this unpaid quote? The old link will stop working. No message is sent until you review and press Send.')) return;
+      if (!revisionSource && !window.confirm('Create a deposit checkout for ' + money(amount) + '?\n\n'
         + 'This mints a payable link and stores today’s terms on the quote.\n'
         + 'NOTHING is sent to the customer — you read it and press Send afterwards.')) return;
       btn.disabled = true;
       b.op = 'create';
+      if (revisionSource) b.op = 'revise';
       Hub.api(ENDPOINT, { method: 'POST', body: b }).then(function (r) {
         btn.disabled = false;
         if (!r || !r.ok) { Hub.toast((r && r.error) || 'Could not create the deposit link'); return; }
         Hub.toast('Deposit link created — ' + money(r.deposit_cents) + '. Nothing sent yet.');
+        if (revisionSource) {
+          document.getElementById('q-email').value = r.customer_email || b.customer_email;
+          document.getElementById('q-phone').value = r.customer_phone || b.customer_phone;
+          btn.disabled = true;
+        }
         showSend(r);
       });
     });
@@ -494,6 +521,17 @@
   function wireRequests(root) {
     root.querySelectorAll('[data-prefill]').forEach(function (btn) {
       btn.addEventListener('click', function () {
+        revisionSource = null; revisionPreview = null;document.getElementById('q-editor-title').textContent='New catering quote';
+        document.getElementById('q-create').textContent = 'Create deposit checkout';
+        document.getElementById('q-create').disabled = false;
+        document.getElementById('q-revision-status').textContent = '';
+        document.getElementById('q-revision-cancel').hidden = true;
+        document.querySelectorAll('#q-name,#q-email,#q-phone,#q-date,#q-guests,#q-lang,#q-note,#q-lines input,#q-lines button,#q-add-line,#q-recommendation,#q-recommendation-packs').forEach(function (input) { input.disabled = false; });
+        document.getElementById('q-sent').innerHTML = '';
+        document.getElementById('q-mail').innerHTML = '';
+        document.getElementById('q-recommendation').value = '';
+        document.getElementById('q-recommendation-packs').value = '1';
+        document.getElementById('q-recommendation-summary').textContent = '';
         var r;
         try { r = JSON.parse(btn.getAttribute('data-prefill') || '{}'); } catch (e) { r = {}; }
         document.getElementById('q-name').value = r.name || '';
@@ -588,7 +626,62 @@
     });
   }
 
+  function loadRecommendations(selected) {
+    Hub.api('/api/catering-catalog').then(function (catalog) {
+      var select = document.getElementById('q-recommendation');
+      if (!select || !catalog.live) return;
+      var map = { ham: 'jamon', chicken: 'pollo', beef: 'res', chorizo: 'chorizo', sausage: 'sausage', tuna: 'tuna' };
+      select.innerHTML = '<option value="">No recommendation</option>';
+      (catalog.products || []).filter(function (p) { return p.id === 'croqueta-platter' || p.id === 'croqueta'; }).forEach(function (p) {
+        Object.keys(p.flavors || {}).forEach(function (flavor) {
+          (p.flavors[flavor].packs || []).filter(function (pack) { return p.id === 'croqueta' ? pack.size === 10 : [30,60,90].indexOf(pack.size) !== -1; }).forEach(function (pack) {
+            var sku = 'catering_' + (p.id === 'croqueta-platter' ? 'platter' : 'croq') + '-' + map[flavor] + '-' + pack.size;
+            var option = document.createElement('option'); option.value = sku;
+            option.textContent = (p.id === 'croqueta-platter' ? 'Platter' : 'Loose box') + ' · ' + p.flavors[flavor].en + ' · ' + pack.size + ' pieces · ' + money(pack.cents);
+            option.dataset.cents = pack.cents; option.dataset.pieces = pack.size; select.appendChild(option);
+          });
+        });
+      });
+      if (selected) { select.value = selected.sku; document.getElementById('q-recommendation-packs').value = selected.packs; }
+      function update() {
+        var option = select.options[select.selectedIndex], packs = Number(document.getElementById('q-recommendation-packs').value);
+        document.getElementById('q-recommendation-summary').textContent = select.value ? ((Number(option.dataset.pieces) * packs) + ' pieces · optional +' + money(Number(option.dataset.cents) * packs) + ' · not included') : '';
+      }
+      select.onchange = update; document.getElementById('q-recommendation-packs').oninput = update; update();
+    });
+  }
+
+  function wireRevisionEditor(root) {
+    root.querySelectorAll('[data-revise]').forEach(function (button) {
+      button.addEventListener('click', function () {
+        var q = JSON.parse(button.getAttribute('data-revise'));
+        Hub.api(ENDPOINT, { method: 'POST', body: { op: 'revision_status', quote_id: q.id } }).then(function (result) {
+          if (!result.ok) { Hub.toast(result.error || 'Cannot verify revision status'); return; }
+          if (q.deposit_status === 'void' && !result.revision) { Hub.toast('This void quote has no recoverable revision.'); return; }
+          revisionSource = q; revisionPreview = null;document.getElementById('q-editor-title').textContent='Revise catering quote';
+          document.getElementById('q-revision-cancel').hidden = false;
+          document.getElementById('q-create').disabled = false;
+          document.getElementById('q-sent').innerHTML = '';
+          document.getElementById('q-mail').innerHTML = '';
+          var saved = result.revision && JSON.parse(result.revision.payload_json), blob = {};
+          try { blob = JSON.parse(q.quote_json || '{}'); } catch (e) { /* old total-only quote */ }
+          var values = saved || { customerName: q.customer_name, customerEmail: q.customer_email, customerPhone: q.customer_phone, eventDate: q.event_date, guests: q.guests, lang: q.lang, note: q.note, quoteBreakdown: blob };
+          [['q-name','customerName'],['q-email','customerEmail'],['q-phone','customerPhone'],['q-date','eventDate'],['q-guests','guests'],['q-lang','lang'],['q-note','note']].forEach(function (pair) { document.getElementById(pair[0]).value = values[pair[1]] || ''; });
+          var lines = values.quoteBreakdown.lines || [{ name: 'Catering package', cents: q.total_cents }];
+          document.getElementById('q-lines').innerHTML = lines.map(function (line) { return lineRowHtml({ name: line.name, qty: line.qty, price: (line.cents / 100).toFixed(2), metadata: line }); }).join('');
+          renderLinesSum();
+          document.getElementById('q-revision-status').textContent = saved ? 'Recover the saved revision. Its approved values are locked while the old Square checkout is retired and the replacement is recovered.' : 'Editing quote ' + q.id + '. Read the preview, then save a revision. The original checkout is retired before its replacement is created.';
+          document.getElementById('q-create').textContent = saved ? 'Recover saved revision' : 'Save revised quote';
+          document.querySelectorAll('#q-name,#q-email,#q-phone,#q-date,#q-guests,#q-lang,#q-note,#q-lines input,#q-lines button,#q-add-line,#q-recommendation,#q-recommendation-packs').forEach(function (input) { input.disabled = Boolean(saved); });
+          loadRecommendations(values.quoteBreakdown.recommendations && values.quoteBreakdown.recommendations[0]);
+          document.getElementById('q-name').scrollIntoView({ behavior: 'smooth', block: 'center' });
+        });
+      });
+    });
+  }
+
   function render() {
+    revisionSource = null; revisionPreview = null;
     Owner.get(ENDPOINT).then(function (d) {
       var root = document.getElementById('owner-root');
       root.className = '';
@@ -597,8 +690,8 @@
       var rs = d.requests || [];
       var cs = d.changes || [];
       var openChanges = cs.filter(function (c) { return c.status === 'open'; });
-      var unpaid = qs.filter(function (q) { return q.deposit_status !== 'paid'; });
-      var owed = qs.reduce(function (n, q) { return n + (q.balance_status === 'due' ? Number(q.balance_cents || 0) : 0); }, 0);
+      var unpaid = qs.filter(function (q) { return q.deposit_status === 'unpaid'; });
+      var owed = qs.reduce(function (n, q) { return n + (q.deposit_status !== 'void' && q.balance_status === 'due' ? Number(q.balance_cents || 0) : 0); }, 0);
 
       root.innerHTML =
         '<div class="card-grid">' +
@@ -613,7 +706,7 @@
         '<div class="hub-section"><h2>Customer requests</h2>' +
         (cs.length ? cs.map(changeCard).join('') : '<div class="hub-empty">No customers have asked for changes.</div>') +
         '</div>' +
-        '<div class="hub-section"><h2>Website quote requests</h2><p><a href="/hub/kitchen/catering.html">Open kitchen design-request summary</a></p>' +
+        '<div class="hub-section"><p><a class="btn ghost" href="/hub/owner/catering-service.html">Lead follow-up &amp; response status</a></p><h2>Website quote requests</h2><p><a href="/hub/kitchen/catering.html">Open kitchen design-request summary</a></p>' +
         (rs.length ? rs.map(requestCard).join('') : '<div class="hub-empty">No website catering requests yet.</div>') +
         '</div>' +
         formHtml(d) +
@@ -622,6 +715,8 @@
         '</div>';
 
       wireForm();
+      wireRevisionEditor(root);
+      loadRecommendations();
       wireChanges(root);
       wireRequests(root);
       wireGifts(root);

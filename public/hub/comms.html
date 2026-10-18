@@ -218,7 +218,8 @@
         if (r && r.ok) {
           document.getElementById('compose-body').value = '';
           document.getElementById('compose-subject').value = '';
-          Hub.toast('Message sent');
+          if(btn.dataset)delete btn.dataset.smsRequestId;
+        Hub.toast(r.record_error?'Provider accepted; local receipt needs reconciliation':r.sms?.status==='provider_accepted'?'Text accepted by provider; delivery unverified':'Message sent');
           location.hash = '#t=' + r.thread.id;
         } else {
           Hub.toast((r && r.error) || 'Could not send');
@@ -292,7 +293,7 @@
     if(!replyContext){text.disabled=true;send.disabled=true;note.hidden=false;note.textContent='Reply context unavailable; sending is paused.';return;}
     var ig=replyContext.thread.audience==='instagram';note.hidden=!ig;text.maxLength=ig?1000:4000;
     document.getElementById('chan-inapp').style.display=ig?'none':'';
-    if(!ig){text.disabled=false;send.disabled=false;send.textContent='Send';return;}
+    if(!ig){document.getElementById('chan-inapp').style.display=replyContext.thread.sms_only?'none':'';if(replyContext.thread.sms_only)setChannel('sms');text.disabled=!!(replyContext.thread.sms_only&&!replyContext.thread.can_sms);send.disabled=text.disabled;send.textContent=replyContext.thread.sms_only?'Send customer text':'Send';return;}
     document.getElementById('chan-sms').style.display='none';
     var pending=igRequests[currentThread],latest=replyContext.latest;
     if(igFollowups[currentThread] && (!latest||latest.attempt_id!==igFollowups[currentThread]))delete igFollowups[currentThread];
@@ -387,6 +388,7 @@
         bub.innerHTML = d.items.map(function (m) {
           var receipt=history.find(function(a){return a.message_id===m.id;});
           var acceptance=t.audience==='instagram'&&m.direction==='outbound'?(receipt?(receipt.state==='sent'?'Provider acceptance recorded; delivery/read unverified':receipt.state==='failed'?'Provider rejected; not sent':'Send outcome pending or unknown'):'Saved Hub message; provider acceptance unverified') : '';
+          if(m.sms_receipt){var sr=m.sms_receipt;acceptance=sr.status==='provider_accepted'?'Provider accepted · delivery unverified':sr.status==='delivered'?'Carrier delivery reported':sr.status==='failed'||sr.status==='undelivered'?'Text failed':sr.status==='noop'?'Not sent · SMS unavailable':'Send outcome unverified';if(sr.provider_sid)acceptance+=' · '+sr.provider_sid;}
           var meta = (acceptance?acceptance+' · ':'')+(m.channel && m.channel !== 'in_app' ? m.channel.toUpperCase() + ' · ' : '') + timeAgo(m.created_at);
           return '<div class="bubble ' + (m.mine ? 'mine' : 'theirs') + '">' + Hub.esc(m.body) +
             '<div class="bubble-meta">' + Hub.esc(meta) + '</div></div>';
@@ -409,15 +411,17 @@
     if(replyContext.thread.audience==='instagram'){return sendInstagramReply(currentThread);}
     var body = document.getElementById('reply-body').value.trim();
     if (!body || !currentThread) { Hub.toast('Write a message first.'); return; }
+    if(replyContext.thread.sms_only){if(!window.confirm('Send this text to the catering customer?\n\n'+body))return;if(btn.dataset.smsThreadId!==currentThread){delete btn.dataset.smsRequestId;btn.dataset.smsThreadId=currentThread;}}
     btn.disabled = true;
     Hub.api('/api/hub/comms/messages', {
       method: 'POST',
-      body: { thread_id: currentThread, body: body, channel: channel },
+      body: Object.assign({ thread_id: currentThread, body: body, channel: channel },replyContext.thread.sms_only?{request_id:(btn.dataset.smsRequestId||(btn.dataset.smsRequestId=crypto.randomUUID()))}:{}),
     }).then(function (r) {
       btn.disabled = false;
       if (r && r.ok) {
         document.getElementById('reply-body').value = '';
-        Hub.toast('Message sent');
+        if(btn.dataset)delete btn.dataset.smsRequestId;
+        Hub.toast(r.record_error?'Provider accepted; local receipt needs reconciliation':r.sms?.status==='provider_accepted'?'Text accepted by provider; delivery unverified':'Message sent');
         loadMessages(currentThread, false);
       } else {
         Hub.toast((r && r.error) || 'Could not send');

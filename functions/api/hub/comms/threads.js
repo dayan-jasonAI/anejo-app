@@ -33,6 +33,7 @@ function counterpartyName(t, ctx) {
   // thread as external_username (migrations/0062) — surface it so the inbox says "@shelby.sapp",
   // not the anonymous "Conversation" fallback that made every DM look like the same stranger.
   if (t.audience === 'instagram') return t.external_username ? '@' + t.external_username : (t.subject || 'Instagram DM');
+  if (t.ref_type === 'lead' || t.ref_type === 'catering_quote') return t.subject || 'Catering customer';
   if (t.client_name) return t.client_name;
   if (t.trainer_name) return t.trainer_name;
   if (t.staff_id && t.staff_id !== ctx.distinct_id) return t.staff_name || 'Staff';

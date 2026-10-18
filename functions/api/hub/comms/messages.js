@@ -16,6 +16,7 @@ import { capture } from '../../../_lib/track.js';
 import { id, now, bit } from '../../../_lib/hub.js';
 import { sendSms, sendWhatsApp } from '../../../_lib/twilio.js';
 import { sendHumanInstagramReply } from '../../../_lib/instagram_reply_attempt.js';
+import { conversationLead, sendCateringSms, smsReceipt } from '../../../_lib/catering_conversation.js';
 import { sendPushTickle } from '../../../_lib/push.js';
 
 // Every role, staff and portal alike — this endpoint is open to anyone signed in.
@@ -84,7 +85,7 @@ export const onRequestGet = async ({ request, env }) => {
   if (!canAccessThread(ctx, thread)) return bad('Forbidden for this thread.', 403);
 
   const { results } = await env.DB.prepare(
-    'SELECT * FROM messages WHERE thread_id = ? ORDER BY created_at ASC LIMIT 500'
+    'SELECT m.*,s.status AS sms_status,s.provider_sid,s.error AS sms_error FROM messages m LEFT JOIN sms_log s ON s.id=m.sms_log_id WHERE m.thread_id = ? ORDER BY m.created_at ASC LIMIT 500'
   ).bind(threadId).all();
 
   // Mark the thread read for this session (powers unread badges in threads.js /
@@ -109,6 +110,7 @@ export const onRequestGet = async ({ request, env }) => {
     ai_drafted: !!m.ai_drafted,
     created_at: m.created_at,
     sent_at: m.sent_at || null,
+    sms_receipt: m.channel === 'sms' && m.direction === 'outbound' ? smsReceipt(m.sms_status ? {status:m.sms_status,provider_sid:m.provider_sid,error:m.sms_error} : null) : null,
     mine: !!(m.sender_id && ctx.distinct_id && m.sender_id === ctx.distinct_id),
   }));
 
@@ -129,6 +131,7 @@ export const onRequestGet = async ({ request, env }) => {
     }catch{replyAttempts={reply_attempt_status:'unavailable',reply_attempt_history:null,reply_attempt_unresolved:null,reply_current_trigger:{status:'unavailable',trigger_id:null,latest_attempt:null}};}
   }
   const cp = await counterpartyStaff(env, ctx, thread);
+  const lead = await conversationLead(env, thread);
   return json({
     ...replyAttempts,
     ok: true,
@@ -140,7 +143,9 @@ export const onRequestGet = async ({ request, env }) => {
       ref_type: thread.ref_type || null,
       ref_id: thread.ref_id || null,
       counterparty_name: await headerName(env, ctx, thread),
-      can_sms: !!(cp && cp.phone),
+      can_sms: !!(cp && cp.phone) || !!(ctx.role === 'owner' && lead?.phone && lead.sms_consent),
+      sms_only: thread.ref_type === 'lead',
+      customer_sms_consent: lead ? !!lead.sms_consent : null,
     },
     items,
   });
@@ -166,6 +171,13 @@ export const onRequestPost = async ({ request, env }) => {
   if (!canAccessThread(ctx, thread)) return bad('Forbidden for this thread.', 403);
 
   const ts = now();
+
+  if (thread.ref_type === 'lead') {
+    if (ctx.role !== 'owner') return bad('Only the owner may text catering leads.',403);
+    const lead = await conversationLead(env, thread);
+    const result = await sendCateringSms(env,{thread,lead,body,actorId:ctx.distinct_id || ctx.email,requestId:b.request_id});
+    return json({...result,channel:'sms'},result.ok?200:409);
+  }
 
   // AN INSTAGRAM THREAD REPLIES ON INSTAGRAM — inferred from the thread, never from what the page
   // sent. Before this, typing into an Instagram thread stored an 'in_app' row that LOOKED sent in

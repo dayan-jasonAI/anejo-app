@@ -31,7 +31,7 @@ const QUOTE = {
   quote_json: JSON.stringify({ source: 'manual', total_cents: 48500, lines: [{ name: 'Lechón', qty: '30', cents: 48500 }] }),
 };
 
-const envWith = (row) => ({ DB: { prepare: () => ({ bind: () => ({ first: async () => row }) }) } });
+const envWith = (row) => ({ DB: { prepare: (sql) => ({ bind: () => ({ first: async () => /catering_quote_revisions/.test(sql) ? null : row }) }) } });
 const get = async (row, path = `/q/${TOKEN}`) => {
   const res = await onRequestGet({
     env: envWith(row),
