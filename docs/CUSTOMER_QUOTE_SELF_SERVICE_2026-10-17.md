@@ -36,3 +36,12 @@ New0152 adds durable calendar/email jobs and disabled activation flags. Runtime 
 Owner agenda shows saved evidence timestamps and separate provider acceptance labels. Missing scheduling inputs/OAuth remain blockers. Sample email preview uses fictional guest/date/15min for review only, not an approved scheduling default. Official API contracts checked against https://developers.google.com/workspace/calendar/api/v3/reference/events/insert and https://developers.google.com/workspace/calendar/api/v3/reference/freebusy/query .
 
 Follow-up validation:3,802localtests pass/0fail/0skip;lint0errors/10existingwarnings;Functionsbuildsuccess. Logs /tmp/anejo-callback-release-{tests,lint,build}.log. Added malformed freebusy interval and changed-calendar email guards during parent review. Exact-head CI/deployment and migration0152 readback pending at this entry.
+
+
+## Operating handoff
+- Owner: Catering follow-up → Call calendar (/hub/owner/callbacks.html). Saving planning notes/duration does not activate anything. Confirmed labels require matching persisted Google readback; email accepted remains delivery-unverified.
+- Customer: existing hosted quote → Modify my order → quantities/headcount/add dishes → Review changes → explicit save. Paid/special/unsupported quotes remain review/callback paths. No live customer save was used for acceptance.
+- Activation requirements: Dayan-approved structured hours/duration, production Google OAuth and calendar write verification, rendered confirmation AND reminder approval, explicit activation timestamp/version. Historical pre-activation requests are not silently booked.
+- Customer templates: callback-confirmation-preview.png and callback-reminder-preview.png are rendered fictional examples, not sent emails or booked appointments.
+- Rollback: revert application release through reviewed Git path; leave additive0151/0152 tables/history intact. Disabling booking/messages halts new effects; do not delete durable uncertain-job receipts or reservations.
+- Live acceptance caught an old agenda script in an existing browser session. PR213 versions only that script URL. Verification remains pending until the same live browser visibly displays the new readiness message.
