@@ -94,3 +94,11 @@ test('discounts, delivery fees, custom quantities, paid bookings and notice viol
   };
   await provider(async calls=>{const result=await applyCustomerEdit(env,b);assert.equal(result.ok,false);assert.match(result.error,/saved first/);assert.equal(calls.length,0);});
 });
+
+ test('owner-created pending revision cannot be resumed or changed by customer token',async()=>{
+  const {env,sql}=fixture(),p=await previewCustomerEdit(env,await customerQuote(env,token),body()),b={...body(),preview_fingerprint:p.preview_fingerprint};
+  await provider(async()=>{assert.equal((await applyCustomerEdit(env,b)).ok,false);},{failCreate:true});
+  sql.exec("UPDATE catering_quote_revisions SET created_by='owner:dayan'");
+  const view=await getCustomerEdit(env,token);assert.equal(view.editable,false);assert.equal(view.recovery,null);assert.match(view.error,/Añejo is updating/);
+  await provider(async calls=>{const result=await applyCustomerEdit(env,b);assert.equal(result.ok,false);assert.match(result.error,/Añejo is updating/);assert.equal(calls.length,0);});
+});

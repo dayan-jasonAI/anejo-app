@@ -6,7 +6,7 @@ export const callbackCapabilities = Object.freeze({booking_available:false,googl
 const publicRow = row => ({id:row.id,status:row.status,requested_start_at:row.requested_start_at,timezone:row.timezone,phone:row.phone,created_at:row.created_at});
 export async function callbackQuote(env,token) {
   if(!/^[a-f0-9]{32}$/.test(String(token||'')))return null;
-  return await env.DB.prepare('SELECT id,customer_name,customer_email,customer_phone,event_date,deposit_status FROM catering_quotes WHERE access_token=?').bind(token).first();
+  return await env.DB.prepare('SELECT * FROM catering_quotes WHERE access_token=?').bind(token).first();
 }
 export async function listCallbacks(env,quoteId) {
   const rows=await env.DB.prepare('SELECT * FROM catering_callback_requests WHERE quote_id=? ORDER BY created_at DESC LIMIT 25').bind(quoteId).all();
@@ -62,5 +62,5 @@ export async function requestCallback(env,quote,body,{now=Date.now()}={}) {
     const receipt=await raiseAlert(env,{alert_type:'catering_followup_due',severity:'warning',title:'Customer requested a callback',body:`${quote.customer_name||'Catering customer'} requested ${new Date(row.requested_start_at).toLocaleString('en-US',{timeZone:CALLBACK_TIMEZONE})} Eastern. Time is not confirmed.`,ref_type:'catering_callback',ref_id:row.id,url:'/hub/owner/callbacks.html',dedupe_key:'callback:'+row.id,onceEver:true});
     if(receipt.ok)await env.DB.prepare('UPDATE catering_callback_requests SET owner_alert_id=? WHERE id=?').bind(receipt.id,row.id).run();
   }
-  return {ok:true,request:publicRow(row),message:CALLBACK_NOTICE,capabilities:callbackCapabilities};
+  return {ok:true,request:publicRow(row),message:quote.lang==='es'?'Horario preferido solicitado; pendiente de confirmación. Aún no hay una cita reservada.':CALLBACK_NOTICE,capabilities:callbackCapabilities};
 }

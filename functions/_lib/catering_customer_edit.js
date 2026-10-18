@@ -42,12 +42,12 @@ export async function getCustomerEdit(env, token) {
   const { menu, items } = await catalog(env);
   const journal = await env.DB.prepare('SELECT * FROM catering_quote_revisions WHERE source_quote_id = ?').bind(q.id).first();
   let recovery = null;
-  if (journal && journal.state !== 'complete' && q.deposit_status === 'unpaid') {
+  if (journal && journal.state !== 'complete' && journal.created_by === 'customer:self-service' && q.deposit_status === 'unpaid') {
     const payload = JSON.parse(journal.payload_json);
     const lines = payload.quoteBreakdown.lines;
     recovery = { expected_updated_at: journal.source_updated_at, preview_fingerprint: await editFingerprint({ ...q, updated_at: journal.source_updated_at }, lines), lines, total_cents: payload.totalCents, deposit_cents: Math.round(payload.totalCents * payload.depositPct) };
   }
-  const eligible = recovery ? fail('A saved revision is awaiting recovery. Resume the saved changes before making another edit.') : editableQuote(q);
+  const eligible = journal && journal.created_by !== 'customer:self-service' ? fail('Añejo is updating your quote. Please wait for the updated quote or request a call.') : recovery ? fail('A saved revision is awaiting recovery. Resume the saved changes before making another edit.') : editableQuote(q);
   return { ok: true, recovery, editable: eligible.ok, error: eligible.error, quote: { id: q.id, token: q.access_token, event_date: q.event_date, guests: q.guests, updated_at: q.updated_at, total_cents: q.total_cents, lines: quoteLinesWithImages(parse(q).lines || [], menu).map((l, i) => ({ key: String(i), name: l.name, name_es: l.name_es, detail: l.detail, detail_es: l.detail_es, image: l.image, cents: l.cents, qty: Number(l.qty) })) }, catalog: items.map(i => ({ id: i.id, name: i.name, name_es: i.name_es, price_cents: i.price_cents, image: i.image || i.img })) };
 }
 export async function editFingerprint(q, lines) {
@@ -94,6 +94,7 @@ export async function applyCustomerEdit(env, body) {
   // Recovery is authorized only by the digest of the first frozen, server-priced
   // preview. A subsequent request cannot overwrite a saved replacement.
   if (journal) {
+    if (journal.created_by !== 'customer:self-service') return fail('Añejo is updating your quote. Please wait for the updated quote or request a call.');
     const payload = JSON.parse(journal.payload_json);
     const frozen = { ...q, updated_at: journal.source_updated_at };
     const fingerprint = await editFingerprint(frozen, payload.quoteBreakdown.lines);

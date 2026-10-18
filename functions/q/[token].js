@@ -136,7 +136,7 @@ export const onRequestGet = async ({ params, request, env }) => {
         cta: 'Send my change', sending: 'Sending…',
         fail: 'That did not send. Please reply to the email instead.' };
 
-  const requestPanel = wantsEdit ? `<div style="max-width:520px;margin:0 auto 14px;padding:20px 22px;background:#fbf9f3;
+  const requestPanel = wantsEdit && !paid ? `<div style="max-width:520px;margin:0 auto 14px;padding:20px 22px;background:#fbf9f3;
       border-radius:10px;font-family:Georgia,serif;color:#0b1f0a">
     <p style="margin:0 0 6px;font-size:18px">${t.head}</p>
     <p style="margin:0 0 16px;font-size:14px;line-height:1.6;color:#6b6558">${t.body}</p>
