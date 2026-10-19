@@ -7,7 +7,8 @@ export async function onRequestGet({request,env}) {
   const ctx=await requireRole(request,env,['owner']);if(ctx instanceof Response)return ctx;
   try {
     const [config,leads,notify]=await Promise.all([serviceConfig(env),serviceLeads(env),env.DB.prepare(`SELECT lead_id,channel,status,receipt_id,last_error,updated_at FROM catering_notification_outbox ORDER BY created_at DESC LIMIT 200`).all()]);
-    return json({ok:true,config,leads:leads.map(l=>({...l,notifications:(notify.results||[]).filter(n=>n.lead_id===l.id)})),
+    const overview={scope:'Latest 100 catering inquiries',requests:leads.length,quotes_sent:leads.filter(l=>l.quote_sent_at>0).length,responses_recorded:leads.filter(l=>['replied','call_requested','changes_requested','declined'].includes(l.response_status)).length,deposits_paid:leads.filter(l=>l.phase==='booked').length,owner_marked_won:leads.filter(l=>l.phase==='owner_won').length};
+    return json({ok:true,config,overview,leads:leads.map(l=>({...l,notifications:(notify.results||[]).filter(n=>n.lead_id===l.id)})),
       template:{version:ACK_VERSION,en:acknowledgement(),es:acknowledgement({source_lang:'es'})},
       note:'Email/provider acceptance is not recipient delivery. Push receipt does not establish that a person saw a notification.'},200,{'Cache-Control':'no-store'});
   }catch{return bad('Catering service storage unavailable. Apply the service migration before release.',503);}
