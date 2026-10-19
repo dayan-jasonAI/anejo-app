@@ -36,14 +36,25 @@ export async function serviceLeads(env) {
     LEFT JOIN catering_acknowledgements a ON a.lead_id=l.id
     WHERE l.kind='catering' ORDER BY l.created_at DESC LIMIT 100`).all();
   const qr = await env.DB.prepare('SELECT id,source_lead_id,customer_email,customer_phone,event_date,deposit_status,email_sent_at,sms_sent_at,created_at,quote_json FROM catering_quotes ORDER BY created_at DESC LIMIT 200').all();
+  const [responses, reminders] = await Promise.all([
+    env.DB.prepare('SELECT * FROM catering_quote_responses').all(),
+    env.DB.prepare('SELECT quote_id,lead_id,step,status,accepted_at,created_at FROM catering_quote_followups ORDER BY created_at DESC').all(),
+  ]);
   const parse = s => { try { return JSON.parse(s||'{}'); } catch { return {}; } };
   const quotes = (qr.results||[]).map(q=>({...q,breakdown:parse(q.quote_json)}));
   const leads = read.results||[];
   return leads.map(l=>{
     const q=quoteForLead(l,leads,quotes), event=parse(l.event_json);
     const phase=q?.deposit_status==='paid'?'booked':l.state==='lost'?'lost':l.state==='won'?'owner_won':q?.email_sent_at||q?.sms_sent_at?'awaiting_deposit':l.state==='contacted'?'contacted':'new';
-    const due=l.next_followup_at || (phase==='awaiting_deposit' ? Math.max(q.email_sent_at||0,q.sms_sent_at||0)+86400000 : l.created_at+900000);
-    return {...l,event,quote_id:q?.id||null,quote_activity_at:q?Math.max(q.created_at,q.email_sent_at||0,q.sms_sent_at||0):null,quote_sms_at:q?.sms_sent_at||null,phase,followup_due_at:due,followup_overdue:!['booked','lost','owner_won'].includes(phase)&&due<=Date.now(),
+    const response=(responses.results||[]).find(r=>r.lead_id===l.id&&r.quote_id===q?.id);
+    const attempts=(reminders.results||[]).filter(r=>r.lead_id===l.id&&r.quote_id===q?.id);
+    const accepted=attempts.filter(r=>r.status==='accepted').sort((a,b)=>b.accepted_at-a.accepted_at)[0];
+    const uncertain=(reminders.results||[]).some(r=>r.lead_id===l.id&&['pending','unknown'].includes(r.status));
+    const actionable=response&&['replied','call_requested','changes_requested'].includes(response.status);
+    const due=actionable?(response.next_followup_at||response.updated_at):l.next_followup_at || response?.next_followup_at || (accepted?.accepted_at?accepted.accepted_at+2*86400000:phase==='awaiting_deposit' ? Math.max(q.email_sent_at||0,q.sms_sent_at||0)+86400000 : l.created_at+900000);
+    const action=phase==='booked'?'booked':['lost','owner_won'].includes(phase)?'closed':uncertain?'reconcile':response?.status==='declined'?'closed':response?.status==='call_requested'?'call':response?.status==='changes_requested'?'revise':response?.status==='replied'?'reply':accepted?.step==='final_checkin'?'owner_decision':phase==='awaiting_deposit'?'review_reminder':'contact';
+    const labels={booked:'Deposit recorded. Continue event planning.',reconcile:'Reconcile the unconfirmed email before any further send.',closed:'Follow-up closed. No further quote reminders; owner-marked wins do not establish payment.',call:'Arrange the requested call.',revise:'Review the requested quote changes.',reply:'Respond to the customer and agree on the next step.',owner_decision:'Confirm plans by call or record the outcome. No automatic closure.',review_reminder:'Review the next quote reminder or make a call.',contact:'Review the request and contact the customer.'};
+    return {...l,event,quote_id:q?.id||null,quote_activity_at:q?Math.max(q.created_at,q.email_sent_at||0,q.sms_sent_at||0):null,quote_sent_at:q?Math.max(q.email_sent_at||0,q.sms_sent_at||0):null,quote_sms_at:q?.sms_sent_at||null,phase,response_status:response?.status||null,response_note:response?.note||null,quote_reminder_status:attempts[0]?.status||null,last_reminder_accepted_at:accepted?.accepted_at||null,followup_action:action,followup_action_label:labels[action],followup_due_at:due,followup_overdue:!['booked','lost','owner_won'].includes(phase)&&response?.status!=='declined'&&due<=Date.now(),
       thread_id:`thr_catering_lead_${l.id}`};
   });
 }
@@ -65,8 +76,8 @@ export async function runCateringLeadService(env, { limit=10 }={}) {
       const claimed=await env.DB.prepare('UPDATE catering_lead_service SET last_escalated_at=? WHERE lead_id=? AND (last_escalated_at IS NULL OR last_escalated_at<=?)').bind(now,lead.id,now-3600000).run();
       if(claimed.meta?.changes) {
         const a=await raiseAlert(env,{alert_type:'catering_followup_due',severity:'warning',
-          title:lead.phase==='awaiting_deposit'?'Catering deposit follow-up needs a call':'Catering lead needs your response',
-          body:`${lead.name}: ${lead.phase==='awaiting_deposit'?'Quote sent; deposit still unpaid.':'Review the request and call the customer.'}`,
+          title:lead.followup_action==='call'?'Catering customer requested a call':lead.followup_action==='revise'?'Catering customer requested changes':lead.followup_action==='reply'?'Catering customer needs your reply':lead.phase==='awaiting_deposit'?'Catering quote follow-up needs review':'Catering lead needs your response',
+          body:`${lead.name}: ${lead.followup_action_label}`,
           ref_type:'lead',ref_id:lead.id,url:`/hub/owner/catering-service.html?lead=${encodeURIComponent(lead.id)}`,
           dedupe_key:`catering-followup:${lead.id}:${Math.floor(now/3600000)}`,onceEver:true});
         if(a.ok) {
