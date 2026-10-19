@@ -87,3 +87,22 @@ test('a carrier callback preceding the send log survives and is joined to the fi
   finally{globalThis.fetch=previous;}
   assert.equal(env.DB.one('SELECT status FROM sms_log WHERE provider_sid=?',sid).status,'delivered');
 });
+
+function serviceQuote(env,lead='review_lead'){
+ seed(env,lead,Date.now()-4*86400000);
+ const t=Date.now()-3*86400000;
+ env.DB.sqlite.prepare(`INSERT INTO catering_quotes(id,customer_name,customer_email,customer_phone,event_date,guests,total_cents,deposit_pct,deposit_cents,balance_cents,terms_version,terms_json,quote_json,created_at,updated_at,access_token,email_sent_at,source_lead_id) VALUES('review_quote','Test Guest','guest@example.test','+15555550101','2099-01-01',35,10000,.5,5000,5000,'v1','{}','{}',?,?,'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',?,?)`).run(t,t,t,lead);
+}
+test('accepted reminders defer default owner checkpoint without changing call notes or sending again',async()=>{
+ const env=ownerEnv();serviceQuote(env);const accepted=Date.now()-1000;
+ env.DB.sqlite.prepare(`INSERT INTO catering_quote_followups(id,quote_id,lead_id,step,review_hash,snapshot_json,status,idempotency_key,created_by,created_at,updated_at,accepted_at) VALUES('attempt','review_quote','review_lead','review_quote','hash','{}','accepted','key','owner',?,?,?)`).run(accepted,accepted,accepted);
+ const l=(await serviceLeads(env))[0];assert.equal(l.followup_due_at,accepted+2*86400000);assert.equal(l.followup_overdue,false);assert.equal(l.quote_reminder_status,'accepted');
+ await runCateringLeadService(env);assert.equal(env.DB.one("SELECT COUNT(*) n FROM alerts WHERE alert_type='catering_followup_due'").n,0);
+});
+test('recorded replies route owner work and declines or paid deposits stop chase alerts',async()=>{
+ const env=ownerEnv();serviceQuote(env);const t=Date.now()-1000;
+ env.DB.sqlite.prepare(`INSERT INTO catering_quote_responses(lead_id,quote_id,status,note,next_followup_at,updated_by,updated_at) VALUES('review_lead','review_quote','changes_requested','Change menu',?,'owner',?)`).run(t,t);
+ await runCateringLeadService(env);const l=(await serviceLeads(env))[0];assert.equal(l.followup_action,'revise');assert.equal(l.response_note,'Change menu');assert.match(env.DB.one("SELECT title FROM alerts WHERE alert_type='catering_followup_due'").title,/requested changes/);
+ env.DB.exec("UPDATE catering_quote_responses SET status='declined'");assert.equal((await serviceLeads(env))[0].followup_overdue,false);
+ env.DB.exec("UPDATE catering_quotes SET deposit_status='paid'");const paid=(await serviceLeads(env))[0];assert.equal(paid.phase,'booked');assert.equal(paid.followup_action,'booked');assert.equal(paid.followup_overdue,false);
+});

@@ -2,7 +2,7 @@
 (function(){
   Hub.boot();
   var endpoint='/api/hub/owner/catering-service',esc=Hub.esc,data;
-  var reminderEndpoint='/api/hub/owner/catering-quote-followup',review=null,previewSequence=0,sending=false,activeArticle=null;
+  var reminderEndpoint='/api/hub/owner/catering-quote-followup',review=null,previewSequence=0,sending=false,activeArticle=null,previewTimer=null;
   var stepLabels={review_quote:'Review quote · first reminder',clarify_questions:'Clarify questions · second reminder',final_checkin:'Final check-in · third reminder'};
   var responseLabels={awaiting_reply:'Awaiting customer reply',replied:'Customer replied',call_requested:'Customer requested a call',changes_requested:'Customer requested changes',declined:'Customer declined'};
   var phases={new:'Needs first contact',contacted:'Contacted · follow-up planned',awaiting_deposit:'Quote sent · deposit pending',booked:'Deposit recorded · booked',lost:'Closed · not proceeding',owner_won:'Owner marked won · payment not verified'};
@@ -48,12 +48,13 @@
   function securePreview(html){
     return '<!doctype html><html><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="default-src \'none\'; img-src https://anejocateringco.com data:; style-src \'unsafe-inline\'; base-uri \'none\'; form-action \'none\'; object-src \'none\'"></head><body>'+String(html||'')+'</body></html>';
   }
-  function updateSendPermission(){document.getElementById('reminder-send').disabled=sending||!review||!document.getElementById('reminder-reviewed').checked;document.getElementById('reminder-step').disabled=sending;}
+  function updateSendPermission(){var ready=review&&review.preview_loaded===true&&!review.preview_failed;document.getElementById('reminder-send').disabled=sending||!ready||!document.getElementById('reminder-reviewed').checked;document.getElementById('reminder-reviewed').disabled=sending||!ready;document.getElementById('reminder-step').disabled=sending;}
+  function clearPreviewTimer(){if(previewTimer!==null){clearTimeout(previewTimer);previewTimer=null;}}
   async function openReminder(article,step){
     if(sending){Hub.toast('A reminder request is in progress. Wait for its recorded outcome.');return;}
     var sequence=++previewSequence,dialog=document.getElementById('reminder-dialog');
     activeArticle=article;step=stepLabels[step]?step:'review_quote';document.getElementById('reminder-step').value=step;
-    review=null;document.getElementById('reminder-reviewed').checked=false;updateSendPermission();
+    clearPreviewTimer();review=null;document.getElementById('reminder-reviewed').checked=false;document.getElementById('reminder-preview-retry').hidden=true;updateSendPermission();
     document.getElementById('reminder-recipient').textContent='Loading recipient…';document.getElementById('reminder-subject').textContent='';
     document.getElementById('reminder-preview').srcdoc=securePreview('');document.getElementById('reminder-text').textContent='';
     document.getElementById('reminder-result').textContent='Retrieving the current quote reminder. No message has been sent.';
@@ -62,14 +63,29 @@
     if(!result?.ok||!result.eligible||!result.preview||!result.review_hash){document.getElementById('reminder-result').textContent=result?.reason||result?.error||'This reminder cannot be sent right now.';return;}
     document.getElementById('reminder-recipient').textContent=result.preview.to||'Recipient unavailable';
     document.getElementById('reminder-subject').textContent=result.preview.subject||'';
-    document.getElementById('reminder-preview').srcdoc=securePreview(result.preview.html);
     document.getElementById('reminder-text').textContent=result.preview.text||'';
     if(!result.preview.to||!result.preview.html){document.getElementById('reminder-result').textContent='Recipient or rendered preview is missing. Sending is disabled.';return;}
-    review={lead_id:article.dataset.lead,review_hash:result.review_hash,quote_id:result.quote_id,step:step,article:article};
-    document.getElementById('reminder-result').textContent='Review the actual recipient and email below. Check the approval box to enable one manual send.';updateSendPermission();
+    review={lead_id:article.dataset.lead,review_hash:result.review_hash,quote_id:result.quote_id,step:step,article:article,preview_loaded:false,preview_failed:false,preview_sequence:sequence};
+    var frame=document.createElement('iframe');frame.id='reminder-preview';frame.title='Actual quote reminder email preview';frame.setAttribute('sandbox','');frame.setAttribute('referrerpolicy','no-referrer');
+    function currentFrame(){return sequence===previewSequence&&review&&review.preview_sequence===sequence&&document.getElementById('reminder-preview')===frame;}
+    function failedPreview(){
+      if(!currentFrame()||review.preview_loaded)return;
+      clearPreviewTimer();review.preview_failed=true;document.getElementById('reminder-reviewed').checked=false;updateSendPermission();document.getElementById('reminder-preview-retry').hidden=false;
+      document.getElementById('reminder-result').textContent='The rendered email preview could not be confirmed. Sending stays disabled. Plain text is available above; use Retry email preview to review the HTML before approving.';
+    }
+    // A new frame per token prevents an older srcdoc/about:blank load from approving this step.
+    // Attach listeners before assigning srcdoc and inserting the frame.
+    frame.addEventListener('load',function(){
+      if(!currentFrame()||review.preview_failed)return;
+      clearPreviewTimer();review.preview_loaded=true;document.getElementById('reminder-reviewed').checked=false;updateSendPermission();document.getElementById('reminder-result').textContent='Email preview loaded. Review the actual recipient, subject and rendered email, then check the approval box for one manual send.';
+    });
+    frame.addEventListener('error',failedPreview);
+    document.getElementById('reminder-result').textContent='Loading the actual email preview. Approval stays disabled until this preview finishes loading.';
+    frame.srcdoc=securePreview(result.preview.html);document.getElementById('reminder-preview').replaceWith(frame);
+    previewTimer=setTimeout(failedPreview,12000);updateSendPermission();
   }
   async function sendReminder(){
-    if(sending||!review||!document.getElementById('reminder-reviewed').checked)return;
+    if(sending||!review||!review.preview_loaded||review.preview_failed||!document.getElementById('reminder-reviewed').checked)return;
     var approved=review;sending=true;updateSendPermission();
     document.getElementById('reminder-result').textContent='Submitting this reviewed reminder once…';
     var result;
@@ -106,10 +122,11 @@
     document.getElementById('ack-result').textContent=r?.ok?r.scope:r?.error||'Could not save';if(r?.ok)load();
   }
   document.getElementById('reminder-reviewed').onchange=updateSendPermission;
+  document.getElementById('reminder-preview-retry').onclick=function(){if(activeArticle)return openReminder(activeArticle,document.getElementById('reminder-step').value);};
   document.getElementById('reminder-step').onchange=function(){if(activeArticle)return openReminder(activeArticle,this.value);};
   document.getElementById('reminder-send').onclick=sendReminder;
-  document.getElementById('reminder-close').onclick=function(){++previewSequence;review=null;document.getElementById('reminder-dialog').close();updateSendPermission();};
-  document.getElementById('reminder-dialog').addEventListener('cancel',function(){++previewSequence;review=null;updateSendPermission();});
+  document.getElementById('reminder-close').onclick=function(){++previewSequence;clearPreviewTimer();review=null;document.getElementById('reminder-dialog').close();updateSendPermission();};
+  document.getElementById('reminder-dialog').addEventListener('cancel',function(){++previewSequence;clearPreviewTimer();review=null;updateSendPermission();});
   document.getElementById('refresh').onclick=load;document.getElementById('enable').onclick=function(){configure(true);};document.getElementById('disable').onclick=function(){configure(false);};
   Owner.init('catering',load);
 })();
