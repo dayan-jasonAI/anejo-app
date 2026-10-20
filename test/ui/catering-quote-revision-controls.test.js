@@ -14,6 +14,8 @@ function fixture(handler){
     addEventListener(type,fn){this.listeners[type]=fn;}
     getAttribute(key){return this.attributes[key]||'';}
     setAttribute(key,value){this.attributes[key]=value;}
+    showModal(){this.open=true;}
+    close(){this.open=false;}
     scrollIntoView(){}
     focus(){}
     select(){}
@@ -56,7 +58,7 @@ test('ambiguous active quotes require explicit selection and never mint another 
 test('manual delivery stays separate from food, distinguishes unconfirmed and free, rejects malformed amounts',async()=>{
   const f=fixture();await f.api.beginRevision(clone(quote));
   assert.equal(f.api.body().lines[0].cents,9000);assert.equal(f.api.body().delivery_fee_cents,1000);
-  assert.match(f.get('q-delivery-summary').textContent,/Food \$90.00 \+ delivery \$10.00 = quote total \$100.00/);
+  assert.match(f.get('q-delivery-summary').textContent,/Food \$90.00 \+ delivery \/ setup \$10.00 = quote total \$100.00/);
   f.get('q-delivery-fee').value='';assert.equal(f.api.body().delivery_fee_cents,null);
   f.get('q-delivery-fee').value='0';assert.equal(f.api.body().delivery_fee_cents,0);
   for(const invalid of ['-1','abc','3.001']){f.get('q-delivery-fee').value=invalid;assert.ok(Number.isNaN(f.api.deliveryFee()));}
@@ -67,7 +69,7 @@ test('preview and Save changes use one revision with delivery and never send cus
   f.get('q-delivery-fee').value='15.00';f.click('q-create');await f.tick();
   assert.equal(f.calls.filter(x=>x.op==='revise').length,0,'unreviewed changes cannot be saved');
   f.click('q-preview');await f.tick();assert.ok(f.calls.filter(x=>['preview','render'].includes(x.op)).every(x=>x.delivery_fee_cents===1500));
-  f.click('q-create');await f.tick();const saved=f.calls.find(x=>x.op==='revise');assert.ok(saved);assert.equal(saved.quote_id,'cq_synthetic');assert.equal(saved.delivery_fee_cents,1500);assert.equal(saved.lines[0].cents,9000);
+  const saving=f.click('q-create');await f.tick();assert.equal(f.get('q-action-confirm').open,true);assert.equal(f.calls.filter(x=>x.op==='revise').length,0);f.get('q-action-approve').onclick();await saving;await f.tick();const saved=f.calls.find(x=>x.op==='revise');assert.ok(saved);assert.equal(saved.quote_id,'cq_synthetic');assert.equal(saved.delivery_fee_cents,1500);assert.equal(saved.lines[0].cents,9000);
   assert.equal(f.calls.filter(x=>x.op==='create'||x.op==='send').length,0);assert.match(f.get('q-revision-status').textContent,/Changes saved/);
 });
 
@@ -81,7 +83,7 @@ test('duplicate retirement requires exact retained quote, explicit review and ti
   f.api.retire(clone(quote));f.get('q-retire-now').onclick.call(f.get('q-retire-now'));assert.equal(f.calls.length,0);
   f.get('q-retain-quote').value=kept.id;f.get('q-retain-quote').onchange();assert.equal(f.get('q-retire-reviewed').checked,false);
   f.get('q-retire-reviewed').checked=true;f.get('q-retire-reviewed').onchange();
-  f.get('q-retire-now').onclick.call(f.get('q-retire-now'));await f.tick();
+  const pending=f.get('q-retire-now').onclick.call(f.get('q-retire-now'));await f.tick();assert.equal(f.get('q-action-confirm').open,true);assert.match(f.get('q-action-message').textContent,/KEEP: cq_synthetic_keep/);assert.equal(f.calls.length,0);f.get('q-action-approve').onclick();await pending;await f.tick();
   const retired=f.calls.find(x=>x.op==='retire_duplicate');assert.ok(retired);assert.equal(retired.quote_id,'cq_synthetic');assert.equal(retired.replacement_quote_id,kept.id);assert.equal(retired.expected_updated_at,1000);assert.equal(retired.expected_replacement_updated_at,2000);assert.equal(retired.reviewed,true);
   assert.equal(f.calls.filter(x=>x.op==='create'||x.op==='send').length,0);
 });
@@ -100,4 +102,15 @@ test('server duplicate guard retains owner draft and routes it into a chosen rev
   f.get('q-existing-select').value='cq_synthetic';f.get('q-open-existing').onclick();await f.tick();
   const revised=f.api.body();assert.equal(revised.quote_id,'cq_synthetic');assert.equal(revised.total_cents,13500);assert.equal(revised.delivery_fee_cents,1500);
   assert.equal(f.calls.filter(x=>x.op==='create').length,1);assert.equal(f.calls.filter(x=>x.op==='send').length,0);
+});
+
+
+test('in-page revision confirmation can be cancelled and repeated clicks cannot bypass it',async()=>{
+  const f=fixture();f.wire();await f.api.beginRevision(clone(quote));f.click('q-preview');await f.tick();
+  const pending=f.click('q-create');await f.tick();assert.equal(f.get('q-action-confirm').open,true);assert.match(f.get('q-action-message').textContent,/No email or text is sent/);
+  await f.click('q-create');assert.equal(f.calls.filter(x=>x.op==='revise').length,0);
+  f.get('q-action-cancel').onclick();await pending;assert.equal(f.calls.filter(x=>x.op==='revise').length,0);assert.equal(f.get('q-action-confirm').open,false);
+  const confirmed=f.click('q-create');await f.tick();f.get('q-action-approve').onclick();await confirmed;await f.tick();
+  assert.equal(f.calls.filter(x=>x.op==='revise').length,1);assert.equal(f.calls.filter(x=>x.op==='send').length,0);
+  assert.equal(f.confirms.length,0,'revision flow never calls native window.confirm');
 });
