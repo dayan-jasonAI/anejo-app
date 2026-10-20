@@ -1,7 +1,8 @@
 import {square} from './square.js';
+import {editableUnpaidCheckout} from './catering_checkout_state.js';
 const parse=v=>{try{return JSON.parse(v||'{}');}catch{return {};}};
 const failure=error=>({ok:false,error});
-const canceled=(order,id)=>order?.id===id&&order.state==='CANCELED'&&(!Array.isArray(order.tenders)||!order.tenders.length);
+const canceled=(order,id)=>order?.id===id&&order.state==='CANCELED'&&(order.tenders==null||(Array.isArray(order.tenders)&&order.tenders.length===0));
 const result=(source,target,baseUrl)=>({ok:true,quote_id:target.id,retired_quote_id:source.id,retained_quote_id:target.id,quote_url:`${baseUrl}/q/${target.access_token}`,url:target.deposit_status==='unpaid'?target.payment_link_url:undefined,total_cents:target.total_cents,deposit_cents:target.deposit_cents});
 export async function retireDuplicateQuote(env,body,{actor,baseUrl}) {
  if(body.reviewed!==true)return failure('Review the obsolete and retained quotes before retiring a duplicate.');
@@ -30,12 +31,12 @@ export async function retireDuplicateQuote(env,body,{actor,baseUrl}) {
  }
  if(source.updated_at!==journal.source_updated_at||target.updated_at!==journal.target_updated_at)return failure('A quote changed after retirement was reviewed. Owner reconciliation is required.');
  const retained=await square(env,`/v2/orders/${encodeURIComponent(target.square_order_id)}`);
- if(!retained.ok||retained.data?.order?.id!==target.square_order_id||!['OPEN','COMPLETED'].includes(retained.data.order.state)||(target.deposit_status==='unpaid'&&retained.data.order.state!=='OPEN'))return failure('The retained checkout could not be verified as active. No obsolete checkout was retired.');
+ if(!retained.ok||retained.data?.order?.id!==target.square_order_id||(target.deposit_status==='unpaid'?!editableUnpaidCheckout(retained.data.order,target.square_order_id):!['OPEN','COMPLETED'].includes(retained.data.order.state)))return failure('The retained checkout could not be verified as active. No obsolete checkout was retired.');
  if(journal.state==='pending'){
   const before=await square(env,`/v2/orders/${encodeURIComponent(source.square_order_id)}`);
   if(!before.ok||before.data?.order?.id!==source.square_order_id)return failure('Cannot verify the obsolete checkout. Reconcile before retrying.');
   if(!canceled(before.data.order,source.square_order_id)){
-   if(before.data.order.state!=='OPEN'||before.data.order.tenders?.length)return failure('Payment or a non-editable obsolete order blocks retirement. Review the booking.');
+   if(!editableUnpaidCheckout(before.data.order,source.square_order_id))return failure('Payment or a non-editable obsolete order blocks retirement. Review the booking.');
    const retired=await square(env,`/v2/online-checkout/payment-links/${encodeURIComponent(source.payment_link_id)}`,{method:'DELETE'});
    if(!retired.ok||retired.data?.cancelled_order_id!==source.square_order_id)return failure('Obsolete checkout cancellation is unconfirmed. Recover this same retirement before continuing.');
   }

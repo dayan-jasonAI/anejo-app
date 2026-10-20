@@ -27,6 +27,7 @@ import { GIFTS } from '../../../_lib/cake_reveal.js';
 import { sendQuote, quoteUrl, quoteLinesWithImages } from '../../../_lib/catering_quote_delivery.js';
 import { reviseQuote, retireDuplicateQuote } from '../../../_lib/catering_quote_revision.js';
 import { isAvailable, isOrderable } from '../../../_lib/menu.js';
+import {cateringCheckoutStatus} from '../../../_lib/catering_checkout_status.js';
 import { renderLines } from '../../../_lib/catering_terms.js';
 
 export async function normalizeRecommendations(raw, env) {
@@ -222,6 +223,8 @@ export const onRequestPost = async ({ request, env }) => {
   let b;
   try { b = await request.json(); } catch { return bad('Invalid JSON body.'); }
   const op = (b && b.op) || 'create';
+
+  if(op==='checkout_status'){try{const status=await cateringCheckoutStatus(env,b);return json(status,status.ok?200:400,{'Cache-Control':'no-store'});}catch{return bad('Checkout evidence is unavailable. No checkout was changed.',503);}}
 
   let previewDepositPct = DEPOSIT_PCT;
   let inheritedFee = null;
