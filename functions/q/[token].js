@@ -62,13 +62,15 @@ export const onRequestGet = async ({ params, request, env }) => {
   if (!row) return notFound(override || 'en');
 
   // Original email links remain useful after a safely completed replacement.
-  const successor = await env.DB.prepare("SELECT q.access_token FROM catering_quote_revisions r JOIN catering_quotes q ON q.id=r.replacement_quote_id WHERE r.source_quote_id=? AND r.state='complete'").bind(row.id).first().catch(() => null);
+  const successor = await env.DB.prepare("SELECT q.access_token FROM catering_quote_revisions r JOIN catering_quotes q ON q.id=r.replacement_quote_id WHERE r.source_quote_id=? AND r.state='complete' UNION ALL SELECT q.access_token FROM catering_quote_duplicate_retirements d JOIN catering_quotes q ON q.id=d.target_quote_id WHERE d.source_quote_id=? AND d.state='complete'").bind(row.id,row.id).first().catch(() => null);
   if (successor?.access_token && /^[a-f0-9]{32}$/.test(successor.access_token)) {
     return new Response(null, {status:302,headers:{Location:'/q/'+successor.access_token+url.search,'Cache-Control':'no-store','Referrer-Policy':'no-referrer'}});
   }
   if (row.deposit_status === 'void') return notFound(override || row.lang || 'en');
   // A journal prevents an old quote from advertising payment while retirement recovers.
   try {
+    const duplicate=await env.DB.prepare("SELECT source_quote_id FROM catering_quote_duplicate_retirements WHERE source_quote_id=? AND state!='complete'").bind(row.id).first();
+    if(duplicate&&row.deposit_status!=='paid')return notFound(override||row.lang||'en');
     const revision = await env.DB.prepare("SELECT source_quote_id FROM catering_quote_revisions WHERE source_quote_id = ? OR (replacement_quote_id = ? AND state != 'complete')").bind(row.id, row.id).first();
     if (revision && row.deposit_status !== 'paid') {
       if (url.searchParams.get('edit') === '1') return html('<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Añejo · Recover quote changes</title><body style="margin:0;background:#0b1f0a">' + customerQuoteEditor(token, override || row.lang || 'en') + '</body>');

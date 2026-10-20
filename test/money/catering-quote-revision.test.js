@@ -10,7 +10,7 @@ import { onRequestGet } from '../../functions/q/[token].js';
 
 function fixture(status = 'unpaid') {
   const sql = new DatabaseSync(':memory:');
-  for (const f of ['0085_catering_quotes_deposits.sql','0101_catering_quote_delivery.sql','0147_catering_quote_revisions.sql']) sql.exec(readFileSync(new URL('../../migrations/' + f, import.meta.url), 'utf8'));
+  for (const f of ['0085_catering_quotes_deposits.sql','0101_catering_quote_delivery.sql','0147_catering_quote_revisions.sql','0154_catering_quote_creation_claim.sql']) sql.exec(readFileSync(new URL('../../migrations/' + f, import.meta.url), 'utf8'));
   sql.exec('ALTER TABLE catering_quotes ADD COLUMN source_lead_id TEXT');
   sql.prepare(`INSERT INTO catering_quotes(id,customer_name,customer_email,customer_phone,event_date,guests,total_cents,deposit_pct,deposit_cents,balance_cents,deposit_status,square_order_id,payment_link_id,payment_link_url,terms_version,terms_json,quote_json,created_at,updated_at,access_token) VALUES ('old','Test Guest','guest@example.test','5615550101','2027-01-01',30,10000,.5,5000,5000,?,'order_old','link_old','https://square.link/old','v1','{}','{"lead_id":"lead1"}',1,1,'11111111111111111111111111111111')`).run(status);
   function prep(query, args = []) { return { bind: (...a) => prep(query, a), first: async () => sql.prepare(query).get(...args) || null, run: async () => ({ meta: { changes: Number(sql.prepare(query).run(...args).changes) } }) }; }

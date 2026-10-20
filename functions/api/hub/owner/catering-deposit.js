@@ -430,6 +430,8 @@ export const onRequestPost = async ({ request, env }) => {
     } catch { return bad('Could not read that quote.', 500); }
     if (!row) return bad('No such quote.', 404);
     if (row.deposit_status !== 'unpaid') return bad('Only an active unpaid quote may be sent.', 409);
+    const retiring=await env.DB.prepare("SELECT source_quote_id FROM catering_quote_duplicate_retirements WHERE (source_quote_id=? OR target_quote_id=?) AND state!='complete'").bind(qid,qid).first();
+    if(retiring)return bad('Finish recovering the duplicate retirement before sending this quote.',409);
     try {
       const revising = await env.DB.prepare("SELECT source_quote_id FROM catering_quote_revisions WHERE source_quote_id = ? OR (replacement_quote_id = ? AND state != 'complete')").bind(qid, qid).first();
       if (revising) return bad('This quote is being replaced. Recover and send the replacement.', 409);

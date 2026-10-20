@@ -12,6 +12,7 @@ import { readFileSync } from 'node:fs';
 import { mintAccessToken, normalizePhone, quoteSms, quoteUrl, quoteEmailArgs, loadQuoteEmailArgs, quoteLinesWithImages, sendQuote }
   from '../../functions/_lib/catering_quote_delivery.js';
 import { onRequestGet } from '../../functions/q/[token].js';
+import {makeSqliteD1} from '../helpers/sqlite-d1.js';
 
 const TOKEN = 'a1b2c3d4e5f60718293a4b5c6d7e8f90';
 const TERMS = { balance_due_date: '2026-09-14', final_count_due: '2026-09-09', deposit_cents: 40794,
@@ -29,6 +30,17 @@ const rowFor = (over = {}) => ({
   terms_json: JSON.stringify(TERMS), quote_json: JSON.stringify(BREAKDOWN),
   access_token: TOKEN, lang: 'es', ...over,
 });
+
+// Hosted quotes must run through actual schema-backed revision/duplicate reads;
+// a generic mock that returns the quote for every SELECT invents pending journals.
+function quotePageDb(row=rowFor()) {
+  const db=makeSqliteD1();
+  const columns=new Set(db.sqlite.prepare('PRAGMA table_info(catering_quotes)').all().map(c=>c.name));
+  const saved={terms_version:'fixture-v1',created_at:1,updated_at:1,...row};
+  const keys=Object.keys(saved).filter(key=>columns.has(key));
+  db.sqlite.prepare(`INSERT INTO catering_quotes(${keys.join(',')}) VALUES(${keys.map(()=>'?').join(',')})`).run(...keys.map(key=>saved[key]));
+  return db;
+}
 
 // Providers stubbed at the module boundary via env: no network, no messages, ever.
 function makeEnv({ emailOk = true, twilio = true, suppressed = false } = {}) {
@@ -96,7 +108,7 @@ test('a missing quote and a wrong token give the SAME answer', async () => {
 
 test('the quote page is never cached or indexed', async () => {
   const { env } = makeEnv();
-  const db = { ...env.DB, prepare: (sql) => ({ bind: () => ({ first: async () => /catering_quote_revisions/.test(sql) ? null : rowFor() }) }) };
+  const db = quotePageDb();
   const res = await onRequestGet({ params: { token: TOKEN }, env: { ...env, DB: db },
     request: new Request(`https://anejocateringco.com/q/${TOKEN}`) });
   assert.equal(res.status, 200);
@@ -108,7 +120,7 @@ test('the quote page is never cached or indexed', async () => {
 
 test('the page renders the SAME quote the email does, in the language it was sent in', async () => {
   const { env } = makeEnv();
-  const db = { prepare: (sql) => ({ bind: () => ({ first: async () => /catering_quote_revisions/.test(sql) ? null : rowFor() }) }) };
+  const db = quotePageDb();
   const res = await onRequestGet({ params: { token: TOKEN }, env: { ...env, DB: db },
     request: new Request(`https://anejocateringco.com/q/${TOKEN}`) });
   const body = await res.text();
@@ -121,7 +133,7 @@ test('the page renders the SAME quote the email does, in the language it was sen
 
 test('a visitor can switch language, and only that', async () => {
   const { env } = makeEnv();
-  const db = { prepare: (sql) => ({ bind: () => ({ first: async () => /catering_quote_revisions/.test(sql) ? null : rowFor() }) }) };
+  const db = quotePageDb();
   const res = await onRequestGet({ params: { token: TOKEN }, env: { ...env, DB: db },
     request: new Request(`https://anejocateringco.com/q/${TOKEN}?lang=en`) });
   const body = await res.text();
@@ -131,7 +143,7 @@ test('a visitor can switch language, and only that', async () => {
 
 test('once the deposit is paid the page stops asking for it again', async () => {
   const { env } = makeEnv();
-  const db = { prepare: (sql) => ({ bind: () => ({ first: async () => /catering_quote_revisions/.test(sql) ? null : rowFor({ deposit_status: 'paid' }) }) }) };
+  const db = quotePageDb(rowFor({deposit_status:'paid'}));
   const res = await onRequestGet({ params: { token: TOKEN }, env: { ...env, DB: db },
     request: new Request(`https://anejocateringco.com/q/${TOKEN}`) });
   const body = await res.text();

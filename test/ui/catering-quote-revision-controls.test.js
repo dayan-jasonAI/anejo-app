@@ -85,3 +85,19 @@ test('duplicate retirement requires exact retained quote, explicit review and ti
   const retired=f.calls.find(x=>x.op==='retire_duplicate');assert.ok(retired);assert.equal(retired.quote_id,'cq_synthetic');assert.equal(retired.replacement_quote_id,kept.id);assert.equal(retired.expected_updated_at,1000);assert.equal(retired.expected_replacement_updated_at,2000);assert.equal(retired.reviewed,true);
   assert.equal(f.calls.filter(x=>x.op==='create'||x.op==='send').length,0);
 });
+
+
+test('unavailable existing-quote lookup blocks starting another checkout from the request',()=>{
+  const f=fixture(),button=new f.Element();button.attributes['data-prefill']=JSON.stringify({lead_id:'ld_synthetic',quote_lookup_unavailable:true});
+  f.api.wireRequests({querySelectorAll:()=>[button]});button.listeners.click();
+  assert.equal(f.get('q-create').disabled,true);assert.equal(f.calls.length,0);assert.match(f.get('q-revision-status').textContent,/lookup is unavailable/);
+});
+
+test('server duplicate guard retains owner draft and routes it into a chosen revision without replaying create',async()=>{
+  const f=fixture(body=>body.op==='create'?{ok:false,requires_revision:true,existing_quote_id:'cq_synthetic',error:'Use existing revision'}:{ok:true});
+  f.api.setQuotes([clone(quote)]);f.wire();f.get('q-name').value='Synthetic Guest';f.get('q-email').value=quote.customer_email;f.get('q-date').value=quote.event_date;f.get('q-guests').value='35';f.get('q-total').value='120.00';f.get('q-delivery-fee').value='15.00';
+  f.click('q-create');await f.tick();assert.equal(f.get('q-create').disabled,true);
+  f.get('q-existing-select').value='cq_synthetic';f.get('q-open-existing').onclick();await f.tick();
+  const revised=f.api.body();assert.equal(revised.quote_id,'cq_synthetic');assert.equal(revised.total_cents,13500);assert.equal(revised.delivery_fee_cents,1500);
+  assert.equal(f.calls.filter(x=>x.op==='create').length,1);assert.equal(f.calls.filter(x=>x.op==='send').length,0);
+});

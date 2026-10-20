@@ -17,7 +17,14 @@ export async function createUniqueCateringQuote(env,payload) {
  let claim=await env.DB.prepare('SELECT * FROM catering_quote_creations WHERE creation_key=? OR lead_id=?').bind(creationKey,lead||null).first();
  if(claim){
   const row=await env.DB.prepare('SELECT * FROM catering_quotes WHERE id=?').bind(claim.quote_id).first();
-  if(row){if(row.deposit_status!=='unpaid')return {ok:false,error:'The original checkout is no longer payable. Open its current quote or booking instead.',existing_quote_id:row.id,requires_revision:true};
+  if(row){if(row.deposit_status!=='unpaid'){
+    let current=row;const seen=new Set();
+    for(let n=0;n<8&&current?.deposit_status==='void'&&!seen.has(current.id);n++){
+      seen.add(current.id);const revision=await env.DB.prepare("SELECT replacement_quote_id FROM catering_quote_revisions WHERE source_quote_id=? AND state='complete' UNION ALL SELECT target_quote_id AS replacement_quote_id FROM catering_quote_duplicate_retirements WHERE source_quote_id=? AND state='complete'").bind(current.id,current.id).first();
+      if(!revision)break;current=await env.DB.prepare('SELECT * FROM catering_quotes WHERE id=?').bind(revision.replacement_quote_id).first();
+    }
+    return {ok:false,error:'The original checkout is no longer payable. Open its current quote or booking instead.',existing_quote_id:current?.id||row.id,requires_revision:true};
+   }
    const revising=await env.DB.prepare('SELECT source_quote_id FROM catering_quote_revisions WHERE source_quote_id=? OR (replacement_quote_id=? AND state!=\'complete\')').bind(row.id,row.id).first();
    if(revising)return {ok:false,error:'This quote is being revised. Recover its current replacement instead of creating another.',existing_quote_id:row.id,requires_revision:true};
    if(claim.request_hash!==requestHash)return {ok:false,error:'This request already has a quote. Open and revise it instead of creating another.',existing_quote_id:row.id,requires_revision:true};await env.DB.prepare("UPDATE catering_quote_creations SET state='complete',updated_at=? WHERE creation_key=?").bind(Date.now(),creationKey).run();return {ok:true,quote_id:row.id,quote_url:`${payload.baseUrl}/q/${row.access_token}`,url:row.payment_link_url,total_cents:row.total_cents,deposit_cents:row.deposit_cents,balance_cents:row.balance_cents,replayed:true};}

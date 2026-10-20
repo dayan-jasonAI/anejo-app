@@ -45,6 +45,8 @@ export async function reviseQuote(env, body, { actor, baseUrl, approvedLines, ap
   const source = await env.DB.prepare('SELECT * FROM catering_quotes WHERE id = ?').bind(sourceId).first();
   if (!source) return { ok: false, error: 'Quote not found.' };
   const unfinishedParent = await env.DB.prepare("SELECT source_quote_id FROM catering_quote_revisions WHERE replacement_quote_id = ? AND state != 'complete'").bind(sourceId).first();
+  const duplicateLock=await env.DB.prepare("SELECT source_quote_id FROM catering_quote_duplicate_retirements WHERE (target_quote_id=? OR source_quote_id=?) AND state!='complete'").bind(sourceId,sourceId).first();
+  if(duplicateLock)return {ok:false,error:'Finish recovering the duplicate retirement before revising this quote.'};
   if (unfinishedParent) return { ok: false, error: 'Finish recovering the earlier revision before revising its replacement.' };
   let journal = await env.DB.prepare('SELECT * FROM catering_quote_revisions WHERE source_quote_id = ?').bind(sourceId).first();
   if (journal && ((approvedLines && JSON.stringify(JSON.parse(journal.payload_json).quoteBreakdown.lines) !== JSON.stringify(approvedLines)) || (approvedGuests !== undefined && JSON.parse(journal.payload_json).guests !== approvedGuests))) return { ok: false, error: 'Another revision was saved first. Reload and review its total before continuing.' };
@@ -62,7 +64,7 @@ export async function reviseQuote(env, body, { actor, baseUrl, approvedLines, ap
     if (!parsed.ok) return parsed;
     await env.DB.prepare(`INSERT OR IGNORE INTO catering_quote_revisions
       (source_quote_id,replacement_quote_id,access_token,payload_json,source_updated_at,state,created_by,created_at,updated_at)
-      SELECT ?,?,?,?,?,'pending',?,?,? WHERE EXISTS (SELECT 1 FROM catering_quotes WHERE id=? AND deposit_status='unpaid' AND updated_at=?) AND NOT EXISTS (SELECT 1 FROM catering_quote_revisions WHERE replacement_quote_id=? AND state!='complete')`).bind(sourceId, id('cq'), mintAccessToken(), JSON.stringify(parsed.payload), source.updated_at, actor, Date.now(), Date.now(), sourceId, source.updated_at,sourceId).run();
+      SELECT ?,?,?,?,?,'pending',?,?,? WHERE EXISTS (SELECT 1 FROM catering_quotes WHERE id=? AND deposit_status='unpaid' AND updated_at=?) AND NOT EXISTS (SELECT 1 FROM catering_quote_revisions WHERE replacement_quote_id=? AND state!='complete') AND NOT EXISTS(SELECT 1 FROM catering_quote_duplicate_retirements WHERE (target_quote_id=? OR source_quote_id=?) AND state!='complete')`).bind(sourceId, id('cq'), mintAccessToken(), JSON.stringify(parsed.payload), source.updated_at, actor, Date.now(), Date.now(), sourceId, source.updated_at,sourceId,sourceId,sourceId).run();
     journal = await env.DB.prepare('SELECT * FROM catering_quote_revisions WHERE source_quote_id = ?').bind(sourceId).first();
     if (!journal) return { ok: false, error: 'Could not save the revision. Nothing retired.' };
   }
@@ -100,34 +102,4 @@ export async function reviseQuote(env, body, { actor, baseUrl, approvedLines, ap
   return { ...created, customer_email: payload.customerEmail, customer_phone: payload.customerPhone, revision_of: sourceId };
 }
 
-// Obsolete duplicate retirement reuses the verified replacement journal. The
-// target already exists, so createDepositCheckout returns it without provider POST.
-export async function retireDuplicateQuote(env,body,{actor,baseUrl}) {
- if(body.reviewed!==true)return {ok:false,error:'Review the obsolete and retained quotes before retiring a duplicate.'};
- const source=await env.DB.prepare('SELECT * FROM catering_quotes WHERE id=?').bind(String(body.quote_id||'')).first();
- const target=await env.DB.prepare('SELECT * FROM catering_quotes WHERE id=?').bind(String(body.replacement_quote_id||'')).first();
- if(!source||!target||source.id===target.id)return {ok:false,error:'Select two different existing quotes.'};
- if(!target.square_order_id||!target.payment_link_id||!target.access_token)return {ok:false,error:'The retained quote needs a verified existing checkout.'};
- const targetRevision=await env.DB.prepare('SELECT source_quote_id FROM catering_quote_revisions WHERE source_quote_id=?').bind(target.id).first();
- if(targetRevision)return {ok:false,error:'The retained quote is being revised. Recover its final replacement first.'};
- const targetOrder=await square(env,`/v2/orders/${encodeURIComponent(target.square_order_id)}`);
- if(!targetOrder.ok||targetOrder.data?.order?.id!==target.square_order_id||!['OPEN','COMPLETED'].includes(targetOrder.data.order.state)||(target.deposit_status==='unpaid'&&targetOrder.data.order.state!=='OPEN'))return {ok:false,error:'The retained checkout could not be verified as active. No obsolete checkout was retired.'};
- let saved=await env.DB.prepare('SELECT * FROM catering_quote_revisions WHERE source_quote_id=?').bind(source.id).first();
- if(saved){if(saved.replacement_quote_id!==target.id)return {ok:false,error:'This source already belongs to another revision. Recover it first.'};return reviseQuote(env,{quote_id:source.id},{actor,baseUrl});}
- if(source.deposit_status!=='unpaid'||!['unpaid','paid'].includes(target.deposit_status))return {ok:false,error:'Only an unpaid obsolete quote may be retired in favor of an active quote.'};
- if(Number(body.expected_updated_at)!==source.updated_at||Number(body.expected_replacement_updated_at)!==target.updated_at)return {ok:false,error:'A quote changed. Reload both quotes before retiring the duplicate.'};
- const email=v=>String(v||'').trim().toLowerCase(),phone=v=>String(v||'').replace(/\D/g,'').replace(/^1(?=\d{10}$)/,'');
- let old={},next={};try{old=JSON.parse(source.quote_json||'{}');next=JSON.parse(target.quote_json||'{}');}catch{return {ok:false,error:'Quote metadata needs owner review.'};}
- const sourceLead=source.source_lead_id||old.lead_id,targetLead=target.source_lead_id||next.lead_id;
- const sameLead=sourceLead&&targetLead&&sourceLead===targetLead;
- const sameContact=email(source.customer_email)&&email(source.customer_email)===email(target.customer_email)&&phone(source.customer_phone).length===10&&phone(source.customer_phone)===phone(target.customer_phone);
- if(source.event_date!==target.event_date||(!sameLead&&!sameContact))return {ok:false,error:'Quotes must belong to the same event and verified customer or request.'};
- // Never construct a replacement amount: freeze the already-saved target as-is.
- const payload={retainedTargetUpdatedAt:target.updated_at,totalCents:target.total_cents,guests:target.guests,eventDate:target.event_date,customerName:target.customer_name,customerEmail:target.customer_email,customerPhone:target.customer_phone,lang:target.lang,note:target.note,depositPct:target.deposit_pct,fixedTerms:JSON.parse(target.terms_json||'{}'),quoteBreakdown:next};
- await env.DB.prepare(`INSERT OR IGNORE INTO catering_quote_revisions(source_quote_id,replacement_quote_id,access_token,payload_json,source_updated_at,state,created_by,created_at,updated_at) SELECT ?,?,?,?,?,'pending',?,?,? WHERE EXISTS(SELECT 1 FROM catering_quotes WHERE id=? AND deposit_status='unpaid' AND updated_at=?) AND EXISTS(SELECT 1 FROM catering_quotes WHERE id=? AND deposit_status IN ('unpaid','paid') AND updated_at=?) AND NOT EXISTS(SELECT 1 FROM catering_quote_revisions WHERE source_quote_id=?)`).bind(source.id,target.id,target.access_token,JSON.stringify(payload),source.updated_at,actor,Date.now(),Date.now(),source.id,source.updated_at,target.id,target.updated_at,target.id).run();
- saved=await env.DB.prepare('SELECT * FROM catering_quote_revisions WHERE source_quote_id=?').bind(source.id).first();
- if(!saved||saved.replacement_quote_id!==target.id)return {ok:false,error:'Duplicate retirement was not claimed. Reload before continuing.'};
- const result=await reviseQuote(env,{quote_id:source.id},{actor,baseUrl});
- if(result.ok)await env.DB.prepare("INSERT INTO activity_log(id,event,actor_id,actor_role,actor_type,properties,created_at) VALUES(?,'catering.quote_duplicate.retired',?,'owner','human',?,?)").bind(id('act'),actor,JSON.stringify({source_quote_id:source.id,retained_quote_id:target.id,provider_cancellation_verified:true}),Date.now()).run();
- return {...result,retired_quote_id:result.ok?source.id:undefined,retained_quote_id:target.id};
-}
+export {retireDuplicateQuote} from './catering_quote_duplicates.js';

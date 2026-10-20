@@ -30,6 +30,7 @@
   .rbody{margin-top:10px;padding:10px 12px;background:var(--cream);border-radius:9px;color:var(--muted);font-size:13px;line-height:1.55;white-space:pre-line}
   .ractions{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}.ractions .btn{width:auto}
   .rfiles{margin-top:10px;padding:10px 12px;border:1px solid var(--line);border-radius:9px;background:#faf8f2}.rfiles b{display:block;color:var(--green);font-size:12px;margin-bottom:5px}.rfiles a{display:block;font-size:12.5px;line-height:1.6;word-break:break-word}
+  .q-line{display:grid!important;grid-template-columns:minmax(0,2fr) minmax(0,.8fr) minmax(0,1fr) 44px;gap:6px!important}.q-line input{min-width:0!important;width:100%}.q-line button{min-width:44px;min-height:44px}.qcard .btn{white-space:normal;min-height:44px}
   .q-editor-status{padding:14px;border-left:4px solid var(--gold);background:var(--cream);line-height:1.6;color:var(--green)}.q-existing-choice{padding:16px;border:1px solid var(--line);border-radius:10px;margin-bottom:16px}.q-existing-choice select,.q-existing-choice button{min-height:44px;width:100%;margin:8px 0}.qcard [data-revise]{min-height:48px;background:var(--green);color:#fff}
   .cajita-review-summary{white-space:pre-wrap;overflow-wrap:anywhere;font:inherit}
 </style>
@@ -310,7 +311,7 @@
       '<div class="field"><label for="q-total">Agreed food subtotal (dollars)</label><input id="q-total" type="text" inputmode="decimal" placeholder="1200.00"></div>' +
       '<div class="field"><label for="q-delivery-fee">Delivery fee (dollars)</label><input id="q-delivery-fee" type="text" inputmode="decimal" placeholder="Leave blank until confirmed" aria-describedby="q-delivery-help q-delivery-summary"><p class="row-sub" id="q-delivery-help">Delivery only. Enter the fee you approved for distance and order size. Blank means unconfirmed, not free. Enter 0 only when you approve free delivery.</p><p id="q-delivery-summary" class="row-sub" role="status"></p></div>' +
       '<fieldset style="border:1px solid var(--line);border-radius:10px;padding:14px;margin:14px 0"><legend>Optional signature croquetas</legend><p class="row-sub">Choose a published pack for this party. Excluded from the quote total and deposit; the customer can ask about it before you add it.</p><label for="q-recommendation">Pack and filling</label><select id="q-recommendation"><option value="">No recommendation</option></select><label for="q-recommendation-packs">Number of packs</label><input id="q-recommendation-packs" type="number" min="1" max="20" step="1" value="1"><p id="q-recommendation-summary" class="row-sub" role="status"></p></fieldset>' +
-      '<button id="q-revision-cancel" class="btn ghost" type="button" hidden>Exit revision / new quote</button>' +
+      '<button id="q-revision-cancel" class="btn ghost" type="button" hidden>Exit revision · return to quote list</button>' +
       '<div class="field"><label>Note (optional)</label><input id="q-note" type="text"></div>' +
       // WHAT SHE READ THE SITE IN IS NOT ALWAYS WHAT SHE WANTS TO BE SOLD IN. The quote defaults
       // to the language on her lead, and this overrides it. Dayan hit exactly this on 2026-09-09:
@@ -578,8 +579,12 @@
     root.querySelectorAll('[data-prefill]').forEach(function (btn) {
       btn.addEventListener('click', function () {
         var selectedRequest;try{selectedRequest=JSON.parse(btn.getAttribute('data-prefill')||'{}');}catch(_error){selectedRequest={};}
-        if(selectedRequest.quote_lookup_unavailable){Hub.toast('Existing quote lookup is unavailable. Refresh the quote list before starting another checkout.');return;}
+        if(selectedRequest.quote_lookup_unavailable){document.getElementById('q-create').disabled=true;document.getElementById('q-revision-status').textContent='Existing quote lookup is unavailable. Refresh before creating a checkout for this request.';Hub.toast('Existing quote lookup is unavailable. Refresh the quote list before starting another checkout.');return;}
         var existing=(selectedRequest.existing_quote_ids||[]).map(function(id){return quoteCache.find(function(q){return q.id===id;});}).filter(Boolean);
+        if((selectedRequest.existing_quote_ids||[]).length&&existing.length!==selectedRequest.existing_quote_ids.length){
+          document.getElementById('q-create').disabled=true;document.getElementById('q-revision-status').textContent='Refreshing existing quote records before any new checkout can be created…';
+          Owner.get(ENDPOINT).then(function(fresh){if(!fresh?.ok){Hub.toast('Could not verify the existing quote. No new checkout was created.');return;}quoteCache=fresh.quotes||[];var current=quoteCache.filter(function(q){return selectedRequest.existing_quote_ids.includes(q.id)&&q.deposit_status!=='void';});if(current.length===1)beginRevision(current[0],selectedRequest.lead_id);else showExistingChoice(current,selectedRequest.lead_id);});return;
+        }
         if(existing.length===1){beginRevision(existing[0],selectedRequest.lead_id);return;}
         if(existing.length>1){showExistingChoice(existing,selectedRequest.lead_id);return;}
         document.getElementById('q-existing-choice').innerHTML='';document.getElementById('q-delivery-fee').value='';

@@ -15,7 +15,7 @@ export async function customerQuote(env, token, follow = false) {
   for (let n = 0; q && n < 8; n++) {
     if (seen.has(q.id)) return null;
     seen.add(q.id);
-    const r = await env.DB.prepare("SELECT * FROM catering_quote_revisions WHERE source_quote_id = ? AND state = 'complete'").bind(q.id).first();
+    const r = await env.DB.prepare("SELECT replacement_quote_id FROM catering_quote_revisions WHERE source_quote_id = ? AND state = 'complete' UNION ALL SELECT target_quote_id AS replacement_quote_id FROM catering_quote_duplicate_retirements WHERE source_quote_id=? AND state='complete'").bind(q.id,q.id).first();
     if (!r) return q;
     q = await env.DB.prepare('SELECT * FROM catering_quotes WHERE id = ?').bind(r.replacement_quote_id).first();
   }
@@ -47,7 +47,8 @@ export async function getCustomerEdit(env, token) {
     const lines = payload.quoteBreakdown.lines;
     recovery = { expected_updated_at: journal.source_updated_at, preview_fingerprint: await editFingerprint({ ...q, updated_at: journal.source_updated_at }, lines, payload.guests), guests: payload.guests, lines, total_cents: payload.totalCents, deposit_cents: Math.round(payload.totalCents * payload.depositPct) };
   }
-  const eligible = journal && journal.created_by !== 'customer:self-service' ? fail('Añejo is updating your quote. Please wait for the updated quote or request a call.') : recovery ? fail('A saved revision is awaiting recovery. Resume the saved changes before making another edit.') : editableQuote(q);
+  const duplicate=await env.DB.prepare("SELECT source_quote_id FROM catering_quote_duplicate_retirements WHERE (source_quote_id=? OR target_quote_id=?) AND state!='complete'").bind(q.id,q.id).first();
+  const eligible = duplicate?fail('Añejo is reconciling this quote. Please wait for the current quote.'):journal && journal.created_by !== 'customer:self-service' ? fail('Añejo is updating your quote. Please wait for the updated quote or request a call.') : recovery ? fail('A saved revision is awaiting recovery. Resume the saved changes before making another edit.') : editableQuote(q);
   return { ok: true, recovery, editable: eligible.ok, error: eligible.error, quote: { id: q.id, token: q.access_token, event_date: q.event_date, guests: q.guests, updated_at: q.updated_at, total_cents: q.total_cents, lines: quoteLinesWithImages(parse(q).lines || [], menu).map((l, i) => ({ key: String(i), name: l.name, name_es: l.name_es, detail: l.detail, detail_es: l.detail_es, image: l.image, cents: l.cents, qty: Number(l.qty) })) }, catalog: items.map(i => ({ id: i.id, name: i.name, name_es: i.name_es, price_cents: i.price_cents, image: i.image || i.img })) };
 }
 export async function editFingerprint(q, lines, guests = q.guests) {
@@ -55,6 +56,8 @@ export async function editFingerprint(q, lines, guests = q.guests) {
   return [...new Uint8Array(await crypto.subtle.digest('SHA-256', bytes))].map(n => n.toString(16).padStart(2, '0')).join('');
 }
 export async function previewCustomerEdit(env, q, body) {
+  const duplicate=await env.DB.prepare("SELECT source_quote_id FROM catering_quote_duplicate_retirements WHERE (source_quote_id=? OR target_quote_id=?) AND state!='complete'").bind(q.id,q.id).first();
+  if(duplicate)return fail('Añejo is reconciling this quote. Please wait for the current quote.');
   const journal = await env.DB.prepare('SELECT * FROM catering_quote_revisions WHERE source_quote_id = ?').bind(q.id).first();
   if (journal) return fail('A saved revision already exists. Reload to resume it instead of changing the saved prices.');
   const eligible = editableQuote(q);
