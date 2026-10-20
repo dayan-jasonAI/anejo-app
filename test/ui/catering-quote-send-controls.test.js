@@ -63,7 +63,7 @@ test('the customer can only be contacted from a second, named button', () => {
 });
 
 test('the preview renders the actual email, sandboxed', () => {
-  assert.match(PAGE, /op: 'render'/, 'the preview asks the server for the real rendered email');
+  assert.match(PAGE, /op:\s*'render'/, 'the preview asks the server for the real rendered email');
   assert.match(PAGE, /<iframe sandbox=""/, 'a customer-facing document gets no script and no same-origin');
   assert.match(PAGE, /Read the email she would get/);
 });

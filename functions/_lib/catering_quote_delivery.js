@@ -147,7 +147,7 @@ export function quoteEmailArgs(row, { lang, baseUrl = SITE, menu } = {}) {
  * already written the row and minted a payment link, and losing that because Resend was down
  * would be the worse outcome by a distance.
  */
-export async function sendQuote(env, row, { baseUrl = SITE, force = false } = {}) {
+export async function sendQuote(env, row, { baseUrl = SITE, force = false, reviewedEmail = null } = {}) {
   const result = { ok: true, quote_id: row?.id || null, email: { sent: false }, sms: { sent: false } };
   if (!row || !row.access_token) {
     return { ...result, ok: false, error: 'This quote has no access token, so there is no link to send.' };
@@ -165,7 +165,7 @@ export async function sendQuote(env, row, { baseUrl = SITE, force = false } = {}
     // A previous hard bounce or unsubscribe. Sending anyway is how a sending domain dies.
     result.email = { sent: false, skipped: 'address is suppressed' };
   } else {
-    const { subject, html, text } = cateringQuoteEmail(await loadQuoteEmailArgs(env, row, { lang, baseUrl }));
+    const { subject, html, text } = reviewedEmail || cateringQuoteEmail(await loadQuoteEmailArgs(env, row, { lang, baseUrl }));
     // sendEmail THROWS on a provider error and returns the Resend body on success; a suppressed
     // address comes back as { skipped: true }. There is no `.ok` on it — checking for one is how
     // a successful send reads as a failure.
@@ -187,7 +187,8 @@ export async function sendQuote(env, row, { baseUrl = SITE, force = false } = {}
     }).catch((e) => ({ error: String((e && e.message) || e).slice(0, 200) }));
     if (sent && sent.error) result.email = { sent: false, error: sent.error };
     else if (sent && sent.skipped) result.email = { sent: false, skipped: `address is suppressed (${sent.suppressed || 'unknown'})` };
-    else result.email = { sent: true, at: t, owner_copy: Boolean(bcc) };
+    else if(typeof sent?.id==='string' && /^[A-Za-z0-9_-]{1,192}$/.test(sent.id)) result.email = { sent: true, at: t, receipt_id:sent.id, provider_accepted:true,delivery_verified:false,owner_copy: Boolean(bcc) };
+    else result.email={sent:false,error:'Provider acceptance is unverified; reconcile before retrying.'};
   }
 
   // ---------------------------------------------------------------- text

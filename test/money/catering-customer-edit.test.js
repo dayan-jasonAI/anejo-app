@@ -7,7 +7,7 @@ import { onRequestGet, onRequestPost } from '../../functions/api/catering-quote-
 const token = '11111111111111111111111111111111';
 function fixture() {
   const sql = new DatabaseSync(':memory:');
-  for (const f of ['0085_catering_quotes_deposits.sql','0101_catering_quote_delivery.sql','0147_catering_quote_revisions.sql','0154_catering_quote_creation_claim.sql']) sql.exec(readFileSync(new URL('../../migrations/' + f, import.meta.url), 'utf8'));
+  for (const f of ['0085_catering_quotes_deposits.sql','0101_catering_quote_delivery.sql','0147_catering_quote_revisions.sql','0154_catering_quote_creation_claim.sql','0156_catering_quote_send_review.sql']) sql.exec(readFileSync(new URL('../../migrations/' + f, import.meta.url), 'utf8'));
   sql.exec('ALTER TABLE catering_quotes ADD COLUMN source_lead_id TEXT');
   const breakdown = { lead_id: 'lead1', delivery_fee_cents: 0, event_time: '18:00', lines: [{ name: 'Owner-priced roast pork', qty: '35', cents: 4625 }] };
   sql.prepare(`INSERT INTO catering_quotes(id,customer_name,customer_email,customer_phone,event_date,guests,total_cents,deposit_pct,deposit_cents,balance_cents,deposit_status,square_order_id,payment_link_id,payment_link_url,terms_version,terms_json,quote_json,created_at,updated_at,access_token) VALUES ('old','Test Guest','guest@example.test','5615550101','2099-01-01',35,4625,.5,2313,2312,'unpaid','order_old','link_old','https://square.link/old','v1','{}',?,1,1,?)`).run(JSON.stringify(breakdown), token);

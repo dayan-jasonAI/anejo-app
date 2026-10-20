@@ -81,6 +81,9 @@ export function normalizeQuoteLines(raw) {
       qty: text(row.qty, MAX_QTY) || undefined,
       cents,
       image: image || undefined,
+      ...(['catalog','custom','quoted'].includes(row.pricing_mode) ? {pricing_mode:row.pricing_mode} : {}),
+      ...(Number.isSafeInteger(row.unit_cents) && row.unit_cents >= 0 ? {unit_cents:row.unit_cents} : {}),
+      ...(row.override_reason ? {override_reason:text(row.override_reason,MAX_DETAIL)} : {}),
     });
     subtotal += cents;
   }

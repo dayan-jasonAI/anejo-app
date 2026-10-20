@@ -1,6 +1,7 @@
 // Provider-confirmed replacement, with durable identities before external effects.
 // Square DELETE cancels the associated order. Never infer retirement from 404/timeouts:
 // https://developer.squareup.com/reference/square/checkout-api/delete-payment-link
+import {sendInProgress} from './catering_quote_send_review.js';
 import { square } from './square.js';
 import {editableUnpaidCheckout} from './catering_checkout_state.js';
 import { createDepositCheckout } from './catering_deposit.js';
@@ -30,7 +31,7 @@ export function revisionPayload(body, source) {
     totalCents: norm.total_cents, guests, eventDate, customerName: name, customerEmail: email,
     customerPhone: String(body.customer_phone || '').trim().slice(0, 32), lang: body.lang === 'es' ? 'es' : 'en',
     note: String(body.note || '').trim().slice(0, 500), depositPct: source.deposit_pct,
-    quoteBreakdown: { ...old, lead_id: old.lead_id || source.source_lead_id || null, source: 'owner_revision', revised_from: source.id, lines: norm.lines, subtotal_cents: norm.subtotal_cents, total_cents: norm.total_cents, delivery_fee_cents: norm.delivery_fee_cents, discount_cents: 0,
+    quoteBreakdown: { ...old, lead_id: old.lead_id || source.source_lead_id || null, source: 'owner_revision', ...(/^[a-zA-Z0-9_-]{1,80}$/.test(String(body.draft_id||''))?{draft_id:body.draft_id}:{}), revised_from: source.id, lines: norm.lines, subtotal_cents: norm.subtotal_cents, total_cents: norm.total_cents, delivery_fee_cents: norm.delivery_fee_cents, discount_cents: 0,
       recommendations: body.recommendations || [] },
   } };
 }
@@ -45,6 +46,7 @@ export async function reviseQuote(env, body, { actor, baseUrl, approvedLines, ap
   const sourceId = String(body.quote_id || '');
   const source = await env.DB.prepare('SELECT * FROM catering_quotes WHERE id = ?').bind(sourceId).first();
   if (!source) return { ok: false, error: 'Quote not found.' };
+  if(await sendInProgress(env,sourceId))return {ok:false,error:'A quote send is in progress or uncertain. Reconcile its receipt before revising checkout.'};
   const unfinishedParent = await env.DB.prepare("SELECT source_quote_id FROM catering_quote_revisions WHERE replacement_quote_id = ? AND state != 'complete'").bind(sourceId).first();
   const duplicateLock=await env.DB.prepare("SELECT source_quote_id FROM catering_quote_duplicate_retirements WHERE (target_quote_id=? OR source_quote_id=?) AND state!='complete'").bind(sourceId,sourceId).first();
   if(duplicateLock)return {ok:false,error:'Finish recovering the duplicate retirement before revising this quote.'};
@@ -65,7 +67,7 @@ export async function reviseQuote(env, body, { actor, baseUrl, approvedLines, ap
     if (!parsed.ok) return parsed;
     await env.DB.prepare(`INSERT OR IGNORE INTO catering_quote_revisions
       (source_quote_id,replacement_quote_id,access_token,payload_json,source_updated_at,state,created_by,created_at,updated_at)
-      SELECT ?,?,?,?,?,'pending',?,?,? WHERE EXISTS (SELECT 1 FROM catering_quotes WHERE id=? AND deposit_status='unpaid' AND updated_at=?) AND NOT EXISTS (SELECT 1 FROM catering_quote_revisions WHERE replacement_quote_id=? AND state!='complete') AND NOT EXISTS(SELECT 1 FROM catering_quote_duplicate_retirements WHERE (target_quote_id=? OR source_quote_id=?) AND state!='complete')`).bind(sourceId, id('cq'), mintAccessToken(), JSON.stringify(parsed.payload), source.updated_at, actor, Date.now(), Date.now(), sourceId, source.updated_at,sourceId,sourceId,sourceId).run();
+      SELECT ?,?,?,?,?,'pending',?,?,? WHERE EXISTS (SELECT 1 FROM catering_quotes WHERE id=? AND deposit_status='unpaid' AND updated_at=?) AND NOT EXISTS (SELECT 1 FROM catering_quote_revisions WHERE replacement_quote_id=? AND state!='complete') AND NOT EXISTS(SELECT 1 FROM catering_quote_duplicate_retirements WHERE (target_quote_id=? OR source_quote_id=?) AND state!='complete') AND NOT EXISTS(SELECT 1 FROM catering_quote_send_reviews WHERE quote_id=? AND state IN ('sending','unknown'))`).bind(sourceId, id('cq'), mintAccessToken(), JSON.stringify(parsed.payload), source.updated_at, actor, Date.now(), Date.now(), sourceId, source.updated_at,sourceId,sourceId,sourceId,sourceId).run();
     journal = await env.DB.prepare('SELECT * FROM catering_quote_revisions WHERE source_quote_id = ?').bind(sourceId).first();
     if (!journal) return { ok: false, error: 'Could not save the revision. Nothing retired.' };
   }

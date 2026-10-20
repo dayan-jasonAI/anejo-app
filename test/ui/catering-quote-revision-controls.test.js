@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import vm from 'node:vm';
+import { randomUUID } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 const html=readFileSync(new URL('../../public/hub/owner/catering.html',import.meta.url),'utf8');
 const script=[...html.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/g)].map(x=>x[1]).find(x=>x.includes('Hub.boot'));
@@ -10,7 +11,7 @@ function fixture(handler){
   const nodes=new Map(),calls=[],toasts=[],confirms=[];
   const decode=s=>String(s).replace(/&quot;/g,'"').replace(/&lt;/g,'<').replace(/&amp;/g,'&');
   class Element{
-    constructor(){this.value='';this.innerHTML='';this.textContent='';this.disabled=false;this.checked=false;this.hidden=false;this.listeners={};this.attributes={};this.dataset={};this.selectedOptions=[];}
+    constructor(){this.value='';this.innerHTML='';this.textContent='';this.disabled=false;this.checked=false;this.hidden=false;this.listeners={};this.children={};this.attributes={};this.dataset={};this.selectedOptions=[];}
     addEventListener(type,fn){this.listeners[type]=fn;}
     getAttribute(key){return this.attributes[key]||'';}
     setAttribute(key,value){this.attributes[key]=value;}
@@ -20,22 +21,23 @@ function fixture(handler){
     focus(){}
     select(){}
     insertAdjacentHTML(_position,markup){this.innerHTML+=markup;}
-    querySelector(){return new Element();}
+    querySelector(selector){if(!this.children[selector])this.children[selector]=new Element();return this.children[selector];}
+    querySelectorAll(){return [];} 
   }
   const get=id=>{if(!nodes.has(id))nodes.set(id,new Element());return nodes.get(id);};
   get('q-recommendation-packs').value='1';
   function rows(){return [...get('q-lines').innerHTML.matchAll(/<div class="q-line"([\s\S]*?)<\/div>/g)].map(match=>{
     const row=new Element();row.attributes['data-metadata']=decode(match[1].match(/data-metadata="([^"]*)"/)?.[1]||'{}');const values={};
-    for(const key of ['name','qty','price']){values['.q-l-'+key]=new Element();values['.q-l-'+key].value=decode(match[1].match(new RegExp('class="q-l-'+key+'"[^>]*value="([^"]*)"'))?.[1]||'');}
-    row.querySelector=selector=>values[selector];return row;
+    for(const key of ['name','qty','price','reason']){values['.q-l-'+key]=new Element();values['.q-l-'+key].value=decode(match[1].match(new RegExp('class="q-l-'+key+'"[^>]*value="([^"]*)"'))?.[1]||'');}
+    values['.q-l-override']=new Element();values['.q-l-override'].checked=/<input class="q-l-override"[^>]* checked/.test(match[1]);values['.q-line-rate']=new Element();for(const key of ['rate-cents','rate-qty'])row.attributes['data-'+key]=match[1].match(new RegExp('data-'+key+'="([^"]*)"'))?.[1]||'';row.querySelector=selector=>values[selector];return row;
   });}
   const document={getElementById:get,querySelectorAll:selector=>selector==='#q-lines .q-line'?rows():selector.split(',').filter(x=>/^#q-[\w-]+$/.test(x)).map(x=>get(x.slice(1)))};
   const Hub={boot(){},esc:value=>String(value??'').replace(/[&"<]/g,c=>({'&':'&amp;','"':'&quot;','<':'&lt;'}[c])),toast:text=>toasts.push(text),api:async(_url,options)=>{calls.push(options.body);if(handler)return handler(options.body);if(options.body.op==='revision_status')return {ok:true};if(options.body.op==='preview')return {ok:true,total_cents:10000,deposit_cents:5000,balance_cents:5000,deposit_pct:.5};if(options.body.op==='render')return {ok:true,subject:'Synthetic quote',html:'<p>Synthetic quote preview</p>'};return {ok:true,quote_id:'cq_synthetic_replacement',deposit_cents:5000};}};
-  const window={CateringI18n:{label:x=>x},location:{search:''},confirm:message=>{confirms.push(message);return true;}};
-  const ctx=vm.createContext({Hub,Owner:{get:async()=>({ok:false}),money:c=>'$'+(Number(c||0)/100).toFixed(2),init(){}},window,document,URLSearchParams,console});
-  const hooked=script.replace("Owner.init('catering', render);", "loadRecommendations=function(){};window.testQuote={quoteCard:quoteCard,showSend:showSend,checkCheckoutStatus:checkCheckoutStatus,quoteListHtml:quoteListHtml,body:body,deliveryFee:deliveryFee,deliverySummary:deliverySummary,beginRevision:beginRevision,associatedQuotes:associatedQuotes,wireRequests:wireRequests,wireForm:wireForm,showExistingChoice:showExistingChoice,retire:reviewDuplicateRetirement,formHtml:formHtml,setQuotes:function(q){quoteCache=q;},setLead:function(id){leadId=id;}};");
+  const window={addEventListener(){},CateringI18n:{label:x=>x},location:{search:''},confirm:message=>{confirms.push(message);return true;}};
+  const ctx=vm.createContext({Hub,Owner:{get:async()=>({ok:false}),money:c=>'$'+(Number(c||0)/100).toFixed(2),init(){}},window,document,URLSearchParams,console,setTimeout,clearTimeout,crypto:{randomUUID}});
+  const hooked=script.replace("Owner.init('catering', render);", "loadRecommendations=function(){};window.testQuote={attachDraft:attachDraft,recoverDraft:recoverDraft,markEditorDirty:markEditorDirty,guardEditorSwitch:guardEditorSwitch,catalogLine:catalogLine,lineRowHtml:lineRowHtml,updateLinePricing:updateLinePricing,saveDraft:saveDraft,fillDraftPayload:fillDraftPayload,reviewSavedQuote:reviewSavedQuote,mountEmailPreview:mountEmailPreview,quoteCard:quoteCard,showSend:showSend,checkCheckoutStatus:checkCheckoutStatus,quoteListHtml:quoteListHtml,body:body,deliveryFee:deliveryFee,deliverySummary:deliverySummary,beginRevision:beginRevision,associatedQuotes:associatedQuotes,wireRequests:wireRequests,wireForm:wireForm,showExistingChoice:showExistingChoice,retire:reviewDuplicateRetirement,formHtml:formHtml,setQuotes:function(q){quoteCache=q;},setLead:function(id){leadId=id;}};");
   vm.runInContext(hooked,ctx);const api=window.testQuote;
-  return {get,calls,toasts,confirms,api,Element,tick:()=>new Promise(resolve=>setImmediate(resolve)),click:id=>get(id).listeners.click?.call(get(id)),wire:()=>api.wireForm()};
+  return {preview:async()=>{const pending=get('q-preview').listeners.click.call(get('q-preview'));await new Promise(resolve=>setImmediate(resolve));get('q-mail').querySelector('iframe').listeners.load?.();await pending;},get,calls,toasts,confirms,api,Element,tick:()=>new Promise(resolve=>setImmediate(resolve)),click:id=>get(id).listeners.click?.call(get(id)),wire:()=>api.wireForm()};
 }
 
 test('opening a lead with one active quote uses existing revision controls instead of creating a duplicate',async()=>{
@@ -68,7 +70,7 @@ test('preview and Save changes use one revision with delivery and never send cus
   const f=fixture();f.wire();await f.api.beginRevision(clone(quote));
   f.get('q-delivery-fee').value='15.00';f.click('q-create');await f.tick();
   assert.equal(f.calls.filter(x=>x.op==='revise').length,0,'unreviewed changes cannot be saved');
-  f.click('q-preview');await f.tick();assert.ok(f.calls.filter(x=>['preview','render'].includes(x.op)).every(x=>x.delivery_fee_cents===1500));
+  await f.preview();assert.ok(f.calls.filter(x=>['preview','render'].includes(x.op)).every(x=>x.delivery_fee_cents===1500));
   const saving=f.click('q-create');await f.tick();assert.equal(f.get('q-action-confirm').open,true);assert.equal(f.calls.filter(x=>x.op==='revise').length,0);f.get('q-action-approve').onclick();await saving;await f.tick();const saved=f.calls.find(x=>x.op==='revise');assert.ok(saved);assert.equal(saved.quote_id,'cq_synthetic');assert.equal(saved.delivery_fee_cents,1500);assert.equal(saved.lines[0].cents,9000);
   assert.equal(f.calls.filter(x=>x.op==='create'||x.op==='send').length,0);assert.match(f.get('q-revision-status').textContent,/Changes saved/);
 });
@@ -89,16 +91,16 @@ test('duplicate retirement requires exact retained quote, explicit review and ti
 });
 
 
-test('unavailable existing-quote lookup blocks starting another checkout from the request',()=>{
+test('unavailable existing-quote lookup blocks starting another checkout from the request',async()=>{
   const f=fixture(),button=new f.Element();button.attributes['data-prefill']=JSON.stringify({lead_id:'ld_synthetic',quote_lookup_unavailable:true});
-  f.api.wireRequests({querySelectorAll:()=>[button]});button.listeners.click();
+  f.api.wireRequests({querySelectorAll:()=>[button]});await button.listeners.click();
   assert.equal(f.get('q-create').disabled,true);assert.equal(f.calls.length,0);assert.match(f.get('q-revision-status').textContent,/lookup is unavailable/);
 });
 
 test('server duplicate guard retains owner draft and routes it into a chosen revision without replaying create',async()=>{
-  const f=fixture(body=>body.op==='create'?{ok:false,requires_revision:true,existing_quote_id:'cq_synthetic',error:'Use existing revision'}:{ok:true});
+  const f=fixture(body=>body.op==='create'?{ok:false,requires_revision:true,existing_quote_id:'cq_synthetic',error:'Use existing revision'}:body.op==='render'?{ok:true,subject:'Synthetic quote',html:'<p>Synthetic</p>'}:{ok:true});
   f.api.setQuotes([clone(quote)]);f.wire();f.get('q-name').value='Synthetic Guest';f.get('q-email').value=quote.customer_email;f.get('q-date').value=quote.event_date;f.get('q-guests').value='35';f.get('q-total').value='120.00';f.get('q-delivery-fee').value='15.00';
-  f.click('q-create');await f.tick();assert.equal(f.get('q-create').disabled,true);
+  await f.preview();const creating=f.click('q-create');await f.tick();f.get('q-action-approve').onclick();await creating;await f.tick();assert.equal(f.get('q-create').disabled,true);
   f.get('q-existing-select').value='cq_synthetic';f.get('q-open-existing').onclick();await f.tick();
   const revised=f.api.body();assert.equal(revised.quote_id,'cq_synthetic');assert.equal(revised.total_cents,13500);assert.equal(revised.delivery_fee_cents,1500);
   assert.equal(f.calls.filter(x=>x.op==='create').length,1);assert.equal(f.calls.filter(x=>x.op==='send').length,0);
@@ -106,7 +108,7 @@ test('server duplicate guard retains owner draft and routes it into a chosen rev
 
 
 test('in-page revision confirmation can be cancelled and repeated clicks cannot bypass it',async()=>{
-  const f=fixture();f.wire();await f.api.beginRevision(clone(quote));f.click('q-preview');await f.tick();
+  const f=fixture();f.wire();await f.api.beginRevision(clone(quote));await f.preview();
   const pending=f.click('q-create');await f.tick();assert.equal(f.get('q-action-confirm').open,true);assert.match(f.get('q-action-message').textContent,/No email or text is sent/);
   await f.click('q-create');assert.equal(f.calls.filter(x=>x.op==='revise').length,0);
   f.get('q-action-cancel').onclick();await pending;assert.equal(f.calls.filter(x=>x.op==='revise').length,0);assert.equal(f.get('q-action-confirm').open,false);
@@ -140,9 +142,9 @@ test('void quote history remains available but is collapsed separately from acti
 
 test('sending requires explicit in-page confirmation and cancel sends nothing',async()=>{
   const f=fixture(body=>body.op==='send'?{ok:true,delivery:{email:{sent:true}}}:{ok:false});
-  f.get('q-email').value='guest@example.test';f.api.showSend({quote_id:'cq_synthetic'});
+  f.get('q-email').value='guest@example.test';f.api.showSend({quote_id:'cq_synthetic',review_hash:'synthetic_review'});f.get('q-send-reviewed').checked=true;f.get('q-send-reviewed').onchange.call(f.get('q-send-reviewed'));
   const cancelled=f.click('q-send-now');await f.tick();assert.equal(f.get('q-action-confirm').open,true);assert.equal(f.calls.length,0);assert.match(f.get('q-action-message').textContent,/guest@example.test/);f.get('q-action-cancel').onclick();await cancelled;assert.equal(f.calls.length,0);assert.equal(f.get('q-send-now').disabled,false);
-  const sending=f.click('q-send-now');await f.tick();assert.equal(f.calls.length,0);f.get('q-action-approve').onclick();await sending;await f.tick();assert.equal(f.calls.filter(x=>x.op==='send').length,1);assert.equal(f.calls.find(x=>x.op==='send').sms,false);assert.equal(f.confirms.length,0);
+  const sending=f.click('q-send-now');await f.tick();assert.equal(f.calls.length,0);f.get('q-action-approve').onclick();await sending;await f.tick();assert.equal(f.calls.filter(x=>x.op==='send').length,1);assert.equal(f.calls.find(x=>x.op==='send').reviewed,true);assert.equal(f.calls.find(x=>x.op==='send').review_hash,'synthetic_review');assert.equal(f.calls.find(x=>x.op==='send').sms,false);assert.equal(f.confirms.length,0);
 });
 
 
@@ -162,4 +164,72 @@ test('safe GET fee without item lines remains confirmed and blocks a fabricated 
 
 test('explicit fee null or zero on safe GET takes precedence over stale JSON',()=>{
   const f=fixture();assert.match(f.api.quoteCard({...clone(quote),delivery_fee_cents:null}),/Delivery \/ setup: unconfirmed/);assert.match(f.api.quoteCard({...clone(quote),delivery_fee_cents:0}),/Delivery \/ setup: \$0.00 · confirmed/);
+});
+
+test('catalog line records exact SKU and published unit price without changing an existing agreed line',()=>{
+ const f=fixture(),item={id:'catering_synthetic_pack',name_en:'Synthetic pack',name_es:'Paquete',unit_cents:3500,image:'/synthetic.webp'};
+ const line=f.api.catalogLine(item,2);assert.equal(line.price,'70.00');assert.equal(line.qty,'2');assert.equal(line.metadata.product_id,item.id);assert.equal(line.metadata.pricing_mode,'catalog');assert.equal(line.metadata.unit_cents,3500);
+ const historical=f.api.lineRowHtml({name:'Agreed dish',qty:'35',price:'46.25',metadata:{product_id:'synthetic'}});assert.match(historical,/data-rate-cents="4625" data-rate-qty="35"/);assert.match(historical,/value="46.25" readonly/);
+});
+
+test('quantity scales the agreed rate and explicit custom override preserves the negotiated total',()=>{
+ const f=fixture(),row=new f.Element(),qty=new f.Element(),price=new f.Element(),override=new f.Element(),label=new f.Element();row.attributes['data-rate-cents']='4625';row.attributes['data-rate-qty']='35';qty.value='40';row.querySelector=s=>({'.q-l-qty':qty,'.q-l-price':price,'.q-l-override':override,'.q-line-rate':label}[s]);
+ f.api.updateLinePricing(row,false);assert.equal(price.value,'52.86');assert.equal(price.readOnly,true);override.checked=true;price.value='49.00';qty.value='50';f.api.updateLinePricing(row,false);assert.equal(price.value,'49.00');assert.equal(price.readOnly,false);assert.match(label.textContent,/Manual total/);
+});
+
+test('draft save is separate from checkout and a conflict retains current form contents',async()=>{
+ let saving=true;const f=fixture(b=>b.op==='save'?(saving?{ok:true,draft:{id:b.id,version:1,state:'draft',payload:b.payload}}:{ok:false,error:'Version conflict'}):{ok:true});f.get('q-name').value='Synthetic incomplete event';f.get('q-note').value='Keep me';
+ await f.api.saveDraft();assert.equal(f.calls.length,1);assert.equal(f.calls[0].op,'save');assert.equal(f.calls[0].expected_version,0);assert.equal(f.calls[0].payload.customer_name,'Synthetic incomplete event');assert.match(f.get('q-draft-status').textContent,/No checkout created/);
+ saving=false;f.get('q-note').value='New unsaved edits';await f.api.saveDraft();assert.equal(f.get('q-note').value,'New unsaved edits');assert.match(f.get('q-draft-status').textContent,/Version conflict/);assert.equal(f.calls.filter(b=>['create','revise','send'].includes(b.op)).length,0);
+});
+
+test('dirty editor requires explicit discard and cancellation preserves it',async()=>{
+ const f=fixture();f.api.markEditorDirty();const pending=f.api.guardEditorSwitch();await f.tick();assert.equal(f.get('q-action-confirm').open,true);f.get('q-action-cancel').onclick();assert.equal(await pending,false);assert.equal(f.calls.length,0);
+});
+
+test('saved quote approval remains unavailable until its current iframe actually loads',async()=>{
+ const f=fixture(b=>b.op==='render_saved'?{ok:true,review_hash:'review_current',customer_email:'saved@example.test',subject:'Saved quote',html:'<p>Saved</p>'}:{ok:true});
+ const pending=f.api.reviewSavedQuote('cq_synthetic');await f.tick();assert.equal(f.get('q-sent').innerHTML,'');f.get('q-saved-review').querySelector('iframe').listeners.load();await pending;assert.match(f.get('q-sent').innerHTML,/saved@example.test/);assert.equal(f.get('q-send-now').disabled,true);f.get('q-send-reviewed').checked=true;f.get('q-send-reviewed').onchange.call(f.get('q-send-reviewed'));assert.equal(f.get('q-send-now').disabled,false);assert.equal(f.calls.filter(b=>b.op==='send').length,0);
+});
+
+test('stale saved-email iframe cannot enable sending for another selected quote',async()=>{
+ const f=fixture(b=>({ok:true,review_hash:b.quote_id,customer_email:'saved@example.test',html:'<p>Saved</p>'}));const first=f.api.reviewSavedQuote('cq_first');await f.tick();const frame=f.get('q-saved-review').querySelector('iframe'),oldLoad=frame.listeners.load;const second=f.api.reviewSavedQuote('cq_second');await f.tick();oldLoad();await first;assert.equal(f.get('q-sent').innerHTML,'');frame.listeners.load();await second;assert.match(f.get('q-sent').innerHTML,/Send reviewed quote/);assert.equal(f.calls.filter(b=>b.op==='send').length,0);
+});
+
+test('editing during a preview request prevents its stale response from authorizing checkout',async()=>{
+ let resolveRender;const f=fixture(b=>b.op==='render'?new Promise(r=>{resolveRender=r;}):{ok:true,total_cents:10000,deposit_cents:5000,balance_cents:5000});f.wire();await f.api.beginRevision(clone(quote));const pending=f.click('q-preview');await f.tick();f.get('q-note').value='Changed while rendering';f.api.markEditorDirty();resolveRender({ok:true,html:'<p>Stale</p>'});await pending;f.click('q-create');await f.tick();assert.equal(f.calls.filter(b=>b.op==='revise').length,0);assert.match(f.toasts.at(-1),/Read the updated email preview/);assert.equal(f.get('q-preview').disabled,false);
+});
+
+test('reopening an earlier catalog quote uses its agreed amount rather than current published pricing',async()=>{
+ const f=fixture(),q={...clone(quote),quote_json:JSON.stringify({lines:[{name:'Synthetic historic pack',qty:'3',cents:10000,product_id:'historic_pack',unit_cents:3500,pricing_mode:'catalog'}]})};await f.api.beginRevision(q);const line=f.api.body().lines[0];assert.equal(line.cents,10000);assert.equal(line.pricing_mode,'quoted');assert.match(f.get('q-lines').innerHTML,/data-rate-cents="10000" data-rate-qty="3"/);
+});
+
+test('a draft save with a lost acknowledgement retries the same UUID without minting a checkout',async()=>{
+ let attempts=0;const f=fixture(b=>{if(b.op==='save'){attempts++;if(attempts===1)throw Error('Network interrupted');return {ok:true,draft:{id:b.id,version:1,state:'draft'}};}return {ok:true};});f.get('q-name').value='Synthetic unfinished event';await f.api.saveDraft();assert.match(f.get('q-draft-status').textContent,/Network interrupted/);await f.api.saveDraft();assert.equal(f.calls.length,2);assert.equal(f.calls[0].id,f.calls[1].id);assert.equal(f.calls[1].expected_version,0);assert.equal(f.get('q-save-draft').disabled,false);
+});
+
+test('saved-email frame failure keeps all send controls unavailable',async()=>{
+ const f=fixture(()=>({ok:true,review_hash:'review',html:'<p>Email</p>'}));const pending=f.api.reviewSavedQuote('cq_synthetic');await f.tick();f.get('q-saved-review').querySelector('iframe').listeners.error();await pending;assert.equal(f.get('q-sent').innerHTML,'');assert.match(f.get('q-saved-review').textContent,/Cannot approve this email/);assert.equal(f.calls.filter(b=>b.op==='send').length,0);
+});
+
+test('unknown email outcome stays locked against a blind retry',async()=>{
+ const f=fixture(()=>({ok:false,status:'unknown',error:'Provider outcome unknown'}));f.api.showSend({quote_id:'cq_synthetic',review_hash:'review',customer_email:'synthetic@example.test',customer_phone:''});f.get('q-send-reviewed').checked=true;f.get('q-send-reviewed').onchange.call(f.get('q-send-reviewed'));const pending=f.click('q-send-now');await f.tick();f.get('q-action-approve').onclick();await pending;await f.tick();assert.equal(f.get('q-send-now').disabled,true);f.get('q-send-reviewed').checked=false;f.get('q-send-reviewed').onchange.call(f.get('q-send-reviewed'));f.get('q-send-reviewed').checked=true;f.get('q-send-reviewed').onchange.call(f.get('q-send-reviewed'));assert.equal(f.get('q-send-now').disabled,true);await f.click('q-send-now');assert.equal(f.calls.filter(b=>b.op==='send').length,1);
+});
+
+test('checkout preview response alone cannot approve a revision before iframe load',async()=>{
+ const f=fixture();f.wire();await f.api.beginRevision(clone(quote));const previewing=f.click('q-preview');await f.tick();await f.click('q-create');assert.equal(f.get('q-action-confirm').open,undefined);assert.equal(f.calls.filter(b=>b.op==='revise').length,0);f.get('q-mail').querySelector('iframe').listeners.load();await previewing;const pending=f.click('q-create');await f.tick();assert.equal(f.get('q-action-confirm').open,true);f.get('q-action-cancel').onclick();await pending;assert.equal(f.calls.filter(b=>b.op==='revise').length,0);
+});
+
+test('accepted replay receipt is recognized and locked without claiming customer delivery',async()=>{
+ const f=fixture(()=>({ok:true,replayed:true,receipt:{state:'accepted',email:{provider_accepted:true,receipt_id:'synthetic_receipt'},sms:{provider_accepted:false},delivery_verified:false}}));f.api.showSend({quote_id:'cq_synthetic',review_hash:'review',customer_email:'guest@example.test',customer_phone:''});f.get('q-send-reviewed').checked=true;f.get('q-send-reviewed').onchange.call(f.get('q-send-reviewed'));const pending=f.click('q-send-now');await f.tick();f.get('q-action-approve').onclick();await pending;await f.tick();assert.equal(f.get('q-send-now').disabled,true);assert.match(f.get('q-send-status').textContent,/Email accepted/);assert.match(f.get('q-send-status').textContent,/delivery is not verified/);assert.doesNotMatch(f.get('q-send-now').textContent,/Try again/);
+});
+
+test('unknown replay preserves known accepted email evidence while blocking retry',async()=>{
+ const f=fixture(()=>({ok:true,replayed:true,receipt:{state:'unknown',email:{provider_accepted:true},sms:{provider_accepted:false}}}));f.api.showSend({quote_id:'cq_synthetic',review_hash:'review',customer_email:'guest@example.test',customer_phone:''});f.get('q-send-reviewed').checked=true;f.get('q-send-reviewed').onchange.call(f.get('q-send-reviewed'));const pending=f.click('q-send-now');await f.tick();f.get('q-action-approve').onclick();await pending;await f.tick();assert.equal(f.get('q-send-now').disabled,true);assert.match(f.get('q-send-status').textContent,/Email accepted/);assert.match(f.get('q-send-status').textContent,/Remaining outcomes are unverified/);
+});
+
+test('preparing one draft locks its save controls but opening a fresh draft enables saving again',async()=>{
+ const f=fixture(b=>b.op==='save'?{ok:true,draft:{id:b.id,version:1,state:'draft'}}:b.op==='attach'?{ok:true,draft:{id:b.id,version:2,state:'prepared',quote_id:'cq_prepared'}}:{ok:true});f.get('q-name').value='Synthetic first draft';await f.api.saveDraft();await f.api.attachDraft('cq_prepared');assert.equal(f.get('q-save-draft').disabled,true);assert.equal(f.get('q-recover-draft').disabled,true);
+ f.api.fillDraftPayload({customer_name:'Synthetic second draft',note:'Unfinished',lines:[]});assert.equal(f.get('q-save-draft').disabled,false);assert.equal(f.get('q-recover-draft').disabled,false);assert.equal(f.get('q-name').value,'Synthetic second draft');
+ await f.api.beginRevision(clone(quote));assert.equal(f.get('q-save-draft').disabled,false);assert.equal(f.get('q-recover-draft').disabled,false);
 });

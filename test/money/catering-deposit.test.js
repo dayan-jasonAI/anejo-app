@@ -16,6 +16,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { makeD1 } from '../helpers/d1.js';
+import { makeSqliteD1 } from '../helpers/sqlite-d1.js';
 import { depositSplit, createDepositCheckout, markDepositPaid } from '../../functions/_lib/catering_deposit.js';
 import { DEPOSIT_PCT, TERMS, TERMS_VERSION, termsFor, termsSummary, cancellationOutcome, dateMinusDays } from '../../functions/_lib/catering_terms.js';
 
@@ -201,34 +202,57 @@ test('a quote with no guests is refused — the engine does not assume a headcou
 
 // ---------- 4. the balance ----------
 
-test('a paid deposit flips ONCE and leaves the balance owing', async () => {
-  const updates = [];
-  const DB = makeD1([
-    [/SELECT id, deposit_cents FROM catering_quotes/i, () => ({ id: 'cq_1', deposit_cents: 60000 })],
-    [/UPDATE catering_quotes SET deposit_status='paid'/i, ({ args }) => { updates.push(args); return 1; }],
-  ]);
-  const id = await markDepositPaid({ DB }, 'sqo_1', 30000);
-  assert.equal(id, 'cq_1');
-  assert.equal(updates.length, 1);
-  assert.equal(updates[0][1], 30000, 'what Square actually captured is what is recorded');
-  // Nothing in that UPDATE touches the balance: paying a deposit does not settle an event.
-  assert.doesNotMatch(DB.sqlLog().join(' '), /balance_status\s*=\s*'paid'/);
+function paymentEnv(status = 'unpaid') {
+  const DB = makeSqliteD1();
+  DB.sqlite.prepare(`INSERT INTO catering_quotes
+    (id,guests,total_cents,deposit_pct,deposit_cents,balance_cents,deposit_status,square_order_id,terms_version,terms_json,created_at,updated_at)
+    VALUES ('cq_test',30,120000,0.5,60000,60000,?,'sqo_test','test','{}',1,1)`).run(status);
+  return { DB };
+}
+test('only an exact verified USD deposit books the quote and retains its receipt once', async () => {
+  const env = paymentEnv();
+  assert.equal(await markDepositPaid(env, 'sqo_test', 60000, 'USD', 'payment_test'), 'cq_test');
+  assert.equal(await markDepositPaid(env, 'sqo_test', 60000, 'USD', 'payment_test'), 'cq_test');
+  const q = env.DB.one("SELECT * FROM catering_quotes WHERE id='cq_test'");
+  assert.equal(q.deposit_status, 'paid');
+  assert.equal(q.deposit_paid_cents, 60000);
+  assert.equal(q.balance_status, 'due');
+  assert.equal(env.DB.rows("SELECT * FROM activity_log WHERE event='catering.deposit.receipt'").length, 1);
 });
-
-test('a webhook retry is a no-op — the deposit cannot be recorded twice', async () => {
-  let flips = 0;
-  const DB = makeD1([
-    // Second delivery: the `deposit_status='unpaid'` guard finds nothing.
-    [/SELECT id, deposit_cents FROM catering_quotes/i, () => null],
-    [/UPDATE catering_quotes/i, () => { flips++; return 1; }],
-  ]);
-  assert.equal(await markDepositPaid({ DB }, 'sqo_1', 30000), null);
-  assert.equal(flips, 0);
+test('wrong, missing, noninteger or non-USD captures are durably held for reconciliation', async () => {
+  for (const [amount,currency,payment] of [[30000,'USD','a'],[60001,'USD','a'],[60000.1,'USD','a'],
+    [60000,'EUR','a'],[null,'USD','a'],['60000','USD','a'],[60000,'USD',null],[0,'USD','a']]) {
+    const env = paymentEnv();
+    const result = await markDepositPaid(env,'sqo_test',amount,currency,payment);
+    assert.equal(result.reconciliation_required,true);
+    assert.equal(env.DB.one("SELECT deposit_status FROM catering_quotes").deposit_status,'unpaid');
+    const receipt = env.DB.one("SELECT properties FROM activity_log");
+    assert.equal(JSON.parse(receipt.properties).outcome,'reconciliation_required');
+    assert.deepEqual(await markDepositPaid(env,'sqo_test',amount,currency,payment),result);
+  }
 });
-
-test('a payment that matches no quote is silently ignored — most payments are not deposits', async () => {
-  const DB = makeD1([[/SELECT id, deposit_cents FROM catering_quotes/i, () => null]]);
-  assert.equal(await markDepositPaid({ DB }, 'sqo_unrelated', 1234), null);
-  assert.equal(await markDepositPaid({ DB }, null, 1234), null);
-  assert.equal(await markDepositPaid({}, 'sqo_1', 1234), null, 'no DB binding at all');
+test('void quotes and additional captures on paid quotes never silently book again', async () => {
+  for(const status of ['void','paid']) {
+    const env=paymentEnv(status);
+    assert.equal((await markDepositPaid(env,'sqo_test',60000,'USD','another_capture')).reconciliation_required,true);
+    assert.equal(env.DB.one('SELECT deposit_status FROM catering_quotes').deposit_status,status);
+  }
+});
+test('unrelated payments are ignored but deposit storage failures propagate for retry', async () => {
+  const env=paymentEnv();
+  assert.equal(await markDepositPaid(env,'unrelated',1234,'USD','p'),null);
+  assert.equal(await markDepositPaid(env,null,1234,'USD','p'),null);
+  assert.equal(await markDepositPaid({},'sqo_test',1234,'USD','p'),null);
+  env.DB.batch=async()=>{throw Error('storage unavailable');};
+  await assert.rejects(markDepositPaid(env,'sqo_test',60000,'USD','p'),/storage unavailable/);
+  assert.equal(env.DB.one('SELECT deposit_status FROM catering_quotes').deposit_status,'unpaid');
+});
+test('concurrent webhook claims cannot apply the same or a second payment twice', async () => {
+  const env=paymentEnv();
+  const repeated=await Promise.all([1,2].map(()=>markDepositPaid(env,'sqo_test',60000,'USD','payment_one')));
+  assert.deepEqual(repeated,['cq_test','cq_test']);
+  const extra=await markDepositPaid(env,'sqo_test',60000,'USD','payment_two');
+  assert.equal(extra.reconciliation_required,true);
+  assert.equal(env.DB.rows("SELECT * FROM activity_log WHERE event='catering.deposit.receipt'").length,2);
+  assert.equal(env.DB.one('SELECT deposit_paid_cents FROM catering_quotes').deposit_paid_cents,60000);
 });

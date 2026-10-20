@@ -163,9 +163,11 @@ test('the subtotal and discount rows appear only when there is a discount', () =
 
 // ---------------------------------------------------------------- what Dayan asked to be in it
 
-test('the theme-design promise is in both languages', () => {
-  assert.ok(build('es').html.includes('El diseño de su tema llega por separado'));
-  assert.ok(build('en').html.includes('Your theme design is coming separately'));
+test('personalization is offered without inventing an active design executor', () => {
+  assert.ok(build('es').html.includes('Personalice su celebración'));
+  assert.ok(build('en').html.includes('Personalize your celebration'));
+  assert.doesNotMatch(build('en').html,/Our design team is working/);
+  assert.match(build('en').html,/pricing and timing will be confirmed separately/);
 });
 
 test('the cajita upsell closes the email and links to the 3D builder', () => {

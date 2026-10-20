@@ -14,6 +14,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import {makeSqliteD1} from '../helpers/sqlite-d1.js';
 import {
   balanceReminderEmail, reminderDueToday, dayOffset, runBalanceReminders, REMINDER_KINDS,
 } from '../../functions/_lib/catering_balance_reminder.js';
@@ -123,11 +124,12 @@ function fakeEnv({ rows = [ROW], insertChanges = 1 } = {}) {
   const env = {
     RESEND_API_KEY: 'k', EMAIL_FROM: 'Añejo <n@a.test>',
     DB: {
+      batch: async (statements) => Promise.all(statements.map(s => s.run())),
       prepare(sql) {
         const stmt = {
           bind: (...args) => { statements.push({ sql, args }); return stmt; },
           all: async () => ({ results: rows.map((r) => ({ ...r })) }),
-          first: async () => null,
+          first: async () => sql.includes('SELECT customer_name,customer_email,event_date,balance_cents') ? {...rows[0]} : null,
           run: async () => ({ meta: { changes: sql.includes('INSERT') ? insertChanges : 1 } }),
         };
         return stmt;
@@ -159,7 +161,7 @@ test('the reminder sends once, and a second run sends nothing', async () => {
     const r = await runBalanceReminders(second.env, '2026-09-24');
     assert.equal(r.sent.length, 0);
     assert.equal(r.skipped.length, 1);
-    assert.match(r.skipped[0].why, /already sent/);
+    assert.match(r.skipped[0].why, /already attempted/);
     assert.equal(second.sent.length, 0, 'and NOTHING was emailed the second time');
   } finally { second.restore(); }
 });
@@ -218,3 +220,8 @@ test('it is registered as an automation and scheduled daily', () => {
   const cron = readFileSync(new URL('../../cron/worker.js', import.meta.url), 'utf8');
   assert.match(cron, /'0 13 \* \* \*': \['balance_reminder'\]/, 'daily, in the morning ET');
 });
+
+function liveReminderFixture(t){const DB=makeSqliteD1();t.after(()=>DB.sqlite.close());DB.exec(`INSERT INTO catering_quotes(id,customer_name,customer_email,event_date,guests,total_cents,deposit_pct,deposit_cents,balance_cents,deposit_status,balance_status,balance_due_date,terms_version,terms_json,quote_json,created_at,updated_at,lang) VALUES('quote','Fixture Guest','guest@example.test','2099-01-02',20,10000,.5,5000,5000,'paid','due','2099-01-01','v1','{}','{}',1,1,'en')`);return {DB,RESEND_API_KEY:'fixture',SQUARE_ACCESS_TOKEN:'fixture',SQUARE_LOCATION_ID:'fixture',SQUARE_ENV:'sandbox'};}
+test('balance settlement while Square creates its link prevents a stale customer reminder',async t=>{const env=liveReminderFixture(t),prior=globalThis.fetch;t.after(()=>globalThis.fetch=prior);let squareCalls=0,emailCalls=0;globalThis.fetch=async url=>{if(String(url).includes('squareupsandbox')){squareCalls++;env.DB.exec("UPDATE catering_quotes SET balance_status='paid' WHERE id='quote'");return new Response(JSON.stringify({payment_link:{order_id:'balance_order',url:'https://square.link/fixture'}}));}emailCalls++;throw Error('No stale email permitted');};const result=await runBalanceReminders(env,'2099-01-01');assert.equal(result.ok,true);assert.equal(squareCalls,1);assert.equal(emailCalls,0);assert.equal(result.skipped[0].why,'quote state changed before send');assert.equal(env.DB.one('SELECT error FROM catering_balance_reminders').error,'quote_state_changed_before_send');});
+test('balance amount or recipient changed during checkout creation blocks the old reviewed amount',async t=>{for(const mutation of ["UPDATE catering_quotes SET balance_cents=4000 WHERE id='quote'","UPDATE catering_quotes SET customer_email='other@example.test' WHERE id='quote'"]){const env=liveReminderFixture(t),prior=globalThis.fetch;t.after(()=>globalThis.fetch=prior);let emailCalls=0;globalThis.fetch=async url=>{if(String(url).includes('squareupsandbox')){env.DB.exec(mutation);return new Response(JSON.stringify({payment_link:{order_id:'balance_order',url:'https://square.link/fixture'}}));}emailCalls++;throw Error('No stale email permitted');};const result=await runBalanceReminders(env,'2099-01-01');assert.equal(result.sent.length,0);assert.equal(result.skipped[0].why,'quote state changed before send');assert.equal(emailCalls,0);}});
+test('unavailable final quote read fails closed after link creation and retains retry fence',async t=>{const env=liveReminderFixture(t),prior=globalThis.fetch;t.after(()=>globalThis.fetch=prior);const prepare=env.DB.prepare;let emailCalls=0;env.DB.prepare=query=>{if(query.includes('SELECT customer_name,customer_email,event_date,balance_cents'))throw Error('storage unavailable');return prepare(query);};globalThis.fetch=async url=>{if(String(url).includes('squareupsandbox'))return new Response(JSON.stringify({payment_link:{order_id:'balance_order',url:'https://square.link/fixture'}}));emailCalls++;throw Error('No email permitted');};const result=await runBalanceReminders(env,'2099-01-01');assert.equal(result.ok,false);assert.equal(result.failed[0].error,'final_quote_read_unavailable');assert.equal(emailCalls,0);assert.equal(env.DB.one('SELECT COUNT(*) n FROM catering_balance_reminders').n,1);});

@@ -35,6 +35,7 @@
   .q-line{display:grid!important;grid-template-columns:minmax(0,2fr) minmax(0,.8fr) minmax(0,1fr) 44px;gap:6px!important}.q-line input{min-width:0!important;width:100%}.q-line button{min-width:44px;min-height:44px}.qcard .btn{white-space:normal;min-height:44px}
   .q-editor-status{padding:14px;border-left:4px solid var(--gold);background:var(--cream);line-height:1.6;color:var(--green)}.q-existing-choice{padding:16px;border:1px solid var(--line);border-radius:10px;margin-bottom:16px}.q-existing-choice select,.q-existing-choice button{min-height:44px;width:100%;margin:8px 0}.qcard [data-revise]{min-height:48px;background:var(--green);color:#fff}
   .cajita-review-summary{white-space:pre-wrap;overflow-wrap:anywhere;font:inherit}
+  .q-catalog,.q-drafts{padding:16px;background:var(--cream);border:1px solid var(--line);border-radius:12px;margin:16px 0}.q-catalog-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,240px),1fr));gap:12px;margin-top:12px}.q-catalog-item{display:grid;grid-template-columns:68px minmax(0,1fr);gap:12px;background:#fff;padding:12px;border-radius:10px;border:1px solid var(--line)}.q-catalog-item img{width:68px;height:68px;object-fit:contain}.q-catalog-item button{min-height:44px;width:100%;margin-top:8px}.q-catalog-item small{display:block;line-height:1.5}.q-line label{display:block;font-size:13px;font-weight:650}.q-line-options{grid-column:1/-1;display:grid;gap:6px;padding:8px 0 12px;border-bottom:1px solid var(--line)}.q-line-options input[type=checkbox]{width:auto;min-width:24px!important}.q-line-options small{line-height:1.5;font-weight:400}.q-draft-row{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0}.q-draft-row button{min-height:44px}.q-review-check{display:flex;gap:12px;align-items:center;padding:14px;background:var(--cream)}.q-review-check input{width:24px;height:24px}.q-preview-failure{color:#7a2418}.q-plain-preview{white-space:pre-wrap;overflow-wrap:anywhere}.q-line input{min-height:44px}@media(max-width:560px){.q-line{grid-template-columns:minmax(0,1fr) minmax(0,1fr) 44px}.q-line>label:first-child{grid-column:1/-1}.q-line-options{grid-column:1/-1}.split .s{padding:8px}.split .s b{display:block}.q-drafts,.q-catalog{padding:12px}}
 </style>
 </head>
 <body>
@@ -65,6 +66,7 @@
   }
 
   var revisionSource = null, revisionPreview = null, quoteCache = [], actionConfirmPending = false;
+  var previewSequence=0, editorDirty=false, draftRecord=null, catalogItems=[], catalogSequence=0, savedReviewSequence=0, draftPendingId=null;
   var ENDPOINT = '/api/hub/owner/catering-deposit';
 
   function confirmOwnerAction(title,message,label){
@@ -81,6 +83,43 @@
       dialog.oncancel=function(event){event.preventDefault();finish(false);};
       try{dialog.showModal();}catch(_error){actionConfirmPending=false;Hub.toast('Could not open the confirmation. Nothing was changed.');resolve(false);}
     });
+  }
+
+  function resetPreview(){previewSequence++;revisionPreview=null;var b=document.getElementById('q-preview');if(b)b.disabled=false;}
+  function markEditorDirty(event){if(event&&event.target&&!/^q-(name|email|phone|date|guests|note|lang|delivery-fee|total|recommendation|recommendation-packs)$/.test(event.target.id)&&!(event.target.closest&&event.target.closest('#q-lines')))return;editorDirty=true;resetPreview();savedReviewSequence++;var send=document.getElementById('q-sent');if(send)send.innerHTML='';}
+  async function guardEditorSwitch(){return !editorDirty||await confirmOwnerAction('Unsaved quote changes','Your unsaved edits will be replaced. Save a draft first if you want to keep them. No checkout or message will be created.','Discard unsaved edits');}
+  window.addEventListener('beforeunload',function(event){if(editorDirty){event.preventDefault();event.returnValue='';}});
+  function mountEmailPreview(host,mail,current){
+    host.innerHTML='<p><b>Subject:</b> '+esc(mail.subject||'Quote')+'</p><iframe sandbox="" title="The email she would receive" style="width:100%;height:65vh;background:white;border:1px solid var(--line);border-radius:10px"></iframe><p class="row-sub q-frame-status" role="status">Loading the rendered email…</p><details><summary>Plain-text copy</summary><p class="q-plain-preview"></p></details>';
+    host.querySelector('.q-plain-preview').textContent=mail.text||'Plain-text copy unavailable; the rendered email must load before approval.';
+    var frame=host.querySelector('iframe'),say=host.querySelector('.q-frame-status');
+    return new Promise(function(resolve,reject){var settled=false;var timer=setTimeout(function(){finish(Error('The rendered email did not load.'));},15000);if(timer.unref)timer.unref();
+      function finish(error){if(settled)return;settled=true;clearTimeout(timer);if(!current())return resolve(false);if(error){say.textContent='Preview failed. Retry before approving or sending.';say.className='q-preview-failure';reject(error);}else{say.textContent='Rendered email loaded. Read the complete preview before approval.';resolve(true);}}
+      frame.addEventListener('load',function(){finish();},{once:true});frame.addEventListener('error',function(){finish(Error('The rendered email failed to load.'));},{once:true});
+      frame.srcdoc=mail.html;
+    });
+  }
+  function catalogLine(item,quantity){return {name:item.name_en||item.name_es,qty:String(quantity),price:(item.unit_cents*quantity/100).toFixed(2),metadata:{product_id:item.id,name_es:item.name_es,image:item.image,detail:item.detail,unit_label:item.unit_label,unit_cents:item.unit_cents,catalog_unit_cents:item.unit_cents,pricing_mode:'catalog',owner_override:false}};}
+  async function loadCatalog(){
+    var seq=++catalogSequence,host=document.getElementById('q-catalog-results');host.textContent='Loading published dishes…';
+    try{var result=await Owner.get('/api/hub/owner/catering-quote-catalog');if(seq!==catalogSequence)return;if(!result?.ok)throw Error(result?.error||'Catalog unavailable');catalogItems=(result.items||[]).filter(function(i){return i.available&&Number.isSafeInteger(i.unit_cents)&&i.unit_cents>0;});document.getElementById('q-catalog-search').oninput=renderCatalog;renderCatalog();}catch(error){host.textContent='Menu unavailable. Retry by reloading this page, or use an explicitly priced custom line. '+error.message;}
+  }
+  function renderCatalog(){var term=document.getElementById('q-catalog-search').value.toLowerCase().trim(),matches=catalogItems.filter(function(i){return [i.name_en,i.name_es,i.detail,i.category].join(' ').toLowerCase().includes(term);}).slice(0,12),host=document.getElementById('q-catalog-results');
+    host.innerHTML=matches.length?'<p class="row-sub">Prices below are per stated serving or pack. New lines use this published price; existing agreed lines remain unchanged.</p><div class="q-catalog-grid">'+matches.map(function(item){return '<article class="q-catalog-item">'+(item.image?'<img src="'+esc(/^https?:\/\//.test(item.image)||item.image.charAt(0)==='/'?item.image:'/'+item.image)+'" alt="" loading="lazy" width="68" height="68">':'<span aria-hidden="true"></span>')+'<div><b>'+esc(item.name_en||item.name_es)+'</b><small>'+esc(item.detail||item.unit_label||'')+'</small><small>'+money(item.unit_cents)+' / '+esc(item.unit_label||'unit')+'</small><button type="button" class="btn ghost" data-add-catalog="'+esc(item.id)+'">Add this dish / pack</button></div></article>';}).join('')+'</div>':'<p>No matching published dishes.</p>';
+    host.querySelectorAll('[data-add-catalog]').forEach(function(button){button.onclick=function(){var item=catalogItems.find(function(i){return i.id===button.getAttribute('data-add-catalog');});if(!item)return;addLine(catalogLine(item,1));markEditorDirty();Hub.toast('Added one '+(item.unit_label||'unit')+'. Set the quantity on its line.');};});
+  }
+  var DRAFTS='/api/hub/owner/catering-drafts';
+  async function loadDrafts(){var host=document.getElementById('q-draft-list');try{var result=await Owner.get(DRAFTS);if(!result?.ok)throw Error(result?.error||'Unavailable');host.innerHTML=(result.drafts||[]).map(function(d){return '<div class="q-draft-row"><span>'+esc(typeof d.summary==='string'?d.summary:(d.summary?.customer_name||'Unfinished event'))+' · '+esc(d.state)+' · version '+esc(d.version)+'</span><button type="button" class="btn ghost" data-load-draft="'+esc(d.id)+'">'+(d.state==='prepared'?'View prepared quote':'Open draft')+'</button>'+(d.state==='draft'?'<button type="button" class="btn ghost" data-archive-draft="'+esc(d.id)+'" data-version="'+esc(d.version)+'">Archive</button>':'')+'</div>';}).join('')||'<p class="row-sub">No saved drafts.</p>';host.querySelectorAll('[data-load-draft]').forEach(function(b){b.onclick=function(){loadDraft(b.getAttribute('data-load-draft'));};});host.querySelectorAll('[data-archive-draft]').forEach(function(b){b.onclick=function(){archiveDraft(b.getAttribute('data-archive-draft'),Number(b.getAttribute('data-version')));};});}catch(error){host.textContent='Draft list unavailable: '+error.message;}}
+  function setDraftControls(prepared){document.getElementById('q-save-draft').disabled=prepared;document.getElementById('q-recover-draft').disabled=prepared;}
+  async function saveDraft(){var button=document.getElementById('q-save-draft');if(button.disabled)return;button.disabled=true;try{var payload=body();delete payload.draft_id;if(!payload.guests)payload.guests=null;if(!payload.lines&&!payload.total_cents)payload.total_cents=null;if(Number.isNaN(payload.delivery_fee_cents))throw Error('Check the delivery fee before saving.');var result=await Hub.api(DRAFTS,{method:'POST',body:{op:'save',id:draftRecord?.id||(draftPendingId||(draftPendingId=crypto.randomUUID())),expected_version:draftRecord?.version||0,payload:payload}});if(!result?.ok)throw Error(result?.error||'Draft not saved; refresh the draft list before retrying.');draftRecord=result.draft;draftPendingId=null;editorDirty=false;document.getElementById('q-draft-status').textContent='Draft saved · version '+draftRecord.version+'. No checkout created; nothing sent.';loadDrafts();}catch(error){document.getElementById('q-draft-status').textContent=error.message+' Your current edits remain here.';}finally{button.disabled=false;}}
+  async function loadDraft(id){if(!await guardEditorSwitch())return;try{var result=await Owner.get(DRAFTS+'?id='+encodeURIComponent(id));if(!result?.ok)throw Error(result?.error||'Draft unavailable');var record=result.draft,p=record.payload||{};if(record.state==='prepared'){var q=quoteCache.find(function(q){return q.id===record.quote_id;});if(q){document.getElementById('quote-'+q.id)?.scrollIntoView({behavior:'smooth'});return;}throw Error('Prepared quote is not in the current list. Reload quotes.');}if(record.state!=='draft')throw Error('Archived drafts are read-only.');var q=p.quote_id&&quoteCache.find(function(q){return q.id===p.quote_id;});editorDirty=false;if(p.quote_id&&!q)throw Error('The original quote is unavailable. Reload before editing this draft.');if(q)await beginRevision(q,p.lead_id,p);else{revisionSource=null;leadId=p.lead_id||null;fillDraftPayload(p);}draftRecord=record;editorDirty=false;document.getElementById('q-draft-status').textContent='Opened saved draft · version '+record.version+'. No checkout or message created.';document.getElementById('quote-editor').scrollIntoView({behavior:'smooth'});}catch(error){document.getElementById('q-draft-status').textContent=error.message;}}
+  function fillDraftPayload(p){resetPreview();setDraftControls(false);document.querySelectorAll('#q-name,#q-email,#q-phone,#q-date,#q-guests,#q-lang,#q-note,#q-delivery-fee,#q-lines input,#q-lines button,#q-add-line,#q-recommendation,#q-recommendation-packs').forEach(function(input){input.disabled=false;});loadRecommendations(p.recommendations&&p.recommendations[0]);[['q-name','customer_name'],['q-email','customer_email'],['q-phone','customer_phone'],['q-date','event_date'],['q-guests','guests'],['q-note','note'],['q-lang','lang']].forEach(function(pair){document.getElementById(pair[0]).value=p[pair[1]]??'';});document.getElementById('q-delivery-fee').value=Number.isInteger(p.delivery_fee_cents)?(p.delivery_fee_cents/100).toFixed(2):'';document.getElementById('q-lines').innerHTML=(p.lines||[]).map(function(line){return lineRowHtml({name:line.name,qty:line.qty,price:Number.isInteger(line.cents)?(line.cents/100).toFixed(2):'',metadata:line});}).join('');document.getElementById('q-total').value=Number.isInteger(p.total_cents)?((p.total_cents-(p.delivery_fee_cents||0))/100).toFixed(2):'';document.getElementById('q-create').disabled=false;document.getElementById('q-create').textContent='Create deposit checkout';document.getElementById('q-editor-title').textContent='Saved draft · no checkout yet';document.getElementById('q-sent').innerHTML='';renderLinesSum();}
+  async function archiveDraft(id,version){if(!await confirmOwnerAction('Archive draft','Keep its history but remove this unfinished draft from active work. Existing quotes and payment links are not changed.','Confirm archive'))return;try{var result=await Hub.api(DRAFTS,{method:'POST',body:{op:'archive',id:id,expected_version:version}});if(!result?.ok)throw Error(result?.error||'Archive failed');if(draftRecord?.id===id)draftRecord=null;loadDrafts();}catch(error){document.getElementById('q-draft-status').textContent=error.message;}}
+  async function recoverDraft(){var button=document.getElementById('q-recover-draft');if(!draftRecord){document.getElementById('q-draft-status').textContent='Open a saved draft first. No checkout has been created by this check.';return;}if(button.disabled)return;button.disabled=true;try{var result=await Hub.api(DRAFTS,{method:'POST',body:{op:'recover',id:draftRecord.id,expected_version:draftRecord.version}});if(!result?.ok)throw Error(result?.error||'No matching prepared checkout could be verified.');draftRecord=result.draft;document.getElementById('q-editor-title').textContent='Prepared quote · review and send';document.getElementById('q-draft-status').textContent='Existing prepared quote found. No duplicate checkout created. Reload the quote list to open it.';document.getElementById('q-save-draft').disabled=true;document.getElementById('q-create').disabled=true;loadDrafts();}catch(error){document.getElementById('q-draft-status').textContent=error.message+' Do not create another checkout until the quote list is checked.';}finally{button.disabled=draftRecord?.state==='prepared';}}
+  async function attachDraft(quoteId){try{var result=await Hub.api(DRAFTS,{method:'POST',body:{op:'attach',id:draftRecord.id,expected_version:draftRecord.version,quote_id:quoteId}});if(!result?.ok)throw Error(result?.error||'Could not link draft');draftRecord=result.draft;document.getElementById('q-draft-status').textContent='Draft linked to the prepared quote. Nothing sent.';document.getElementById('q-save-draft').disabled=true;document.getElementById('q-recover-draft').disabled=true;loadDrafts();}catch(error){document.getElementById('q-draft-status').textContent='Checkout exists, but the draft link is unconfirmed. Do not create another checkout. '+error.message;}}
+  async function reviewSavedQuote(id,contact){
+    var host=document.getElementById('q-saved-review'),seq=++savedReviewSequence;document.getElementById('q-sent').innerHTML='';host.textContent='Loading the exact saved quote email…';
+    try{var result=await Hub.api(ENDPOINT,{method:'POST',body:{op:'render_saved',quote_id:id}});if(seq!==savedReviewSequence)return;if(!result?.ok||!result.review_hash)throw Error(result?.error||'Saved email preview unavailable');var loaded=await mountEmailPreview(host,result,function(){return seq===savedReviewSequence;});if(!loaded||seq!==savedReviewSequence)return;var q=result.quote||quoteCache.find(function(q){return q.id===id;})||contact||{};showSend({quote_id:id,customer_email:result.customer_email||q.customer_email||result.to,customer_phone:result.customer_phone||q.customer_phone||'',review_hash:result.review_hash});host.scrollIntoView({behavior:'smooth'});}catch(error){if(seq===savedReviewSequence)host.textContent='Cannot approve this email: '+error.message+' Use Review / send this quote to retry.';}
   }
 
   // Dollars typed by a human → integer cents. The API refuses anything over $100,000 as a
@@ -193,6 +232,7 @@
 
       (q.balance_payment_link_url && !balPaid ? '<div class="row-sub lnk">Balance link: <a href="'+esc(q.balance_payment_link_url)+'" target="_blank" rel="noopener">Pay final balance through Square</a></div>' : '') +
       (!balPaid && paid && !q.balance_payment_link_url ? '<button class="btn gold block" data-balance-link="'+esc(q.id)+'">Create Square balance link</button>' : '') +
+      (q.deposit_status === 'unpaid'?'<button type="button" class="btn gold block" data-review-saved="'+esc(q.id)+'">Review / send this quote</button>':'')+
       (q.deposit_status === 'unpaid' || q.deposit_status === 'void' ? '<button class="btn ghost block" data-revise="' + esc(JSON.stringify(q)) + '">' + (q.deposit_status === 'void' ? 'View / recover replacement' : 'Edit quote · save changes') + '</button>' : '') +
       (q.deposit_status==='unpaid'&&duplicateAlternatives(q).length?'<button type="button" class="btn ghost block" data-retire-duplicate="'+esc(q.id)+'">Retire duplicate checkout</button>':'')+
       '<button type="button" class="btn ghost block" data-checkout-status="'+esc(q.id)+'">Check payment status</button><p class="row-sub q-payment-status" id="q-payment-status-'+esc(q.id)+'" role="status" aria-live="polite"></p>'+
@@ -344,30 +384,31 @@
   // ---------- the create form ----------
   function formHtml(d) {
     return '<div class="hub-section" id="quote-editor"><h2 id="q-editor-title">New catering quote</h2><div class="card">' +
-      '<div id="q-duplicate-retirement"></div><div id="q-existing-choice"></div><p id="q-revision-status" class="q-editor-status" role="status">For a new event only. Use Edit existing quote to change an offer already created.</p>' +
-      '<div class="field"><label>Customer name</label><input id="q-name" type="text" placeholder="Who the event is for"></div>' +
-      '<div class="field"><label>Email</label><input id="q-email" type="email" placeholder="For the deposit link"></div>' +
-      '<div class="field"><label>Phone</label><input id="q-phone" type="tel"></div>' +
-      '<div class="field"><label>Event date</label><input id="q-date" type="date"></div>' +
-      '<div class="field"><label>Guests</label><input id="q-guests" type="number" min="1" step="1"></div>' +
+      '<section class="q-drafts" aria-labelledby="q-draft-heading"><h3 id="q-draft-heading">Saved drafts & prepared quotes</h3><div id="q-draft-list"></div><button id="q-save-draft" type="button" class="btn ghost">Save draft</button><button id="q-recover-draft" type="button" class="btn ghost">Check whether this draft already has a checkout</button><p id="q-draft-status" role="status" class="row-sub">Save unfinished work without creating a checkout or sending anything.</p></section><div id="q-duplicate-retirement"></div><div id="q-existing-choice"></div><p id="q-revision-status" class="q-editor-status" role="status">For a new event only. Use Edit existing quote to change an offer already created.</p>' +
+      '<div class="field"><label for="q-name">Customer name</label><input id="q-name" type="text" placeholder="Who the event is for"></div>' +
+      '<div class="field"><label for="q-email">Email</label><input id="q-email" type="email" placeholder="For the deposit link"></div>' +
+      '<div class="field"><label for="q-phone">Phone</label><input id="q-phone" type="tel"></div>' +
+      '<div class="field"><label for="q-date">Event date</label><input id="q-date" type="date"></div>' +
+      '<div class="field"><label for="q-guests">Guests</label><input id="q-guests" type="number" min="1" step="1"></div>' +
       // PRICE IT LINE BY LINE. The estimator's number is a suggestion; these are decisions. What
       // is typed here is what the customer reads in her quote AND what the deposit is taken on —
       // one array, no second path, so the itemisation can never disagree with the charge.
+      '<section class="q-catalog" aria-labelledby="q-catalog-heading"><h3 id="q-catalog-heading">Build from the Añejo menu</h3><label for="q-catalog-search">Search dishes or packs</label><input id="q-catalog-search" type="search" placeholder="Search the published catering menu"><div id="q-catalog-results" role="status"></div></section>' +
       '<div class="field"><label>Line items <span class="row-sub">(what she reads — leave empty to quote a bare total)</span></label>' +
         '<div id="q-lines"></div>' +
-        '<button class="btn ghost" id="q-add-line" type="button" style="margin-top:6px">Add a line</button>' +
+        '<button class="btn ghost" id="q-add-line" type="button" style="margin-top:6px">Add a custom line</button>' +
         '<div id="q-lines-sum" class="row-sub" style="margin-top:8px"></div>' +
       '</div>' +
       '<div class="field"><label for="q-total">Agreed food subtotal (dollars)</label><input id="q-total" type="text" inputmode="decimal" placeholder="1200.00"></div>' +
       '<div class="field"><label for="q-delivery-fee">Delivery / setup fee (dollars)</label><input id="q-delivery-fee" type="text" inputmode="decimal" placeholder="Leave blank until confirmed" aria-describedby="q-delivery-help q-delivery-summary"><p class="row-sub" id="q-delivery-help">Delivery only. Enter the combined delivery / setup fee you approved for this event. Blank means unconfirmed, not free. Enter 0 only when you approve free delivery.</p><p id="q-delivery-summary" class="row-sub" role="status"></p></div>' +
       '<fieldset style="border:1px solid var(--line);border-radius:10px;padding:14px;margin:14px 0"><legend>Optional signature croquetas</legend><p class="row-sub">Choose a published pack for this party. Excluded from the quote total and deposit; the customer can ask about it before you add it.</p><label for="q-recommendation">Pack and filling</label><select id="q-recommendation"><option value="">No recommendation</option></select><label for="q-recommendation-packs">Number of packs</label><input id="q-recommendation-packs" type="number" min="1" max="20" step="1" value="1"><p id="q-recommendation-summary" class="row-sub" role="status"></p></fieldset>' +
       '<button id="q-revision-cancel" class="btn ghost" type="button" hidden>Exit revision · return to quote list</button>' +
-      '<div class="field"><label>Note (optional)</label><input id="q-note" type="text"></div>' +
+      '<div class="field"><label for="q-note">Note (optional)</label><input id="q-note" type="text" maxlength="500" aria-describedby="q-note-help"><small id="q-note-help">Up to 500 characters. Included in your saved quote terms.</small></div>' +
       // WHAT SHE READ THE SITE IN IS NOT ALWAYS WHAT SHE WANTS TO BE SOLD IN. The quote defaults
       // to the language on her lead, and this overrides it. Dayan hit exactly this on 2026-09-09:
       // a Spanish-speaking client had filled the form in English, so the automatic pick would
       // have emailed and texted her the English quote.
-      '<div class="field"><label>Send the quote in</label><select id="q-lang">' +
+      '<div class="field"><label for="q-lang">Send the quote in</label><select id="q-lang">' +
         '<option value="">Whatever she used on the site</option>' +
         '<option value="en">English</option>' +
         '<option value="es">Español</option>' +
@@ -380,7 +421,7 @@
       '<div id="q-mail"></div>' +
       '<button class="btn gold block" id="q-create" type="button" style="margin-top:8px">Create deposit checkout</button>' +
       '<p class="row-sub" style="margin-top:8px">Creating the checkout mints a Square payment link for the deposit only and stores the terms as they stand today. <b>It sends nothing.</b> Nothing reaches the customer until you press Send below the preview.</p>' +
-      '<div id="q-sent"></div>' +
+      '<div id="q-sent"></div><section id="q-saved-review" aria-live="polite"></section>' +
       '</div></div>';
   }
 
@@ -389,6 +430,7 @@
 
   function body() {
     return {
+      draft_id:draftRecord?.id,
       quote_id: revisionSource ? revisionSource.id : undefined,
       expected_updated_at: revisionSource ? revisionSource.updated_at : undefined,
       recommendations: document.getElementById('q-recommendation').value ? [{ sku: document.getElementById('q-recommendation').value, packs: Number(document.getElementById('q-recommendation-packs').value), expected_cents: Number(document.getElementById('q-recommendation').selectedOptions[0].dataset.cents) * Number(document.getElementById('q-recommendation-packs').value) }] : [],
@@ -416,13 +458,23 @@
   // instead of having the hub override me." A row here is a row in her quote email, at his price.
 
   function lineRowHtml(v) {
-    v = v || {};
-    return '<div class="q-line" data-metadata="' + esc(JSON.stringify(v.metadata || {})) + '" style="display:flex;gap:6px;margin-bottom:6px;align-items:flex-start">' +
-      '<input class="q-l-name" type="text" placeholder="Lech\u00f3n asado" value="' + esc(v.name || '') + '" style="flex:3">' +
-      '<input class="q-l-qty" type="text" inputmode="numeric" placeholder="30" value="' + esc(v.qty || '') + '" style="flex:1;min-width:52px">' +
-      '<input class="q-l-price" type="text" inputmode="decimal" placeholder="95.00" value="' + esc(v.price || '') + '" style="flex:1;min-width:72px">' +
-      '<button class="btn ghost q-l-del" type="button" title="Remove this line" style="flex:0 0 auto">\u00d7</button>' +
-      '</div>';
+    v=v||{};var metadata=v.metadata||{},qty=Number(v.qty),cents=toCents(v.price),rate=Number.isInteger(metadata.unit_cents)&&metadata.pricing_mode==='catalog'?metadata.unit_cents:cents,denom=Number.isInteger(metadata.unit_cents)&&metadata.pricing_mode==='catalog'?1:qty;
+    var automatic=!metadata.owner_override&&Number.isInteger(rate)&&rate>=0&&Number.isInteger(denom)&&denom>0;
+    return '<div class="q-line" data-metadata="'+esc(JSON.stringify(metadata))+'" data-rate-cents="'+(automatic?rate:'')+'" data-rate-qty="'+(automatic?denom:'')+'">'+
+      '<label>Dish / pack<input class="q-l-name" type="text" value="'+esc(v.name||'')+'" placeholder="Custom dish name"></label>'+
+      '<label>Quantity'+(metadata.unit_label?' · '+esc(metadata.unit_label):'')+'<input class="q-l-qty" type="number" min="1" step="1" value="'+esc(v.qty||'')+'"></label>'+
+      '<label>Line total ($)<input class="q-l-price" type="text" inputmode="decimal" value="'+esc(v.price||'')+'"'+(automatic?' readonly':'')+'></label>'+
+      '<button type="button" class="btn ghost q-l-del" aria-label="Remove '+esc(v.name||'line')+'">×</button>'+
+      '<div class="q-line-options"><label><input class="q-l-override" type="checkbox"'+(automatic?'':' checked')+'> Set a negotiated / custom line total</label><small class="q-line-rate">'+(automatic?(metadata.catalog_unit_cents!==undefined?'Published price × quantity of the stated pack / serving. This is not an individual-piece count unless the unit says so.':'Agreed quote rate × quantity; no current-price overwrite.'):'Manual total: changing quantity does not change this amount.')+'</small><label>Pricing note (optional)<input class="q-l-reason" type="text" maxlength="160" value="'+esc(metadata.override_reason||'')+'"></label></div></div>';
+  }
+  function updateLinePricing(row,customChanged){
+    var qty=Number(row.querySelector('.q-l-qty').value),price=row.querySelector('.q-l-price'),override=row.querySelector('.q-l-override');
+    var numerator=Number(row.getAttribute('data-rate-cents')),denominator=Number(row.getAttribute('data-rate-qty'));
+    if(!override.checked&&(!row.getAttribute('data-rate-qty')||denominator<=0)){override.checked=true;}
+    price.readOnly=!override.checked;
+    if(!override.checked&&Number.isInteger(qty)&&qty>0)price.value=(Math.round(numerator*qty/denominator)/100).toFixed(2);
+    row.querySelector('.q-line-rate').textContent=override.checked?'Manual total: changing quantity does not change this amount.':'Price scales with quantity using this line’s agreed rate.';
+    if(customChanged)markEditorDirty();renderLinesSum();
   }
 
   function esc(v) {
@@ -442,7 +494,8 @@
       if (!name && !priceRaw) continue;
       var metadata = {};
       try { metadata = JSON.parse(rows[i].getAttribute('data-metadata') || '{}'); } catch (e) { /* manual row */ }
-      out.push(Object.assign({}, metadata, { name: name, qty: qty || undefined, cents: priceRaw === '' ? null : toCents(priceRaw) }));
+      var override=rows[i].querySelector('.q-l-override'),reason=rows[i].querySelector('.q-l-reason');
+      out.push(Object.assign({}, metadata, { name: name, qty: qty || undefined, cents: priceRaw === '' ? null : toCents(priceRaw),owner_override:override?Boolean(override.checked):Boolean(metadata.owner_override),pricing_mode:override&&override.checked?'custom':metadata.pricing_mode||'quoted',override_reason:reason?reason.value:metadata.override_reason }));
     }
     return out;
   }
@@ -478,12 +531,13 @@
   function wireLines() {
     var host = document.getElementById('q-lines');
     if (!host) return;
-    document.getElementById('q-add-line').addEventListener('click', function () { addLine(); });
-    host.addEventListener('input', renderLinesSum);
+    document.getElementById('q-add-line').addEventListener('click', function () { addLine();markEditorDirty(); });
+    host.addEventListener('input', function(event){var row=event.target.closest&&event.target.closest('.q-line');if(row)updateLinePricing(row,true);else renderLinesSum();});
+    host.addEventListener('change',function(event){var row=event.target.closest&&event.target.closest('.q-line');if(row)updateLinePricing(row,true);});
     host.addEventListener('click', function (e) {
       var del = e.target.closest && e.target.closest('.q-l-del');
       if (!del) return;
-      del.closest('.q-line').remove();
+      del.closest('.q-line').remove();markEditorDirty();
       renderLinesSum();
     });
     renderLinesSum();
@@ -498,21 +552,24 @@
   function showSend(created) {
     var el = document.getElementById('q-sent');
     if (!el) return;
-    var to = document.getElementById('q-email').value.trim();
-    var phone = document.getElementById('q-phone').value.trim();
+    var to = Object.prototype.hasOwnProperty.call(created,'customer_email')?created.customer_email:document.getElementById('q-email').value.trim();
+    var phone = Object.prototype.hasOwnProperty.call(created,'customer_phone')?created.customer_phone:document.getElementById('q-phone').value.trim();
+    var sendLocked=false;
     el.innerHTML = '<div class="card" style="margin-top:12px">' +
-      '<p><b>Created. Nothing has been sent.</b></p>' +
+      '<p><b>Saved quote preview loaded. Nothing has been sent by this action.</b></p>' +
       '<p class="row-sub">Read the preview above one more time. When you are happy, this emails it to ' +
         esc(to || 'the address on the quote') + ' and texts her if she consented to texts.</p>' +
       '<label style="display:flex;gap:8px;align-items:center;margin:0 0 10px">' +
         '<input id="q-send-sms" type="checkbox" style="width:auto"' + (phone ? '' : ' disabled') + '>' +
         '<span>' + (phone ? 'Also text it to ' + esc(phone) : 'No phone number on this quote — email only') + '</span></label>' +
-      '<button class="btn gold block" id="q-send-now" type="button">Send it to her now</button>' +
+      '<label class="q-review-check"><input id="q-send-reviewed" type="checkbox"><span>I reviewed this saved quote email and recipient.</span></label><p id="q-send-status" class="row-sub" role="status"></p><button class="btn gold block" id="q-send-now" type="button" disabled>Send reviewed quote</button>' +
       (created.quote_url ? '<p class="row-sub" style="margin-top:8px">Or send it yourself: <code>' + esc(created.quote_url) + '</code></p>' : '') +
       '</div>';
+    document.getElementById('q-send-reviewed').onchange=function(){document.getElementById('q-send-now').disabled=sendLocked||!this.checked||!created.review_hash;};
+    document.getElementById('q-send-now').disabled=true;
     document.getElementById('q-send-now').addEventListener('click', async function () {
       var btn = this;
-      if(btn.disabled)return;
+      if(sendLocked||btn.disabled||!created.review_hash||!document.getElementById('q-send-reviewed').checked)return;
       btn.disabled = true;
       // Snapshot the channels named in the confirmation; the checkbox cannot change this send.
       var wantsSms = document.getElementById('q-send-sms').checked;
@@ -520,20 +577,20 @@
         + (wantsSms ? ' and text ' + phone : '') + ' now? Confirm only after reading the rendered email preview above.','Confirm send')) { btn.disabled=false; return; }
       // The text is opt-in per send and it is the owner authorising it, not a consent flag being
       // read off a row that has none. Unchecked means email only.
-      Hub.api(ENDPOINT, { method: 'POST', body: { op: 'send', quote_id: created.quote_id, sms: wantsSms } }).then(function (r) {
-        btn.disabled = false;
-        if (!r || !r.ok) { Hub.toast((r && r.error) || 'Could not send it'); return; }
-        // sendQuote reports each channel separately: { email: {sent, skipped}, sms: {...} }.
-        var d = r.delivery || {};
-        var mailed = Boolean(d.email && d.email.sent);
-        var texted = Boolean(d.sms && d.sms.sent);
-        Hub.toast(mailed
-          ? (texted ? 'Sent by email and text' : 'Sent by email' + (d.sms && d.sms.skipped ? ' · no text: ' + d.sms.skipped : ''))
-          : ((d.email && d.email.skipped) || d.error || 'Nothing was sent'));
-        btn.textContent = mailed ? 'Sent' : 'Try again';
-        btn.disabled = mailed;
-        render();
-      });
+      document.getElementById('q-send-status').textContent='Submitting the reviewed quote. Waiting for provider evidence…';
+      Hub.api(ENDPOINT, { method: 'POST', body: { op: 'send', quote_id: created.quote_id, sms: wantsSms,reviewed:true,review_hash:created.review_hash } }).then(function (r) {
+        var receipt=r&&r.receipt||{},d=r&&r.delivery||{},state=receipt.state||(r&&r.status)||'';
+        var mailed=Boolean(receipt.email&&receipt.email.provider_accepted||d.email&&d.email.sent),texted=Boolean(receipt.sms&&receipt.sms.provider_accepted||d.sms&&d.sms.sent);
+        var uncertain=['unknown','pending','sending'].includes(state),accepted=state==='accepted'||mailed||texted;
+        sendLocked=uncertain||accepted||!r;btn.disabled=sendLocked;
+        var channel=mailed?(texted?'Email and text accepted':'Email accepted'):(texted?'Text accepted':accepted?'Provider acceptance recorded':'No email acceptance confirmed');
+        var message=uncertain?channel+'. Remaining outcomes are unverified. Check the saved provider receipt before retrying.':accepted?channel+'. Customer delivery is not verified here.':(r&&r.error)||(d.email&&d.email.skipped)||'No provider acceptance confirmed. Review message history before retrying.';
+        btn.textContent=uncertain?'Outcome unverified · check receipt':accepted?channel+' · delivery unverified':'Try again';
+        document.getElementById('q-send-status').textContent=message;
+        document.getElementById('q-draft-status').textContent=message;
+        Hub.toast(message);
+
+      }).catch(function(error){sendLocked=true;btn.disabled=true;document.getElementById('q-send-status').textContent='Send outcome unconfirmed. Check message history before retrying. '+error.message;Hub.toast('Send outcome unconfirmed. Check message history before retrying. '+error.message);});
     });
   }
 
@@ -562,39 +619,28 @@
 
   function wireForm() {
     wireLines();
+    document.getElementById('quote-editor').addEventListener('input',markEditorDirty);
+    document.getElementById('quote-editor').addEventListener('change',markEditorDirty);
+    document.getElementById('q-save-draft').addEventListener('click',saveDraft);
+    document.getElementById('q-recover-draft').addEventListener('click',recoverDraft);
     document.getElementById('q-delivery-fee').addEventListener('input',deliverySummary);
     document.getElementById('q-total').addEventListener('input',deliverySummary);
     deliverySummary();
-    document.getElementById('q-revision-cancel').addEventListener('click', function () { render(); });
-    document.getElementById('q-preview').addEventListener('click', function () {
-      var b = body();
+    document.getElementById('q-revision-cancel').addEventListener('click', async function () { if(await guardEditorSwitch())render(); });
+    document.getElementById('q-preview').addEventListener('click', async function () {
+      var button=this,b=body(),snapshot=JSON.stringify(b);resetPreview();var seq=previewSequence;
       if(Number.isNaN(b.delivery_fee_cents)){Hub.toast('Enter a valid delivery / setup fee, or leave it blank until confirmed.');return;}
-      // Either the lines carry the money or the bare total does. Preview the same one the create
-      // path will use, so the split on screen is the split that gets charged.
-      if (!b.lines && (!Number.isFinite(b.total_cents) || b.total_cents <= 0)) { Hub.toast('Enter the agreed total, or add a line'); return; }
-      Hub.api(ENDPOINT, { method: 'POST', body: { op: 'preview', quote_id: b.quote_id, total_cents: b.total_cents, lines: b.lines, delivery_fee_cents:b.delivery_fee_cents, event_date: b.event_date } }).then(function (r) {
-        var el = document.getElementById('q-split');
-        if (!r || !r.ok) { Hub.toast((r && r.error) || 'Could not price that'); el.innerHTML = ''; return; }
-        el.innerHTML = '<div class="split" style="margin-top:10px">' +
-          '<div class="s"><div class="v">' + money(r.deposit_cents) + '</div><div class="l">Deposit ' + Math.round(r.deposit_pct * 100) + '%</div></div>' +
-          '<div class="s"><div class="v">' + money(r.balance_cents) + '</div><div class="l">Balance</div></div>' +
-          '<div class="s"><div class="v">' + money(r.total_cents) + '</div><div class="l">Total</div></div></div>' +
-          (r.terms && r.terms.final_count_due ? '<p class="row-sub">Final count due ' + esc(r.terms.final_count_due) + ' · balance due ' + esc(r.terms.balance_due_date || '') + '</p>' : '');
-      });
-      // And the email itself, rendered from these exact values. Sandboxed: it is a customer-facing
-      // document being shown inside the Hub, so it gets no script, no forms and no same-origin.
-      Hub.api(ENDPOINT, { method: 'POST', body: {
-        op: 'render', quote_id: b.quote_id, total_cents: b.total_cents, lines: b.lines, event_date: b.event_date,
-        delivery_fee_cents:b.delivery_fee_cents, guests: b.guests, customer_name: b.customer_name, lang: b.lang || 'en', recommendations: b.recommendations,
-      } }).then(function (r) {
-        var el = document.getElementById('q-mail');
-        if (!r || !r.ok) { el.innerHTML = '<p class="row-sub">Could not render the email: ' + esc((r && r.error) || 'unknown') + '</p>'; return; }
-        el.innerHTML = '<div style="margin-top:12px"><b>Subject:</b> ' + esc(r.subject) + '</div>' +
-          '<iframe sandbox="" title="The email she would receive" style="width:100%;height:70vh;border:1px solid #2a4a28;border-radius:8px;margin-top:6px;background:#fff"></iframe>' +
-          '<p class="row-sub" style="margin-top:6px">This is what she reads. The Pay button is inert here — the live link is minted when you create the checkout.</p>';
-        el.querySelector('iframe').srcdoc = r.html;
-        revisionPreview = JSON.stringify(b);
-      });
+      if(!b.lines&&(!Number.isFinite(b.total_cents)||b.total_cents<=0)){Hub.toast('Enter the agreed total, or add a line');return;}
+      button.disabled=true;document.getElementById('q-mail').textContent='Preparing the current email preview…';
+      try{
+        var responses=await Promise.all([Hub.api(ENDPOINT,{method:'POST',body:Object.assign({},b,{op:'preview'})}),Hub.api(ENDPOINT,{method:'POST',body:Object.assign({},b,{op:'render'})})]);
+        if(seq!==previewSequence||snapshot!==JSON.stringify(body()))return;
+        var split=responses[0],mail=responses[1];if(!split?.ok||!mail?.ok)throw Error(split?.error||mail?.error||'Could not prepare this preview.');
+        document.getElementById('q-split').innerHTML='<div class="split"><div class="s">Deposit <b>'+money(split.deposit_cents)+'</b></div><div class="s">Balance <b>'+money(split.balance_cents)+'</b></div><div class="s">Total <b>'+money(split.total_cents)+'</b></div></div>';
+        await mountEmailPreview(document.getElementById('q-mail'),mail,function(){return seq===previewSequence&&snapshot===JSON.stringify(body());});
+        if(seq===previewSequence&&snapshot===JSON.stringify(body())){revisionPreview=snapshot;document.getElementById('q-revision-status').textContent='Current preview loaded. Read it before creating or replacing the checkout. Nothing has been sent.';}
+      }catch(error){if(seq===previewSequence){revisionPreview=null;document.getElementById('q-mail').textContent='Preview unavailable: '+error.message+' Retry the preview before continuing.';}}
+      finally{if(seq===previewSequence)button.disabled=false;}
     });
 
     document.getElementById('q-create').addEventListener('click', async function () {
@@ -604,11 +650,11 @@
       if (!Number.isFinite(amount) || amount <= 0) { Hub.toast('Enter the agreed total, or add a line'); return; }
       if (!Number.isFinite(b.guests) || b.guests <= 0) { Hub.toast('Enter the guest count'); return; }
       var clearingDelivery=false;if(revisionSource&&b.delivery_fee_cents===null){clearingDelivery=Number(quoteDeliveryFee(revisionSource))>0;}
-      if (revisionSource && revisionPreview !== JSON.stringify(b)) { Hub.toast('Read the updated email preview before saving this revision.'); return; }
+      if (revisionPreview !== JSON.stringify(b)) { Hub.toast('Read the updated email preview before saving this revision.'); return; }
       if(revisionSource&&!await confirmOwnerAction('Confirm quote replacement','Quote: '+revisionSource.id+'\nRevised total: '+money(amount)+'\n\nRetire the old Square checkout and replace this unpaid quote. The old link will stop working; a saved revision is recovered using the same approved values. No email or text is sent until you separately review and press Send.'+(clearingDelivery?'\n\nYou are also clearing the previously confirmed delivery / setup fee. The revised quote will show delivery as unconfirmed.':''),'Confirm replacement'))return;
-      if (!revisionSource && !window.confirm('Create a deposit checkout for ' + money(amount) + '?\n\n'
+      if (!revisionSource && !await confirmOwnerAction('Create deposit link','Create a deposit checkout for ' + money(amount) + '?\n\n'
         + 'This mints a payable link and stores today’s terms on the quote.\n'
-        + 'NOTHING is sent to the customer — you read it and press Send afterwards.')) return;
+        + 'NOTHING is sent to the customer — you read it and press Send afterwards.','Confirm create')) return;
       btn.disabled = true;
       b.op = 'create';
       if (revisionSource) b.op = 'revise';
@@ -622,14 +668,17 @@
           document.getElementById('q-phone').value = r.customer_phone || b.customer_phone;
           btn.disabled = true;
         }
-        showSend(r);
-      });
+        editorDirty=false;btn.disabled=true;document.getElementById('q-editor-title').textContent='Prepared quote · review and send';
+        if(draftRecord)attachDraft(r.quote_id);
+        reviewSavedQuote(r.quote_id,{customer_email:r.customer_email||b.customer_email,customer_phone:r.customer_phone||b.customer_phone});
+      }).catch(function(error){document.getElementById('q-revision-status').textContent='Checkout outcome could not be confirmed. Reload the quote list or recover the saved draft before retrying. '+error.message;Hub.toast('Checkout outcome could not be confirmed. Refresh the quote list before retrying: '+error.message);});
     });
   }
 
   function wireRequests(root) {
     root.querySelectorAll('[data-prefill]').forEach(function (btn) {
-      btn.addEventListener('click', function () {
+      btn.addEventListener('click', async function () {
+        if(!await guardEditorSwitch())return;editorDirty=false;draftRecord=null;draftPendingId=null;resetPreview();setDraftControls(false);
         var selectedRequest;try{selectedRequest=JSON.parse(btn.getAttribute('data-prefill')||'{}');}catch(_error){selectedRequest={};}
         if(selectedRequest.quote_lookup_unavailable){document.getElementById('q-create').disabled=true;document.getElementById('q-revision-status').textContent='Existing quote lookup is unavailable. Refresh before creating a checkout for this request.';Hub.toast('Existing quote lookup is unavailable. Refresh the quote list before starting another checkout.');return;}
         var existing=(selectedRequest.existing_quote_ids||[]).map(function(id){return quoteCache.find(function(q){return q.id===id;});}).filter(Boolean);
@@ -673,7 +722,7 @@
           host.innerHTML = '';
           (r.lines || []).forEach(function (l) {
             if (!Number.isInteger(l.cents)) open++;
-            addLine({ name: l.name || '', qty: l.qty || '', price: Number.isInteger(l.cents) ? (l.cents / 100).toFixed(2) : '' });
+            addLine({ name: l.name || '', qty: l.qty || '', price: Number.isInteger(l.cents) ? (l.cents / 100).toFixed(2) : '',metadata:l });
           });
           renderLinesSum();
         }
@@ -770,17 +819,18 @@
     });
   }
 
-  function beginRevision(q,requestLeadId,draft) {
+  async function beginRevision(q,requestLeadId,draft) {
+    if(!await guardEditorSwitch())return;
     if(q.deposit_status==='paid'){document.getElementById('q-create').disabled=true;document.getElementById('q-revision-status').textContent='This quote has a recorded deposit and is read-only here. Review the booked order before making any money changes.';document.getElementById('quote-'+q.id)?.scrollIntoView({behavior:'smooth',block:'center'});Hub.toast('A deposit is recorded. This quote cannot be replaced through the unpaid revision editor.');return Promise.resolve();}
     document.getElementById('q-create').disabled=true;
     document.getElementById('q-revision-status').textContent='Checking the current quote and any saved revision…';
     return Hub.api(ENDPOINT, { method: 'POST', body: { op: 'revision_status', quote_id: q.id } }).then(function (result) {
       if (!result.ok) { Hub.toast(result.error || 'Cannot verify revision status'); return; }
       if (q.deposit_status === 'void' && !result.revision) { Hub.toast('This void quote has no recoverable revision.'); return; }
-      revisionSource=q;revisionPreview=null;document.getElementById('q-editor-title').textContent='Edit existing catering quote';
+      resetPreview();editorDirty=false;draftRecord=null;draftPendingId=null;revisionSource=q;document.getElementById('q-editor-title').textContent='Edit existing catering quote';
       document.getElementById('q-existing-choice').innerHTML='';document.getElementById('q-revision-cancel').hidden=false;
       document.getElementById('q-create').disabled=false;document.getElementById('q-sent').innerHTML='';document.getElementById('q-mail').innerHTML='';
-      var saved=result.revision&&JSON.parse(result.revision.payload_json),blob={};try{blob=JSON.parse(q.quote_json||'{}');}catch(_error){}
+      var saved=result.revision&&JSON.parse(result.revision.payload_json),blob={};setDraftControls(Boolean(saved));try{blob=JSON.parse(q.quote_json||'{}');}catch(_error){}
       leadId=q.source_lead_id||blob.lead_id||requestLeadId||null;
       var values=saved||{customerName:q.customer_name,customerEmail:q.customer_email,customerPhone:q.customer_phone,eventDate:q.event_date,guests:q.guests,lang:q.lang,note:q.note,quoteBreakdown:blob};
       var breakdown=values.quoteBreakdown||{};
@@ -795,7 +845,7 @@
       }
       document.getElementById('q-preview').disabled=false;
       var lines=breakdown.lines||(draft&&!saved?[]:[{name:'Catering package',cents:q.total_cents-(Number.isInteger(fee)?fee:0)}]);
-      document.getElementById('q-lines').innerHTML=lines.map(function(line){return lineRowHtml({name:line.name,qty:line.qty,price:(line.cents/100).toFixed(2),metadata:line});}).join('');
+      document.getElementById('q-lines').innerHTML=lines.map(function(line){var metadata=Object.assign({},line);if(!saved&&!draft&&(!metadata.pricing_mode||metadata.pricing_mode==='catalog'))metadata.pricing_mode='quoted';return lineRowHtml({name:line.name,qty:line.qty,price:(line.cents/100).toFixed(2),metadata:metadata});}).join('');
       if(!lines.length)document.getElementById('q-total').value=((draft?.total_cents||q.total_cents)-(Number.isInteger(fee)?fee:0))/100;
       renderLinesSum();
       document.getElementById('q-revision-status').textContent=saved?'Recover the saved revision. Its approved values stay locked while the old checkout is retired and the replacement recovered.':'Editing existing quote '+q.id+'. 1. Make changes. 2. Read the updated email preview. 3. Save changes to replace the old checkout. Sending is a separate step.';
@@ -810,7 +860,7 @@
   }
 
   function render() {
-    revisionSource = null; revisionPreview = null;
+    revisionSource = null; revisionPreview = null;editorDirty=false;draftRecord=null;
     Owner.get(ENDPOINT).then(function (d) {
       var root = document.getElementById('owner-root');
       root.className = '';
@@ -844,7 +894,8 @@
         (qs.length ? quoteListHtml(qs) : '<div class="hub-empty">No catering quotes yet.</div>') +
         '</div>';
 
-      wireForm();
+      wireForm();loadCatalog();loadDrafts();
+      root.querySelectorAll('[data-review-saved]').forEach(function(button){button.addEventListener('click',function(){reviewSavedQuote(button.getAttribute('data-review-saved'));});});
       wireRevisionEditor(root);
       wireCheckoutStatus(root);
       root.querySelectorAll('[data-retire-duplicate]').forEach(function(button){button.addEventListener('click',function(){var q=quoteCache.find(function(row){return row.id===button.getAttribute('data-retire-duplicate');});if(q)reviewDuplicateRetirement(q);});});
