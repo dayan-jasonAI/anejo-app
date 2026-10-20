@@ -2,7 +2,7 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {ownerEnv,OWNER_COOKIE} from '../helpers/sqlite-d1.js';
 import {ownerQuoteCatalog,validateCatalogQuoteLines} from '../../functions/_lib/catering_quote_catalog.js';
-import {onRequestPost} from '../../functions/api/hub/owner/catering-deposit.js';
+import {onRequestPost,onRequestGet} from '../../functions/api/hub/owner/catering-deposit.js';
 import {onRequestGet as catalogGet} from '../../functions/api/hub/owner/catering-quote-catalog.js';
 import {normalizeQuoteLines} from '../../functions/_lib/catering_quote_lines.js';
 const url='https://example.test/api/hub/owner/catering-deposit';
@@ -61,4 +61,9 @@ test('uncertain quote send blocks duplicate retirement before any provider effec
  INSERT INTO catering_quote_send_reviews(quote_id,claim_id,review_hash,expected_updated_at,state,created_at,updated_at) VALUES('q1','claim_fixture','${'a'.repeat(64)}',1,'unknown',1,1);`);
  const original=globalThis.fetch;let calls=0;globalThis.fetch=async()=>{calls++;throw Error('No provider effects allowed');};
  try{assert.equal((await retireDuplicateQuote(env,{reviewed:true,quote_id:'q1',replacement_quote_id:'q2',expected_updated_at:1,expected_replacement_updated_at:1},{actor:'owner',baseUrl:'https://example.test'})).ok,false);assert.equal(calls,0);}finally{globalThis.fetch=original;}
+});
+
+test('quote read failures do not masquerade as an empty desk',async()=>{
+ const env=ownerEnv(),prepare=env.DB.prepare;env.DB.prepare=sql=>{if(sql.includes('FROM catering_quotes')&&sql.includes('LIMIT 50'))throw Error('Storage unavailable');return prepare(sql);};
+ const response=await onRequestGet({env,request:new Request(url,{headers:{Cookie:OWNER_COOKIE}})});assert.equal(response.status,503);assert.match((await response.json()).error,/could not be loaded/);
 });

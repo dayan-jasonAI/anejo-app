@@ -91,7 +91,7 @@ export const onRequestGet = async ({ request, env }) => {
       // the total silently collapses a reopened quote into a generic package.
       return { ...rest, quote_json, source_lead_id:rest.source_lead_id||parseJson(quote_json,null)?.lead_id||null, delivery_fee_cents:parseJson(quote_json,null)?.delivery_fee_cents??null, terms: parseJson(terms_json, null), gift: parseJson(quote_json, null)?.gift || null };
     });
-  } catch { quotes = []; }
+  } catch { return bad('Saved quotes could not be loaded. Nothing was removed; retry before creating another offer.',503); }
 
   // Website quote requests stay in the shared leads table until Dayan agrees a price. They are
   // deliberately separate from catering_quotes: a customer's request is not yet an offer, and it
@@ -105,7 +105,7 @@ export const onRequestGet = async ({ request, env }) => {
       const parsed = extractCajitaConfiguration(row.message);
       return parsed ? { ...row, cajita_configuration: parsed.config, cajita_summary: parsed.summary } : row;
     });
-  } catch { requests = []; }
+  } catch { return bad('Customer requests could not be loaded. Retry before starting another quote.',503); }
 
   // A SUGGESTED TOTAL, so "Start a quote" is not an empty box.
   //
@@ -473,7 +473,7 @@ export const onRequestPost = async ({ request, env }) => {
     if(b.force===true)return bad('Use the reviewed follow-up workflow for reminders; original quote sends cannot be forced.',409);
     const claim=await beginReviewedQuoteSend(env,{quoteId:row.id,reviewHash:reviewedEmail.review_hash,expectedUpdatedAt:row.updated_at,smsAuthorized:owed});
     if(!claim.ok)return bad(claim.error,409);
-    if(!claim.send)return json({ok:true,replayed:true,receipt:claim.outcome});
+    if(!claim.send)return json({ok:true,replayed:true,status:claim.outcome?.state||'accepted',receipt:claim.outcome});
     let r;
     try {r = await sendQuote(env, owed ? { ...row, sms_consent: 1 } : row, {
       baseUrl: appBaseUrl(env, request),
