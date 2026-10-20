@@ -21,6 +21,7 @@ test('selected SKU pack price multiplies quantity; stale price and stock are ref
  assert.equal((await validateCatalogQuoteLines(env,[{...line,cents:line.cents-1}])).ok,false);
  env.DB.exec(`UPDATE menu_items SET stock_count=1 WHERE id='catering_lechon-10'`);
  assert.equal((await validateCatalogQuoteLines(env,[line])).ok,false);
+ const single={...line,qty:'1',cents:item.unit_cents};assert.equal((await validateCatalogQuoteLines(env,[single,single])).ok,false,'repeated SKU lines share the same recorded stock');
  assert.equal((await validateCatalogQuoteLines(env,[{...line,pricing_mode:'quoted'}])).ok,true,'saved negotiated rates remain unchanged');
  assert.equal(normalizeQuoteLines([line]).lines[0].unit_cents,item.unit_cents);
 });

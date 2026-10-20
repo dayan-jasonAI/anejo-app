@@ -33,13 +33,15 @@ export async function validateCatalogQuoteLines(env, lines) {
   if (!Array.isArray(lines) || !lines.some(line => line?.pricing_mode === 'catalog')) return { ok: true };
   const catalog = await ownerQuoteCatalog(env);
   if (!catalog.ok) return catalog;
+  const selected=new Map();
   for (const [i, line] of lines.entries()) {
     if (line?.pricing_mode !== 'catalog') continue;
     const item = catalog.items.find(item => item.id === line.product_id);
     const qty = Number(line.qty);
     if (!item) return { ok: false, error: `Line ${i + 1}: this catalog item is no longer available. Choose another item or explicitly agree a custom price.` };
     if (!Number.isSafeInteger(qty) || qty < 1 || qty > 999) return { ok: false, error: `Line ${i + 1}: enter 1–999 catalog items / packs.` };
-    if(item.stock_available!==null && qty>item.stock_available)return {ok:false,error:`Line ${i+1}: only ${item.stock_available} catalog items / packs are recorded in stock. Review production before agreeing a custom order.`};
+    selected.set(item.id,(selected.get(item.id)||0)+qty);
+    if(item.stock_available!==null && selected.get(item.id)>item.stock_available)return {ok:false,error:`Line ${i+1}: only ${item.stock_available} catalog items / packs are recorded in stock. Review production before agreeing a custom order.`};
     if (line.unit_cents !== item.unit_cents || line.cents !== item.unit_cents * qty) return { ok: false, error: `Line ${i + 1}: the catalog price changed or the quantity and total disagree. Select the item again, or explicitly agree a custom price.` };
   }
   return { ok: true };
