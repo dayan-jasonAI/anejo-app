@@ -215,7 +215,7 @@ export async function markDepositPaid(env, squareOrderId, capturedCents, currenc
   const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(material));
   const receiptId = 'catering_deposit_' + Array.from(new Uint8Array(digest), b => b.toString(16).padStart(2, '0')).join('');
   const stamp = now();
-  const results = await env.DB.batch([
+  await env.DB.batch([
     env.DB.prepare(`INSERT OR IGNORE INTO activity_log (id,event,actor_type,properties,created_at)
       SELECT ?, 'catering.deposit.receipt', 'system',
         json_object('quote_id',id,'square_order_id',square_order_id,'payment_id',?,
@@ -237,5 +237,7 @@ export async function markDepositPaid(env, squareOrderId, capturedCents, currenc
   if (JSON.parse(receipt.properties).outcome === 'reconciliation_required') {
     return { reconciliation_required: true, quote_id: q.id, receipt_id: receiptId, reason: 'capture_requires_review' };
   }
-  return results[1]?.meta?.changes === 1 ? q.id : null;
+  // Return the durable receipt on replay too, so a failed owner alert can recover.
+  // The guarded booking UPDATE above remains a no-op after the first transition.
+  return q.id;
 }

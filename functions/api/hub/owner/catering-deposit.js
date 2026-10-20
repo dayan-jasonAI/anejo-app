@@ -28,6 +28,9 @@ import { sendQuote, quoteUrl, quoteLinesWithImages } from '../../../_lib/caterin
 import { reviseQuote, retireDuplicateQuote } from '../../../_lib/catering_quote_revision.js';
 import { isAvailable, isOrderable } from '../../../_lib/menu.js';
 import {cateringCheckoutStatus} from '../../../_lib/catering_checkout_status.js';
+import {beginReviewedQuoteSend,finishReviewedQuoteSend} from '../../../_lib/catering_quote_send_review.js';
+import { savedQuoteReview } from '../../../_lib/catering_quote_review.js';
+import { validateCatalogQuoteLines } from '../../../_lib/catering_quote_catalog.js';
 import { renderLines } from '../../../_lib/catering_terms.js';
 
 export async function normalizeRecommendations(raw, env) {
@@ -223,6 +226,17 @@ export const onRequestPost = async ({ request, env }) => {
   let b;
   try { b = await request.json(); } catch { return bad('Invalid JSON body.'); }
   const op = (b && b.op) || 'create';
+  if (['create','revise','render','preview'].includes(op)) {
+    const validation=await validateCatalogQuoteLines(env,b?.lines);
+    if(!validation.ok)return bad(validation.error,409);
+  }
+  if(op==='render_saved'){
+    const row=await env.DB.prepare('SELECT * FROM catering_quotes WHERE id=?').bind(String(b.quote_id||'')).first();
+    if(!row)return bad('Quote not found.',404);
+    if(row.deposit_status!=='unpaid')return bad('Only an active unpaid quote can be reviewed for sending.',409);
+    const rendered=await savedQuoteReview(env,row,appBaseUrl(env,request));
+    return json({ok:true,quote_id:row.id,customer_email:row.customer_email,customer_phone:row.customer_phone,...rendered},200,{'Cache-Control':'no-store'});
+  }
 
   if(op==='checkout_status'){try{const status=await cateringCheckoutStatus(env,b);return json(status,status.ok?200:400,{'Cache-Control':'no-store'});}catch{return bad('Checkout evidence is unavailable. No checkout was changed.',503);}}
 
@@ -427,7 +441,7 @@ export const onRequestPost = async ({ request, env }) => {
       row = await env.DB.prepare(
         `SELECT id, customer_name, customer_email, customer_phone, event_date, guests, total_cents,
                 deposit_pct, deposit_cents, balance_cents, deposit_status, balance_due_date,
-                terms_json, quote_json, payment_link_url, access_token, lang, email_sent_at, sms_sent_at
+                terms_json, quote_json, payment_link_url, access_token, lang, email_sent_at, sms_sent_at, updated_at
            FROM catering_quotes WHERE id = ?`
       ).bind(qid).first();
     } catch { return bad('Could not read that quote.', 500); }
@@ -452,13 +466,24 @@ export const onRequestPost = async ({ request, env }) => {
     // message about a quote this customer asked for. He says so per send. Nothing is written into
     // `leads.sms_consent` — inventing a consent the customer never gave would also license future
     // marketing to her, which is a different thing entirely and not his to grant on her behalf.
+    const reviewedEmail=await savedQuoteReview(env,row,appBaseUrl(env,request));
+    if(b.reviewed!==true || b.review_hash!==reviewedEmail.review_hash)
+      return bad('Review the current saved email before sending. The quote or recipient may have changed.',409);
     const owed = b.sms === true;
-    const r = await sendQuote(env, owed ? { ...row, sms_consent: 1 } : row, {
+    if(b.force===true)return bad('Use the reviewed follow-up workflow for reminders; original quote sends cannot be forced.',409);
+    const claim=await beginReviewedQuoteSend(env,{quoteId:row.id,reviewHash:reviewedEmail.review_hash,expectedUpdatedAt:row.updated_at,smsAuthorized:owed});
+    if(!claim.ok)return bad(claim.error,409);
+    if(!claim.send)return json({ok:true,replayed:true,receipt:claim.outcome});
+    let r;
+    try {r = await sendQuote(env, owed ? { ...row, sms_consent: 1 } : row, {
       baseUrl: appBaseUrl(env, request),
-      force: b.force === true,
-    });
+      force: false,
+      reviewedEmail,
+    });} catch {r={ok:false,error:'Provider outcome is unverified. Reconcile before retrying.'};}
+    const receipt=await finishReviewedQuoteSend(env,claim.claim_id,r);
     return json({
-      ok: true,
+      receipt,
+      ok: r.ok,
       delivery: r,
       sms_authorized_by_owner: owed,
       quote_url: quoteUrl(row.access_token, appBaseUrl(env, request)),
@@ -554,6 +579,8 @@ export const onRequestPost = async ({ request, env }) => {
     if (b.lead_id || recommendations.length) breakdown = { ...(breakdown || {}), lead_id: b.lead_id || null, recommendations };
   } catch (e) { return bad(e.message); }
 
+  if (/^[a-zA-Z0-9_-]{1,80}$/.test(String(b.draft_id||''))) breakdown={...(breakdown||{}),draft_id:b.draft_id};
+
   // LANGUAGE AND SMS CONSENT COME FROM THE LEAD, NOT FROM A CHECKBOX SOMEBODY HAS TO REMEMBER.
   // She told us both when she filled the form in: `source_lang` is the language she was reading
   // the site in, and `sms_consent` is what she actually agreed to. Asking the owner to re-enter
@@ -588,7 +615,7 @@ export const onRequestPost = async ({ request, env }) => {
     // is law." So sending is OPT-IN and the default is silence. Creating a quote mints the Square
     // link and stores the terms; it contacts nobody. The Hub renders the quote for him to read
     // and sends it on a second, deliberate click (op: 'send').
-    send: b.send === true,
+    send: false, // Sending requires a separate, reviewed saved-email request.
   });
   if (!r.ok) return json(r,r.requires_revision||r.creation_pending?409:400);
   return json(r);

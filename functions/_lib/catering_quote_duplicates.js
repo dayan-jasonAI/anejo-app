@@ -1,3 +1,4 @@
+import {sendInProgress} from './catering_quote_send_review.js';
 import {square} from './square.js';
 import {editableUnpaidCheckout} from './catering_checkout_state.js';
 const parse=v=>{try{return JSON.parse(v||'{}');}catch{return {};}};
@@ -9,6 +10,7 @@ export async function retireDuplicateQuote(env,body,{actor,baseUrl}) {
  const source=await env.DB.prepare('SELECT * FROM catering_quotes WHERE id=?').bind(String(body.quote_id||'')).first();
  let target=await env.DB.prepare('SELECT * FROM catering_quotes WHERE id=?').bind(String(body.replacement_quote_id||'')).first();
  if(!source||!target||source.id===target.id)return failure('Select two different existing quotes.');
+ if(await sendInProgress(env,source.id)||await sendInProgress(env,target.id))return failure('A quote send is in progress or uncertain. Reconcile its receipt before retiring checkout.');
  let journal=await env.DB.prepare('SELECT * FROM catering_quote_duplicate_retirements WHERE source_quote_id=?').bind(source.id).first();
  if(journal&&journal.target_quote_id!==target.id)return failure('This duplicate retirement already names a different retained quote. Recover it first.');
  if(journal?.state==='complete'&&source.deposit_status==='void'&&target.deposit_status!=='void')return result(source,target,baseUrl);
@@ -24,8 +26,8 @@ export async function retireDuplicateQuote(env,body,{actor,baseUrl}) {
   await env.DB.prepare(`INSERT OR IGNORE INTO catering_quote_duplicate_retirements(source_quote_id,target_quote_id,source_updated_at,target_updated_at,state,created_by,created_at,updated_at)
    SELECT ?,?,?,?,'pending',?,?,? WHERE EXISTS(SELECT 1 FROM catering_quotes WHERE id=? AND deposit_status='unpaid' AND updated_at=?) AND EXISTS(SELECT 1 FROM catering_quotes WHERE id=? AND deposit_status IN ('unpaid','paid') AND updated_at=?)
    AND NOT EXISTS(SELECT 1 FROM catering_quote_revisions WHERE source_quote_id IN (?,?) OR (replacement_quote_id=? AND state!='complete'))
-   AND NOT EXISTS(SELECT 1 FROM catering_quote_duplicate_retirements WHERE (source_quote_id IN (?,?) OR target_quote_id IN (?,?)) AND state!='complete')`)
-   .bind(source.id,target.id,source.updated_at,target.updated_at,actor,Date.now(),Date.now(),source.id,source.updated_at,target.id,target.updated_at,source.id,target.id,target.id,source.id,target.id,source.id,target.id).run();
+   AND NOT EXISTS(SELECT 1 FROM catering_quote_duplicate_retirements WHERE (source_quote_id IN (?,?) OR target_quote_id IN (?,?)) AND state!='complete') AND NOT EXISTS(SELECT 1 FROM catering_quote_send_reviews WHERE quote_id IN (?,?) AND state IN ('sending','unknown'))`)
+   .bind(source.id,target.id,source.updated_at,target.updated_at,actor,Date.now(),Date.now(),source.id,source.updated_at,target.id,target.updated_at,source.id,target.id,target.id,source.id,target.id,source.id,target.id,source.id,target.id).run();
   journal=await env.DB.prepare('SELECT * FROM catering_quote_duplicate_retirements WHERE source_quote_id=?').bind(source.id).first();
   if(!journal||journal.target_quote_id!==target.id)return failure('Duplicate retirement could not be claimed. Recover any active revision first.');
  }

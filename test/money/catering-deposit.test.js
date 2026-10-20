@@ -212,7 +212,7 @@ function paymentEnv(status = 'unpaid') {
 test('only an exact verified USD deposit books the quote and retains its receipt once', async () => {
   const env = paymentEnv();
   assert.equal(await markDepositPaid(env, 'sqo_test', 60000, 'USD', 'payment_test'), 'cq_test');
-  assert.equal(await markDepositPaid(env, 'sqo_test', 60000, 'USD', 'payment_test'), null);
+  assert.equal(await markDepositPaid(env, 'sqo_test', 60000, 'USD', 'payment_test'), 'cq_test');
   const q = env.DB.one("SELECT * FROM catering_quotes WHERE id='cq_test'");
   assert.equal(q.deposit_status, 'paid');
   assert.equal(q.deposit_paid_cents, 60000);
@@ -246,4 +246,13 @@ test('unrelated payments are ignored but deposit storage failures propagate for 
   env.DB.batch=async()=>{throw Error('storage unavailable');};
   await assert.rejects(markDepositPaid(env,'sqo_test',60000,'USD','p'),/storage unavailable/);
   assert.equal(env.DB.one('SELECT deposit_status FROM catering_quotes').deposit_status,'unpaid');
+});
+test('concurrent webhook claims cannot apply the same or a second payment twice', async () => {
+  const env=paymentEnv();
+  const repeated=await Promise.all([1,2].map(()=>markDepositPaid(env,'sqo_test',60000,'USD','payment_one')));
+  assert.deepEqual(repeated,['cq_test','cq_test']);
+  const extra=await markDepositPaid(env,'sqo_test',60000,'USD','payment_two');
+  assert.equal(extra.reconciliation_required,true);
+  assert.equal(env.DB.rows("SELECT * FROM activity_log WHERE event='catering.deposit.receipt'").length,2);
+  assert.equal(env.DB.one('SELECT deposit_paid_cents FROM catering_quotes').deposit_paid_cents,60000);
 });

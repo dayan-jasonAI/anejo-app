@@ -81,3 +81,22 @@ test('suppressed recipient and unverified provider response never become sent',a
     }
   } finally {globalThis.fetch=saved;}
 });
+test('accepted deposit alert storage failure retries and recovers without booking or alert duplication',async()=>{
+  const env=fixture(),prepare=env.DB.prepare;let fail=true;
+  env.DB.prepare=sql=>{
+    if(fail && sql.startsWith('INSERT INTO alerts'))throw Error('synthetic alert storage unavailable');
+    return prepare(sql);
+  };
+  assert.equal((await webhook(env)).status,503);
+  const booked=env.DB.one('SELECT deposit_paid_at,updated_at FROM catering_quotes');
+  assert.equal(env.DB.one('SELECT deposit_status FROM catering_quotes').deposit_status,'paid');
+  assert.equal(env.DB.rows('SELECT * FROM alerts').length,0);
+  fail=false;
+  assert.equal((await webhook(env)).status,200);
+  assert.equal(env.DB.rows("SELECT * FROM alerts WHERE title='Catering deposit paid'").length,1);
+  env.DB.exec("UPDATE alerts SET status='acknowledged'");
+  assert.equal((await webhook(env)).status,200);
+  assert.deepEqual(env.DB.one('SELECT deposit_paid_at,updated_at FROM catering_quotes'),booked);
+  assert.equal(env.DB.rows("SELECT * FROM activity_log WHERE event='catering.deposit.receipt'").length,1);
+  assert.equal(env.DB.rows("SELECT * FROM alerts WHERE title='Catering deposit paid'").length,1);
+});

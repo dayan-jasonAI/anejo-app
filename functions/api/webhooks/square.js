@@ -279,13 +279,14 @@ export const onRequestPost = async ({ request, env }) => {
             });
             if (!alert.ok) return new Response('Deposit reconciliation alert temporarily unavailable', { status:503 });
           } else if (cq) {
-            await raiseAlert(env, {
-              alert_type: 'catering_deposit_paid', severity: 'info',
+            const alert = await raiseAlert(env, {
+              alert_type: 'catering_deposit_paid', severity: 'info', onceEver: true,
               dedupe_key: 'catering_deposit_paid:' + cq,
               title: 'Catering deposit paid',
               body: `Quote ${cq} — the deposit cleared, the date is booked. The balance is still owed; the final headcount deadline is on the quote.`,
               ref_type: 'catering_quote', ref_id: cq,
-            }).catch(() => {});
+            });
+            if (!alert.ok) return new Response('Deposit paid alert temporarily unavailable', { status:503 });
           }
         } catch { return new Response('Deposit reconciliation temporarily unavailable', { status:503 }); }
 

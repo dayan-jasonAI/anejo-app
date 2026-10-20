@@ -219,6 +219,28 @@ export async function runBalanceReminders(env, today, { baseUrl = SITE, dryRun =
       } catch { /* fall through to the reply-to-us copy */ }
     }
 
+    // A payment or owner correction can land while a balance link is being created.
+    // Re-read immediately before composing/sending; a stale reminder must not chase settled money.
+    try {
+      const current = await env.DB.prepare(`SELECT customer_name,customer_email,event_date,balance_cents,
+        balance_due_date,balance_status,deposit_status,lang FROM catering_quotes WHERE id=?`).bind(row.id).first();
+      const fields=['customer_name','customer_email','event_date','balance_cents','balance_due_date','lang'];
+      if (!current || current.deposit_status!=='paid' || current.balance_status!=='due'
+        || fields.some(key => (current[key] ?? null) !== (row[key] ?? null))
+        || reminderDueToday(current,today)!==kind) {
+        await env.DB.prepare('UPDATE catering_balance_reminders SET error=? WHERE quote_id=? AND kind=?')
+          .bind('quote_state_changed_before_send',row.id,kind).run();
+        out.skipped.push({quote_id:row.id,kind,why:'quote state changed before send'});
+        continue;
+      }
+    } catch {
+      out.ok=false;
+      try { await env.DB.prepare('UPDATE catering_balance_reminders SET error=? WHERE quote_id=? AND kind=?')
+        .bind('final_quote_read_unavailable',row.id,kind).run(); } catch { /* durable claim blocks blind retry */ }
+      out.failed.push({quote_id:row.id,kind,error:'final_quote_read_unavailable'});
+      continue;
+    }
+
     const { subject, html, text } = balanceReminderEmail({
       kind,
       customerName: row.customer_name,
@@ -229,6 +251,7 @@ export async function runBalanceReminders(env, today, { baseUrl = SITE, dryRun =
       lang: row.lang,
     });
 
+    let acceptedReceiptId = null;
     try {
       const receipt = await sendEmail(env, {
         to: row.customer_email,
@@ -244,6 +267,7 @@ export async function runBalanceReminders(env, today, { baseUrl = SITE, dryRun =
       if (typeof receipt?.id !== 'string' || !/^[A-Za-z0-9_-]{1,192}$/.test(receipt.id)) {
         throw new Error('provider_acceptance_unverified');
       }
+      acceptedReceiptId = receipt.id;
       const acceptedAt = Date.now();
       await env.DB.batch([
         env.DB.prepare('UPDATE catering_balance_reminders SET sent_at = ?, error = NULL WHERE quote_id = ? AND kind = ?')
@@ -256,13 +280,16 @@ export async function runBalanceReminders(env, today, { baseUrl = SITE, dryRun =
       out.sent.push({ quote_id: row.id, kind, amount_cents: row.balance_cents, had_link: Boolean(payUrl),
         receipt_id: receipt.id, provider_accepted: true, delivery_verified: false });
     } catch (e) {
-      const msg = 'send_or_receipt_unverified; manual reconciliation required';
+      const msg = acceptedReceiptId
+        ? JSON.stringify({ status: 'acceptance_persistence_unverified', receipt_id: acceptedReceiptId })
+        : 'send_or_receipt_unverified; manual reconciliation required';
       out.ok = false;
       try {
         await env.DB.prepare('UPDATE catering_balance_reminders SET error = ? WHERE quote_id = ? AND kind = ?')
           .bind(msg, row.id, kind).run();
       } catch { /* the claim row stands; it simply carries no error text */ }
-      out.failed.push({ quote_id: row.id, kind, error: msg });
+      out.failed.push({ quote_id: row.id, kind, error: msg, receipt_id: acceptedReceiptId,
+        provider_accepted: Boolean(acceptedReceiptId), delivery_verified: false });
     }
   }
 
