@@ -226,7 +226,9 @@ export const onRequestPost = async ({ request, env }) => {
   let b;
   try { b = await request.json(); } catch { return bad('Invalid JSON body.'); }
   const op = (b && b.op) || 'create';
-  if (['create','revise','render','preview'].includes(op)) {
+  // A saved revision must recover its frozen approved rates, even if the catalog changes.
+  const frozenRevision=op==='revise'&&b?.quote_id?await env.DB.prepare('SELECT source_quote_id FROM catering_quote_revisions WHERE source_quote_id=?').bind(String(b.quote_id)).first():null;
+  if (['create','revise','render','preview'].includes(op)&&!frozenRevision) {
     const validation=await validateCatalogQuoteLines(env,b?.lines);
     if(!validation.ok)return bad(validation.error,409);
   }

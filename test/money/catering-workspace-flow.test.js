@@ -67,3 +67,10 @@ test('quote read failures do not masquerade as an empty desk',async()=>{
  const env=ownerEnv(),prepare=env.DB.prepare;env.DB.prepare=sql=>{if(sql.includes('FROM catering_quotes')&&sql.includes('LIMIT 50'))throw Error('Storage unavailable');return prepare(sql);};
  const response=await onRequestGet({env,request:new Request(url,{headers:{Cookie:OWNER_COOKIE}})});assert.equal(response.status,503);assert.match((await response.json()).error,/could not be loaded/);
 });
+
+test('saved revision recovery retains frozen rates after catalog availability changes',async()=>{
+ const env=ownerEnv();await seedQuote(env);env.DB.exec(`INSERT INTO catering_quotes(id,customer_name,customer_email,event_date,guests,total_cents,deposit_pct,deposit_cents,balance_cents,terms_version,terms_json,quote_json,access_token,created_at,updated_at) SELECT 'q2',customer_name,customer_email,event_date,guests,total_cents,deposit_pct,deposit_cents,balance_cents,terms_version,terms_json,quote_json,'22222222222222222222222222222222',created_at,updated_at FROM catering_quotes WHERE id='q1';
+ UPDATE catering_quotes SET deposit_status='void' WHERE id='q1';
+ INSERT INTO catering_quote_revisions(source_quote_id,replacement_quote_id,access_token,payload_json,source_updated_at,state,created_by,created_at,updated_at) VALUES('q1','q2','22222222222222222222222222222222','{"quoteBreakdown":{"recommendations":[]}}',1,'complete','owner',1,1);`);
+ const result=await(await post(env,{op:'revise',quote_id:'q1',lines:[{name:'Frozen menu selection',product_id:'no_longer_available',pricing_mode:'catalog',unit_cents:500,qty:'20',cents:10000}]})).json();assert.equal(result.ok,true,JSON.stringify(result));assert.equal(result.quote_id,'q2');assert.equal(result.recovered,true);
+});
