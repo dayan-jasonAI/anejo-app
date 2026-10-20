@@ -4,13 +4,16 @@
 import { square } from './square.js';
 import { createDepositCheckout } from './catering_deposit.js';
 import { mintAccessToken } from './catering_quote_delivery.js';
-import { normalizeQuoteLines } from './catering_quote_lines.js';
+import { quoteLineTotals } from './catering_quote_totals.js';
 import { depositSplit } from './catering_deposit.js';
 import { termsFor } from './catering_terms.js';
 import { id } from './hub.js';
 
 export function revisionPayload(body, source) {
-  const norm = normalizeQuoteLines(body.lines);
+  let old = {};
+  try { old = JSON.parse(source.quote_json || '{}'); } catch { /* optional metadata */ }
+  if(Number(old.tax_cents||0)!==0||Number(old.discount_cents||0)!==0)return {ok:false,error:'Existing tax or discount needs a reviewed recalculation before revision.'};
+  const norm = quoteLineTotals(body.lines,body.delivery_fee_cents,old.delivery_fee_cents??null);
   if (!norm.ok) return norm;
   const guests = Number(body.guests);
   const eventDate = String(body.event_date || '');
@@ -19,16 +22,14 @@ export function revisionPayload(body, source) {
   const name = String(body.customer_name || '').trim().slice(0, 80);
   const email = String(body.customer_email || '').trim().toLowerCase().slice(0, 160);
   if (!name || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return { ok: false, error: 'Customer name and email are required.' };
-  let old = {};
-  try { old = JSON.parse(source.quote_json || '{}'); } catch { /* optional old metadata */ }
-  const split = depositSplit(norm.subtotal_cents, source.deposit_pct);
+  const split = depositSplit(norm.total_cents, source.deposit_pct);
   if (!split.ok) return split;
   return { ok: true, payload: {
     fixedTerms: termsFor({ totalCents: split.total_cents, depositCents: split.deposit_cents, balanceCents: split.balance_cents, eventDate }),
-    totalCents: norm.subtotal_cents, guests, eventDate, customerName: name, customerEmail: email,
+    totalCents: norm.total_cents, guests, eventDate, customerName: name, customerEmail: email,
     customerPhone: String(body.customer_phone || '').trim().slice(0, 32), lang: body.lang === 'es' ? 'es' : 'en',
     note: String(body.note || '').trim().slice(0, 500), depositPct: source.deposit_pct,
-    quoteBreakdown: { ...old, lead_id: old.lead_id || source.source_lead_id || null, source: 'owner_revision', revised_from: source.id, lines: norm.lines, subtotal_cents: norm.subtotal_cents, total_cents: norm.subtotal_cents, discount_cents: 0,
+    quoteBreakdown: { ...old, lead_id: old.lead_id || source.source_lead_id || null, source: 'owner_revision', revised_from: source.id, lines: norm.lines, subtotal_cents: norm.subtotal_cents, total_cents: norm.total_cents, delivery_fee_cents: norm.delivery_fee_cents, discount_cents: 0,
       recommendations: body.recommendations || [] },
   } };
 }
@@ -49,8 +50,9 @@ export async function reviseQuote(env, body, { actor, baseUrl, approvedLines, ap
   if (journal && ((approvedLines && JSON.stringify(JSON.parse(journal.payload_json).quoteBreakdown.lines) !== JSON.stringify(approvedLines)) || (approvedGuests !== undefined && JSON.parse(journal.payload_json).guests !== approvedGuests))) return { ok: false, error: 'Another revision was saved first. Reload and review its total before continuing.' };
   if (journal && (journal.state === 'complete' || source.deposit_status === 'void')) {
     const q = await env.DB.prepare('SELECT * FROM catering_quotes WHERE id = ?').bind(journal.replacement_quote_id).first();
+    if(q?.deposit_status==='void')return {ok:false,error:'The saved replacement is void. Recover the current active quote before continuing.'};
     if (q && journal.state !== 'complete') await env.DB.prepare("UPDATE catering_quote_revisions SET state='complete',updated_at=? WHERE source_quote_id=?").bind(Date.now(), sourceId).run();
-    return q ? { ok: true, quote_id: q.id, quote_url: `${baseUrl}/q/${q.access_token}`, url: q.payment_link_url, deposit_cents: q.deposit_cents, total_cents: q.total_cents, customer_email: q.customer_email, customer_phone: q.customer_phone, recovered: true } : { ok: false, error: 'Replacement record needs recovery.' };
+    return q ? { ok: true, quote_id: q.id, quote_url: `${baseUrl}/q/${q.access_token}`, url: q.deposit_status==='unpaid'?q.payment_link_url:undefined, deposit_cents: q.deposit_cents, total_cents: q.total_cents, customer_email: q.customer_email, customer_phone: q.customer_phone, recovered: true } : { ok: false, error: 'Replacement record needs recovery.' };
   }
   if (source.deposit_status !== 'unpaid') return { ok: false, error: 'Only unpaid quotes may be revised. Paid bookings retain their agreed terms.' };
   if (!source.payment_link_id || !source.square_order_id) return { ok: false, error: 'Original Square identifiers are missing. Retirement cannot be verified.' };
@@ -60,13 +62,14 @@ export async function reviseQuote(env, body, { actor, baseUrl, approvedLines, ap
     if (!parsed.ok) return parsed;
     await env.DB.prepare(`INSERT OR IGNORE INTO catering_quote_revisions
       (source_quote_id,replacement_quote_id,access_token,payload_json,source_updated_at,state,created_by,created_at,updated_at)
-      SELECT ?,?,?,?,?,'pending',?,?,? WHERE EXISTS (SELECT 1 FROM catering_quotes WHERE id=? AND deposit_status='unpaid' AND updated_at=?)`).bind(sourceId, id('cq'), mintAccessToken(), JSON.stringify(parsed.payload), source.updated_at, actor, Date.now(), Date.now(), sourceId, source.updated_at).run();
+      SELECT ?,?,?,?,?,'pending',?,?,? WHERE EXISTS (SELECT 1 FROM catering_quotes WHERE id=? AND deposit_status='unpaid' AND updated_at=?) AND NOT EXISTS (SELECT 1 FROM catering_quote_revisions WHERE replacement_quote_id=? AND state!='complete')`).bind(sourceId, id('cq'), mintAccessToken(), JSON.stringify(parsed.payload), source.updated_at, actor, Date.now(), Date.now(), sourceId, source.updated_at,sourceId).run();
     journal = await env.DB.prepare('SELECT * FROM catering_quote_revisions WHERE source_quote_id = ?').bind(sourceId).first();
     if (!journal) return { ok: false, error: 'Could not save the revision. Nothing retired.' };
   }
   // The first approved payload owns this attempt; recovery never changes it or invents a new checkout.
   const payload = JSON.parse(journal.payload_json);
   if ((approvedLines && JSON.stringify(payload.quoteBreakdown.lines) !== JSON.stringify(approvedLines)) || (approvedGuests !== undefined && payload.guests !== approvedGuests)) return { ok: false, error: 'Another revision was saved first. Reload and review its total before continuing.' };
+  if(payload.retainedTargetUpdatedAt!==undefined){const target=await env.DB.prepare('SELECT deposit_status,updated_at FROM catering_quotes WHERE id=?').bind(journal.replacement_quote_id).first();if(!target||target.deposit_status==='void'||target.updated_at!==payload.retainedTargetUpdatedAt)return {ok:false,error:'The retained quote changed. Stop and review duplicate retirement before continuing.'};}
   if (journal.state === 'pending') {
     if (Number(source.updated_at) !== Number(journal.source_updated_at)) return { ok: false, error: 'Original quote changed after this revision was saved. Owner review required.' };
     const before = await square(env, `/v2/orders/${encodeURIComponent(source.square_order_id)}`);
@@ -86,11 +89,45 @@ export async function reviseQuote(env, body, { actor, baseUrl, approvedLines, ap
   if (current?.deposit_status !== 'unpaid') return { ok: false, error: 'A payment was recorded during revision. Stop and review the booking.' };
   const created = await createDepositCheckout(env, { ...payload, createdBy: actor, baseUrl, send: false, fixedQuoteId: journal.replacement_quote_id, fixedAccessToken: journal.access_token });
   if (!created.ok) return { ok: false, error: 'Original checkout is retired. Retry this saved revision to recover its replacement. ' + created.error };
-  const retired = await env.DB.prepare("UPDATE catering_quotes SET deposit_status='void',updated_at=? WHERE id=? AND deposit_status='unpaid'").bind(Date.now(), sourceId).run();
+  const retired = payload.retainedTargetUpdatedAt===undefined
+    ? await env.DB.prepare("UPDATE catering_quotes SET deposit_status='void',updated_at=? WHERE id=? AND deposit_status='unpaid'").bind(Date.now(), sourceId).run()
+    : await env.DB.prepare("UPDATE catering_quotes SET deposit_status='void',updated_at=? WHERE id=? AND deposit_status='unpaid' AND EXISTS(SELECT 1 FROM catering_quotes WHERE id=? AND deposit_status IN ('unpaid','paid') AND updated_at=?)").bind(Date.now(),sourceId,journal.replacement_quote_id,payload.retainedTargetUpdatedAt).run();
   if (retired.meta?.changes !== 1) {
     const check = await env.DB.prepare('SELECT * FROM catering_quotes WHERE id = ?').bind(sourceId).first();
     if (check?.deposit_status !== 'void') return { ok: false, error: 'Replacement saved but source changed. Do not send; owner review required.' };
   }
   await env.DB.prepare("UPDATE catering_quote_revisions SET state='complete',updated_at=? WHERE source_quote_id=?").bind(Date.now(), sourceId).run();
   return { ...created, customer_email: payload.customerEmail, customer_phone: payload.customerPhone, revision_of: sourceId };
+}
+
+// Obsolete duplicate retirement reuses the verified replacement journal. The
+// target already exists, so createDepositCheckout returns it without provider POST.
+export async function retireDuplicateQuote(env,body,{actor,baseUrl}) {
+ if(body.reviewed!==true)return {ok:false,error:'Review the obsolete and retained quotes before retiring a duplicate.'};
+ const source=await env.DB.prepare('SELECT * FROM catering_quotes WHERE id=?').bind(String(body.quote_id||'')).first();
+ const target=await env.DB.prepare('SELECT * FROM catering_quotes WHERE id=?').bind(String(body.replacement_quote_id||'')).first();
+ if(!source||!target||source.id===target.id)return {ok:false,error:'Select two different existing quotes.'};
+ if(!target.square_order_id||!target.payment_link_id||!target.access_token)return {ok:false,error:'The retained quote needs a verified existing checkout.'};
+ const targetRevision=await env.DB.prepare('SELECT source_quote_id FROM catering_quote_revisions WHERE source_quote_id=?').bind(target.id).first();
+ if(targetRevision)return {ok:false,error:'The retained quote is being revised. Recover its final replacement first.'};
+ const targetOrder=await square(env,`/v2/orders/${encodeURIComponent(target.square_order_id)}`);
+ if(!targetOrder.ok||targetOrder.data?.order?.id!==target.square_order_id||!['OPEN','COMPLETED'].includes(targetOrder.data.order.state)||(target.deposit_status==='unpaid'&&targetOrder.data.order.state!=='OPEN'))return {ok:false,error:'The retained checkout could not be verified as active. No obsolete checkout was retired.'};
+ let saved=await env.DB.prepare('SELECT * FROM catering_quote_revisions WHERE source_quote_id=?').bind(source.id).first();
+ if(saved){if(saved.replacement_quote_id!==target.id)return {ok:false,error:'This source already belongs to another revision. Recover it first.'};return reviseQuote(env,{quote_id:source.id},{actor,baseUrl});}
+ if(source.deposit_status!=='unpaid'||!['unpaid','paid'].includes(target.deposit_status))return {ok:false,error:'Only an unpaid obsolete quote may be retired in favor of an active quote.'};
+ if(Number(body.expected_updated_at)!==source.updated_at||Number(body.expected_replacement_updated_at)!==target.updated_at)return {ok:false,error:'A quote changed. Reload both quotes before retiring the duplicate.'};
+ const email=v=>String(v||'').trim().toLowerCase(),phone=v=>String(v||'').replace(/\D/g,'').replace(/^1(?=\d{10}$)/,'');
+ let old={},next={};try{old=JSON.parse(source.quote_json||'{}');next=JSON.parse(target.quote_json||'{}');}catch{return {ok:false,error:'Quote metadata needs owner review.'};}
+ const sourceLead=source.source_lead_id||old.lead_id,targetLead=target.source_lead_id||next.lead_id;
+ const sameLead=sourceLead&&targetLead&&sourceLead===targetLead;
+ const sameContact=email(source.customer_email)&&email(source.customer_email)===email(target.customer_email)&&phone(source.customer_phone).length===10&&phone(source.customer_phone)===phone(target.customer_phone);
+ if(source.event_date!==target.event_date||(!sameLead&&!sameContact))return {ok:false,error:'Quotes must belong to the same event and verified customer or request.'};
+ // Never construct a replacement amount: freeze the already-saved target as-is.
+ const payload={retainedTargetUpdatedAt:target.updated_at,totalCents:target.total_cents,guests:target.guests,eventDate:target.event_date,customerName:target.customer_name,customerEmail:target.customer_email,customerPhone:target.customer_phone,lang:target.lang,note:target.note,depositPct:target.deposit_pct,fixedTerms:JSON.parse(target.terms_json||'{}'),quoteBreakdown:next};
+ await env.DB.prepare(`INSERT OR IGNORE INTO catering_quote_revisions(source_quote_id,replacement_quote_id,access_token,payload_json,source_updated_at,state,created_by,created_at,updated_at) SELECT ?,?,?,?,?,'pending',?,?,? WHERE EXISTS(SELECT 1 FROM catering_quotes WHERE id=? AND deposit_status='unpaid' AND updated_at=?) AND EXISTS(SELECT 1 FROM catering_quotes WHERE id=? AND deposit_status IN ('unpaid','paid') AND updated_at=?) AND NOT EXISTS(SELECT 1 FROM catering_quote_revisions WHERE source_quote_id=?)`).bind(source.id,target.id,target.access_token,JSON.stringify(payload),source.updated_at,actor,Date.now(),Date.now(),source.id,source.updated_at,target.id,target.updated_at,target.id).run();
+ saved=await env.DB.prepare('SELECT * FROM catering_quote_revisions WHERE source_quote_id=?').bind(source.id).first();
+ if(!saved||saved.replacement_quote_id!==target.id)return {ok:false,error:'Duplicate retirement was not claimed. Reload before continuing.'};
+ const result=await reviseQuote(env,{quote_id:source.id},{actor,baseUrl});
+ if(result.ok)await env.DB.prepare("INSERT INTO activity_log(id,event,actor_id,actor_role,actor_type,properties,created_at) VALUES(?,'catering.quote_duplicate.retired',?,'owner','human',?,?)").bind(id('act'),actor,JSON.stringify({source_quote_id:source.id,retained_quote_id:target.id,provider_cancellation_verified:true}),Date.now()).run();
+ return {...result,retired_quote_id:result.ok?source.id:undefined,retained_quote_id:target.id};
 }

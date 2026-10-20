@@ -119,6 +119,7 @@ export function quoteEmailArgs(row, { lang, baseUrl = SITE, menu } = {}) {
     guests: row.guests,
     quoteId: row.id,
     lines: quoteLinesWithImages(Array.isArray(breakdown?.lines) ? breakdown.lines : [], menu),
+    deliveryFeeCents: Number.isInteger(breakdown?.delivery_fee_cents) && breakdown.delivery_fee_cents >= 0 ? breakdown.delivery_fee_cents : null,
     deliveryFeeConfirmed: Number.isInteger(breakdown?.delivery_fee_cents) && breakdown.delivery_fee_cents >= 0,
     recommendations: Array.isArray(breakdown?.recommendations) ? breakdown.recommendations : [],
     subtotalCents: breakdown?.subtotal_cents ?? row.total_cents,

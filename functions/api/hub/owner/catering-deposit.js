@@ -15,16 +15,17 @@ import { requireRole } from '../../../_lib/roles.js';
 import { now, parseJson } from '../../../_lib/hub.js';
 import { buildQuote } from '../../../_lib/quote.js';
 import { DEPOSIT_PCT, TERMS_VERSION, termsFor } from '../../../_lib/catering_terms.js';
-import { createDepositCheckout, depositSplit } from '../../../_lib/catering_deposit.js';
+import { depositSplit } from '../../../_lib/catering_deposit.js';
 import { createBalanceCheckout } from '../../../_lib/catering_balance.js';
 import { extractCajitaConfiguration } from '../../../_lib/cajita-config.js';
 import { loadMenu } from '../../../_lib/menu.js';
 import { estimateCateringProducts } from '../../../_lib/catering-estimate.js';
-import { normalizeQuoteLines } from '../../../_lib/catering_quote_lines.js';
+import { quoteLineTotals, quoteDeliveryFee } from '../../../_lib/catering_quote_totals.js';
+import { createUniqueCateringQuote, existingCateringQuote } from '../../../_lib/catering_quote_creation.js';
 import { cateringQuoteEmail } from '../../../_lib/catering_quote_email.js';
 import { GIFTS } from '../../../_lib/cake_reveal.js';
-import { sendQuote, quoteUrl } from '../../../_lib/catering_quote_delivery.js';
-import { reviseQuote } from '../../../_lib/catering_quote_revision.js';
+import { sendQuote, quoteUrl, quoteLinesWithImages } from '../../../_lib/catering_quote_delivery.js';
+import { reviseQuote, retireDuplicateQuote } from '../../../_lib/catering_quote_revision.js';
 import { isAvailable, isOrderable } from '../../../_lib/menu.js';
 import { renderLines } from '../../../_lib/catering_terms.js';
 
@@ -55,7 +56,7 @@ export const onRequestGet = async ({ request, env }) => {
       `SELECT id, customer_name, customer_email, customer_phone, event_date, guests, total_cents, deposit_pct,
               deposit_cents, balance_cents, deposit_status, deposit_paid_at, deposit_paid_cents,
               balance_status, balance_paid_at, balance_due_date, final_count_due,
-              payment_link_url, (SELECT payment_link_url FROM catering_balance_checkouts WHERE quote_id=catering_quotes.id) AS balance_payment_link_url, terms_version, terms_json, quote_json, note, created_at, updated_at, access_token, lang
+              payment_link_url, (SELECT payment_link_url FROM catering_balance_checkouts WHERE quote_id=catering_quotes.id) AS balance_payment_link_url, terms_version, terms_json, quote_json, note, created_at, updated_at, access_token, lang,source_lead_id
          FROM catering_quotes
         ORDER BY
           -- THE WORK COMES FIRST, NEWEST LAST.
@@ -84,7 +85,7 @@ export const onRequestGet = async ({ request, env }) => {
       const { terms_json, quote_json, ...rest } = q;
       // `gift` is surfaced on its own rather than shipping the whole breakdown: the Hub's switch
       // needs to show what is currently set, and nothing else on this card reads quote_json.
-      return { ...rest, terms: parseJson(terms_json, null), gift: parseJson(quote_json, null)?.gift || null };
+      return { ...rest, source_lead_id:rest.source_lead_id||parseJson(quote_json,null)?.lead_id||null, delivery_fee_cents:parseJson(quote_json,null)?.delivery_fee_cents??null, terms: parseJson(terms_json, null), gift: parseJson(quote_json, null)?.gift || null };
     });
   } catch { quotes = []; }
 
@@ -204,6 +205,10 @@ export const onRequestGet = async ({ request, env }) => {
     }));
   } catch { /* the migration may not be applied yet; the desk still loads */ }
 
+  for(const lead of requests){
+    try{const request=await env.DB.prepare('SELECT event_json FROM catering_requests WHERE lead_id=?').bind(lead.id).first();const active=await existingCateringQuote(env,{customerEmail:lead.email,eventDate:parseJson(request?.event_json,null)?.event_date,quoteBreakdown:{lead_id:lead.id}});lead.active_quote_ids=active.map(q=>q.id);lead.existing_quote_id=active[0]?.id||null;}catch{lead.quote_lookup_unavailable=true;}
+  }
+
   // deposit_pct / terms_version here describe what a NEW quote would be sold under. Every existing
   // row carries its own, and the desk must render each row's own.
   return json({ ok: true, deposit_pct: DEPOSIT_PCT, terms_version: TERMS_VERSION, requests, quotes, changes });
@@ -219,10 +224,17 @@ export const onRequestPost = async ({ request, env }) => {
   const op = (b && b.op) || 'create';
 
   let previewDepositPct = DEPOSIT_PCT;
+  let inheritedFee = null;
   if ((op === 'preview' || op === 'render') && b.quote_id) {
-    const source = await env.DB.prepare('SELECT deposit_pct FROM catering_quotes WHERE id = ?').bind(String(b.quote_id)).first();
+    const source = await env.DB.prepare('SELECT deposit_pct,quote_json FROM catering_quotes WHERE id = ?').bind(String(b.quote_id)).first();
     if (!source) return bad('Quote not found.', 404);
     previewDepositPct = source.deposit_pct;
+    inheritedFee = parseJson(source.quote_json,null)?.delivery_fee_cents??null;
+  }
+
+  if(op==='retire_duplicate'){
+    const result=await retireDuplicateQuote(env,b,{actor:ctx.email||ctx.distinct_id||'owner',baseUrl:appBaseUrl(env,request)});
+    return result.ok?json(result):json(result,409);
   }
 
   // Revisions never mutate a sold amount while its original Square checkout is payable.
@@ -352,15 +364,17 @@ export const onRequestPost = async ({ request, env }) => {
     let lines = [];
     let totalCents = null;
     if (b.lines != null) {
-      const norm = normalizeQuoteLines(b.lines);
+      const norm = quoteLineTotals(b.lines,b.delivery_fee_cents,inheritedFee);
       if (!norm.ok) return bad(norm.error);
       lines = norm.lines;
-      totalCents = norm.subtotal_cents;
+      totalCents = norm.total_cents;
     } else {
       const split0 = depositSplit(b.total_cents, previewDepositPct);
       if (!split0.ok) return bad(split0.error, 400);
       totalCents = split0.total_cents;
     }
+    const delivery=quoteDeliveryFee(b.delivery_fee_cents,inheritedFee);if(!delivery.ok)return bad(delivery.error);
+    if(totalCents<(delivery.delivery_fee_cents||0))return bad('Delivery exceeds the quoted total.');
     const split = depositSplit(totalCents, previewDepositPct);
     if (!split.ok) return bad(split.error, 400);
 
@@ -385,8 +399,9 @@ export const onRequestPost = async ({ request, env }) => {
       eventDate: b.event_date,
       guests,
       quoteId: 'preview',
-      lines,
-      subtotalCents: totalCents,
+      lines: quoteLinesWithImages(lines,await loadMenu(env)),
+      deliveryFeeCents:delivery.delivery_fee_cents,deliveryFeeConfirmed:delivery.delivery_fee_cents!==null,
+      subtotalCents: totalCents-(delivery.delivery_fee_cents||0),
       discountCents: 0,
       totalCents: split.total_cents,
       depositCents: split.deposit_cents,
@@ -396,7 +411,7 @@ export const onRequestPost = async ({ request, env }) => {
       depositUrl: '#preview',
       termsLines: renderLines(terms, lang),
     });
-    return json({ ok: true, preview: true, subject, html, ...split, terms });
+    return json({ ok: true, preview: true, subject, html, ...split, subtotal_cents:totalCents-(delivery.delivery_fee_cents||0),delivery_fee_cents:delivery.delivery_fee_cents, terms });
   }
 
   // The second, deliberate click. A quote that already exists — and that a human has therefore had
@@ -450,17 +465,19 @@ export const onRequestPost = async ({ request, env }) => {
     // same subtotal the create path will charge — not of a number typed into a second field.
     let previewTotal = b.total_cents;
     if (b.lines != null) {
-      const norm = normalizeQuoteLines(b.lines);
+      const norm = quoteLineTotals(b.lines,b.delivery_fee_cents,inheritedFee);
       if (!norm.ok) return bad(norm.error);
-      previewTotal = norm.subtotal_cents;
+      previewTotal = norm.total_cents;
     }
+    const delivery=quoteDeliveryFee(b.delivery_fee_cents,inheritedFee);if(!delivery.ok)return bad(delivery.error);
+    if(Number(previewTotal)<(delivery.delivery_fee_cents||0))return bad('Delivery exceeds the quoted total.');
     const split = depositSplit(previewTotal, previewDepositPct);
     if (!split.ok) return bad(split.error, 400);
     if (split.total_cents > 10000000) return bad('That total looks wrong (over $100,000) — enter cents, not dollars.');
     return json({
       ok: true,
       preview: true,
-      ...split,
+      ...split, subtotal_cents:split.total_cents-(delivery.delivery_fee_cents||0),delivery_fee_cents:delivery.delivery_fee_cents,
       terms: termsFor({
         totalCents: split.total_cents,
         depositCents: split.deposit_cents,
@@ -486,21 +503,21 @@ export const onRequestPost = async ({ request, env }) => {
   let totalCents = null;
   let breakdown = null;
   if (b.lines != null) {
-    const norm = normalizeQuoteLines(b.lines);
+    const norm = quoteLineTotals(b.lines,b.delivery_fee_cents,inheritedFee);
     if (!norm.ok) return bad(norm.error);
     // A caller that sends BOTH lines and a total that disagrees with them is refused rather than
     // reconciled. Picking either one silently is how a customer reads $485 in the itemisation and
     // gets charged the deposit on something else.
     if (b.total_cents != null && b.total_cents !== '') {
       const stated = Math.round(Number(b.total_cents));
-      if (Number.isFinite(stated) && stated !== norm.subtotal_cents) {
-        return bad(`The lines add up to $${(norm.subtotal_cents / 100).toFixed(2)} but the agreed total says $${(stated / 100).toFixed(2)}. Fix one of them — the customer must be charged what she reads.`);
+      if (Number.isFinite(stated) && stated !== norm.total_cents) {
+        return bad(`The lines add up to $${(norm.total_cents / 100).toFixed(2)} but the agreed total says $${(stated / 100).toFixed(2)}. Fix one of them — the customer must be charged what she reads.`);
       }
     }
-    totalCents = norm.subtotal_cents;
+    totalCents = norm.total_cents;
     // `lines` is the key catering_quote_delivery reads to print the itemisation, and
     // `source: 'manual'` records that no estimator produced these numbers, a person did.
-    breakdown = { source: 'manual', lines: norm.lines, subtotal_cents: norm.subtotal_cents, total_cents: norm.subtotal_cents };
+    breakdown = { source: 'manual', lines: norm.lines, subtotal_cents: norm.subtotal_cents, total_cents: norm.total_cents,delivery_fee_cents:norm.delivery_fee_cents };
   } else if (b.total_cents != null && b.total_cents !== '') {
     const t = Math.round(Number(b.total_cents));
     if (!Number.isFinite(t) || t <= 0) return bad('total_cents must be greater than 0.');
@@ -523,6 +540,10 @@ export const onRequestPost = async ({ request, env }) => {
     breakdown = q;
   }
 
+  const delivery=quoteDeliveryFee(b.delivery_fee_cents);if(!delivery.ok)return bad(delivery.error);
+  if(totalCents<(delivery.delivery_fee_cents||0))return bad('Delivery exceeds the quoted total.');
+  if(b.lines==null&&delivery.delivery_fee_cents!==null)breakdown={...(breakdown||{}),subtotal_cents:totalCents-delivery.delivery_fee_cents,total_cents:totalCents,delivery_fee_cents:delivery.delivery_fee_cents};
+
   try {
     const recommendations = await normalizeRecommendations(b.recommendations, env);
     if (b.lead_id || recommendations.length) breakdown = { ...(breakdown || {}), lead_id: b.lead_id || null, recommendations };
@@ -544,7 +565,7 @@ export const onRequestPost = async ({ request, env }) => {
   // the customer did not give.
   const smsConsent = (lead?.sms_consent === 1 || lead?.sms_consent === true) && b.sms_consent !== false;
 
-  const r = await createDepositCheckout(env, {
+  const r = await createUniqueCateringQuote(env, {
     totalCents,
     guests,
     eventDate: b.event_date,
@@ -564,6 +585,6 @@ export const onRequestPost = async ({ request, env }) => {
     // and sends it on a second, deliberate click (op: 'send').
     send: b.send === true,
   });
-  if (!r.ok) return bad(r.error || 'Could not create the deposit link.', 400);
+  if (!r.ok) return json(r,r.requires_revision||r.creation_pending?409:400);
   return json(r);
 };

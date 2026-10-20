@@ -73,6 +73,7 @@ const COPY = {
     intro: 'Thank you for trusting us with your celebration. Here is your quote, itemised exactly as you asked for it.',
     eventFor: 'Event',
     guests: 'Guests',
+    deliveryFee: 'Delivery',
     deliveryHead: 'Delivered to your celebration',
     deliveryNote: 'Delivery only — customer pickup is not available. Delivery charges depend on distance and order size.',
     deliveryPending: 'Your delivery fee is pending confirmation and is not included in the total shown unless separately itemized.',
@@ -110,6 +111,7 @@ const COPY = {
     intro: 'Gracias por confiarnos su celebración. Aquí tiene su cotización, detallada exactamente como la solicitó.',
     eventFor: 'Evento',
     guests: 'Invitados',
+    deliveryFee: 'Entrega',
     deliveryHead: 'Entregado en su celebración',
     deliveryNote: 'Solo entrega a domicilio; no ofrecemos recogida. El costo de entrega depende de la distancia y el tamaño del pedido.',
     deliveryPending: 'El costo de entrega está pendiente de confirmación y no está incluido en el total mostrado, salvo que figure como una partida separada.',
@@ -202,6 +204,7 @@ export function cateringQuoteEmail({
   lines = [],
   recommendations = [],
   deliveryFeeConfirmed = false,
+  deliveryFeeCents = null,
   subtotalCents = 0,
   discountCents = 0,
   totalCents = 0,
@@ -252,7 +255,8 @@ export function cateringQuoteEmail({
     text-transform:uppercase;color:${GOLD};font-weight:bold">${escHtml(c.yourMenu)}</p>
   <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="border-collapse:collapse;margin:0 0 26px">
     ${lines.map((l) => lineRow(l, L)).join('')}
-    ${discountCents > 0 ? totalsRow(c.subtotal, subtotalCents) : ''}
+    ${discountCents > 0 || deliveryFeeCents != null ? totalsRow(c.subtotal, subtotalCents) : ''}
+    ${deliveryFeeCents != null ? totalsRow(c.deliveryFee, deliveryFeeCents) : ''}
     ${discountCents > 0 ? totalsRow(c.discount, discountCents, { credit: true }) : ''}
     ${totalsRow(c.total, totalCents, { strong: true })}
   </table>
@@ -371,7 +375,8 @@ export function cateringQuoteEmail({
     ...lines.map((l) => `  ${l.qty} × ${(L === 'es' ? (l.name_es || l.name) : l.name)} — ${money(l.cents)}`),
     '',
     ...recommendations.map((r) => `${L === 'es' ? 'Opcional, no incluido' : 'Optional, excluded'}: ${r.name} · ${r.pieces} · +${money(r.cents)}`),
-    discountCents > 0 ? `${c.subtotal}: ${money(subtotalCents)}` : null,
+    discountCents > 0 || deliveryFeeCents != null ? `${c.subtotal}: ${money(subtotalCents)}` : null,
+    deliveryFeeCents != null ? `${c.deliveryFee}: ${money(deliveryFeeCents)}` : null,
     discountCents > 0 ? `${c.discount}: −${money(discountCents)}` : null,
     `${c.total}: ${money(totalCents)}`,
     '',

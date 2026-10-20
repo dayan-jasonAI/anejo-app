@@ -30,6 +30,7 @@
   .rbody{margin-top:10px;padding:10px 12px;background:var(--cream);border-radius:9px;color:var(--muted);font-size:13px;line-height:1.55;white-space:pre-line}
   .ractions{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}.ractions .btn{width:auto}
   .rfiles{margin-top:10px;padding:10px 12px;border:1px solid var(--line);border-radius:9px;background:#faf8f2}.rfiles b{display:block;color:var(--green);font-size:12px;margin-bottom:5px}.rfiles a{display:block;font-size:12.5px;line-height:1.6;word-break:break-word}
+  .q-editor-status{padding:14px;border-left:4px solid var(--gold);background:var(--cream);line-height:1.6;color:var(--green)}.q-existing-choice{padding:16px;border:1px solid var(--line);border-radius:10px;margin-bottom:16px}.q-existing-choice select,.q-existing-choice button{min-height:44px;width:100%;margin:8px 0}.qcard [data-revise]{min-height:48px;background:var(--green);color:#fff}
   .cajita-review-summary{white-space:pre-wrap;overflow-wrap:anywhere;font:inherit}
 </style>
 </head>
@@ -59,7 +60,7 @@
     lt.addEventListener('click', function () { var n = window.AnejoLang.get() === 'es' ? 'en' : 'es'; window.AnejoLang.set(n); lt.textContent = n === 'es' ? 'EN' : 'ES'; });
   }
 
-  var revisionSource = null, revisionPreview = null;
+  var revisionSource = null, revisionPreview = null, quoteCache = [];
   var ENDPOINT = '/api/hub/owner/catering-deposit';
 
   // Dollars typed by a human → integer cents. The API refuses anything over $100,000 as a
@@ -125,7 +126,7 @@
     var balPaid = q.balance_status === 'paid';
     var summary = {};
     try { summary = JSON.parse(q.quote_json || '{}'); } catch (e) { /* historical bare total */ }
-    return '<div class="qcard">' +
+    return '<div class="qcard" id="quote-' + esc(q.id) + '">' +
       '<div class="nm">' + esc(q.customer_name || 'Quote ' + q.id) + '</div>' +
       '<div class="row-sub">' + (q.guests || 0) + ' guests' +
         (q.event_date ? ' · event ' + esc(q.event_date) : ' · no event date') +
@@ -141,6 +142,7 @@
         : '') +
 
       (summary.revised_from ? '<p class="row-sub">Revised from ' + esc(summary.revised_from) + '</p>' : '') +
+      '<p class="row-sub">Delivery: '+(Number.isInteger(summary.delivery_fee_cents)?money(summary.delivery_fee_cents)+' · confirmed': 'unconfirmed · not included in food subtotal')+'</p>'+
       (Array.isArray(summary.lines) && summary.lines.length ? '<details class="terms"><summary>View quoted menu</summary>' + summary.lines.map(function (line) { return '<p class="row-sub">' + esc(line.qty || '') + ' ' + esc(line.name || '') + ' · ' + money(line.cents) + '</p>'; }).join('') + '</details>' : '') +
       // The split, straight off the row: deposit + balance were computed by depositSplit() at
       // creation and stored, so they always sum to the total on screen exactly as they do in D1.
@@ -165,7 +167,8 @@
 
       (q.balance_payment_link_url && !balPaid ? '<div class="row-sub lnk">Balance link: <a href="'+esc(q.balance_payment_link_url)+'" target="_blank" rel="noopener">Pay final balance through Square</a></div>' : '') +
       (!balPaid && paid && !q.balance_payment_link_url ? '<button class="btn gold block" data-balance-link="'+esc(q.id)+'">Create Square balance link</button>' : '') +
-      (q.deposit_status === 'unpaid' || q.deposit_status === 'void' ? '<button class="btn ghost block" data-revise="' + esc(JSON.stringify(q)) + '">' + (q.deposit_status === 'void' ? 'View / recover replacement' : 'Edit / revise quote') + '</button>' : '') +
+      (q.deposit_status === 'unpaid' || q.deposit_status === 'void' ? '<button class="btn ghost block" data-revise="' + esc(JSON.stringify(q)) + '">' + (q.deposit_status === 'void' ? 'View / recover replacement' : 'Edit quote · save changes') + '</button>' : '') +
+      (q.deposit_status==='unpaid'&&duplicateAlternatives(q).length?'<button type="button" class="btn ghost block" data-retire-duplicate="'+esc(q.id)+'">Retire duplicate checkout</button>':'')+
       giftHtml(q) +
       termsHtml(q) +
 
@@ -181,8 +184,47 @@
     return line ? line.slice(label.length + 1).trim() : '';
   }
 
+  function duplicateAlternatives(source){return quoteCache.filter(function(q){return q.id!==source.id&&q.deposit_status!=='void'&&q.event_date&&q.event_date===source.event_date&&String(q.customer_email||'').trim().toLowerCase()===String(source.customer_email||'').trim().toLowerCase()&&String(source.customer_email||'').includes('@');});}
+  function reviewDuplicateRetirement(source){
+    var candidates=duplicateAlternatives(source),host=document.getElementById('q-duplicate-retirement');
+    document.getElementById('q-create').disabled=true;
+    host.innerHTML='<div class="q-existing-choice"><h3>Retire an obsolete duplicate</h3><p><b>Checkout to retire:</b> '+esc(source.id)+' · '+money(source.total_cents)+'</p><label for="q-retain-quote">Correct quote to keep</label><select id="q-retain-quote"><option value="">Choose the correct quote</option>'+candidates.map(function(q){return '<option value="'+esc(q.id)+'">'+esc(q.id)+' · '+money(q.total_cents)+' · '+esc(q.event_date)+'</option>';}).join('')+'</select><p class="row-sub">Only the obsolete checkout is retired. Order history remains. This does not refund or charge money and sends no email or text.</p><label><input type="checkbox" id="q-retire-reviewed" style="width:auto"> I compared the quotes and confirm the checkout above is the obsolete duplicate.</label><button class="btn ghost" type="button" id="q-retire-now" disabled>Retire only the obsolete checkout</button><p id="q-retire-status" class="row-sub" role="status"></p></div>';
+    function update(){document.getElementById('q-retire-now').disabled=!document.getElementById('q-retire-reviewed').checked||!document.getElementById('q-retain-quote').value;}
+    document.getElementById('q-retain-quote').onchange=function(){document.getElementById('q-retire-reviewed').checked=false;update();};document.getElementById('q-retire-reviewed').onchange=update;
+    document.getElementById('q-retire-now').onclick=function(){
+      var button=this,retained=candidates.find(function(q){return q.id===document.getElementById('q-retain-quote').value;});
+      if(button.disabled||!document.getElementById('q-retire-reviewed').checked||!retained)return;
+      if(!window.confirm('Retire obsolete quote '+source.id+' ('+money(source.total_cents)+') and KEEP '+retained.id+' ('+money(retained.total_cents)+')? The obsolete checkout will stop working. No message is sent.'))return;
+      button.disabled=true;document.getElementById('q-retire-status').textContent='Checking and retiring only the selected obsolete checkout…';
+      Hub.api(ENDPOINT,{method:'POST',body:{op:'retire_duplicate',quote_id:source.id,replacement_quote_id:retained.id,expected_updated_at:source.updated_at,expected_replacement_updated_at:retained.updated_at,reviewed:true}}).then(function(result){
+        if(!result?.ok){document.getElementById('q-retire-status').textContent=result?.error||'Retirement not verified. Refresh the quote evidence before retrying.';return;}
+        Hub.toast('Obsolete duplicate retired. Correct quote kept; no message sent.');render();
+      });
+    };host.scrollIntoView({behavior:'smooth',block:'center'});
+  }
+  function associatedQuotes(request){
+    var id=request.lead_id||request.id,email=String(request.email||'').trim().toLowerCase(),date=request.event_date||msgField(request.message,'Event date');
+    var ids=request.active_quote_ids||request.existing_quote_ids;
+    if(Array.isArray(ids)&&ids.length)return quoteCache.filter(function(q){return ids.includes(q.id)&&q.deposit_status!=='void';});
+    var active=quoteCache.filter(function(q){return q.deposit_status!=='void';});
+    var direct=active.filter(function(q){var blob={};try{blob=JSON.parse(q.quote_json||'{}');}catch(_error){}return id&&(q.source_lead_id===id||blob.lead_id===id);});
+    if(direct.length)return direct;
+    return email&&date?active.filter(function(q){return String(q.customer_email||'').trim().toLowerCase()===email&&q.event_date===date;}):[];
+  }
+  function showExistingChoice(candidates,requestLeadId,draft){
+    document.getElementById('q-create').disabled=true;
+    document.getElementById('q-editor-title').textContent='Choose the existing quote to edit';
+    document.getElementById('q-revision-status').textContent='An active quote already exists. A revision replaces its checkout; creating another quote would duplicate the offer.';
+    var host=document.getElementById('q-existing-choice');
+    host.innerHTML='<div class="q-existing-choice"><label for="q-existing-select">Existing quotes for this request</label><select id="q-existing-select"><option value="">Choose a quote</option>'+candidates.map(function(q){return '<option value="'+esc(q.id)+'">'+esc(q.id)+' · '+money(q.total_cents)+' · '+esc(q.event_date||'No date')+' · '+esc(q.deposit_status||'unpaid')+'</option>';}).join('')+'</select><p class="row-sub">'+(draft?'Your current draft will be copied into the selected unpaid quote revision after you choose it. No message is sent.':'Compare the amounts and choose the correct quote. Paid quotes are read-only. Nothing is sent.')+'</p><button class="btn gold" id="q-open-existing" type="button">'+(draft?'Revise selected quote with my draft':'Open selected quote')+'</button></div>';
+    document.getElementById('q-open-existing').onclick=function(){var selected=document.getElementById('q-existing-select').value,q=candidates.find(function(row){return row.id===selected;});if(!q){Hub.toast('Choose an existing quote first.');return;}beginRevision(q,requestLeadId,draft);};
+    host.scrollIntoView({behavior:'smooth',block:'center'});
+  }
+
   function requestCard(r) {
     var payload = {
+      existing_quote_ids: r.active_quote_ids||associatedQuotes(r).map(function(q){return q.id;}),
+      quote_lookup_unavailable: Boolean(r.quote_lookup_unavailable),
       name: r.name || '', email: r.email || '', phone: r.phone || '',
       event_date: msgField(r.message, 'Event date'),
       guests: Number(msgField(r.message, 'Guest count')) || '',
@@ -218,7 +260,7 @@
       suggestionHtml(r.suggested) +
       '<div class="ractions">' +
         '<a class="btn ghost" href="/hub/owner/catering-service.html?lead='+encodeURIComponent(r.id)+'">Messages &amp; follow-up</a>'+
-        '<button class="btn ghost" type="button" data-prefill="' + esc(JSON.stringify(payload)) + '">' + C.label('Start a quote') + '</button>' +
+        '<button class="btn ghost" type="button" data-prefill="' + esc(JSON.stringify(payload)) + '">' + (payload.existing_quote_ids.length ? (payload.existing_quote_ids.length === 1 ? 'Edit existing quote' : 'Choose existing quote') : C.label('Start a quote')) + '</button>' +
         (r.email ? '<a class="btn ghost" href="mailto:' + esc(encodeURIComponent(r.email)) + '?subject=' + encodeURIComponent('Your Añejo catering request') + '">' + C.label('Email customer') + '</a>' : '') +
       '</div></article>';
   }
@@ -250,7 +292,8 @@
 
   // ---------- the create form ----------
   function formHtml(d) {
-    return '<div class="hub-section"><h2 id="q-editor-title">New catering quote</h2><div class="card">' +
+    return '<div class="hub-section" id="quote-editor"><h2 id="q-editor-title">New catering quote</h2><div class="card">' +
+      '<div id="q-duplicate-retirement"></div><div id="q-existing-choice"></div><p id="q-revision-status" class="q-editor-status" role="status">For a new event only. Use Edit existing quote to change an offer already created.</p>' +
       '<div class="field"><label>Customer name</label><input id="q-name" type="text" placeholder="Who the event is for"></div>' +
       '<div class="field"><label>Email</label><input id="q-email" type="email" placeholder="For the deposit link"></div>' +
       '<div class="field"><label>Phone</label><input id="q-phone" type="tel"></div>' +
@@ -264,9 +307,10 @@
         '<button class="btn ghost" id="q-add-line" type="button" style="margin-top:6px">Add a line</button>' +
         '<div id="q-lines-sum" class="row-sub" style="margin-top:8px"></div>' +
       '</div>' +
-      '<div class="field"><label>Agreed total (dollars)</label><input id="q-total" type="text" inputmode="decimal" placeholder="1200.00"></div>' +
+      '<div class="field"><label for="q-total">Agreed food subtotal (dollars)</label><input id="q-total" type="text" inputmode="decimal" placeholder="1200.00"></div>' +
+      '<div class="field"><label for="q-delivery-fee">Delivery fee (dollars)</label><input id="q-delivery-fee" type="text" inputmode="decimal" placeholder="Leave blank until confirmed" aria-describedby="q-delivery-help q-delivery-summary"><p class="row-sub" id="q-delivery-help">Delivery only. Enter the fee you approved for distance and order size. Blank means unconfirmed, not free. Enter 0 only when you approve free delivery.</p><p id="q-delivery-summary" class="row-sub" role="status"></p></div>' +
       '<fieldset style="border:1px solid var(--line);border-radius:10px;padding:14px;margin:14px 0"><legend>Optional signature croquetas</legend><p class="row-sub">Choose a published pack for this party. Excluded from the quote total and deposit; the customer can ask about it before you add it.</p><label for="q-recommendation">Pack and filling</label><select id="q-recommendation"><option value="">No recommendation</option></select><label for="q-recommendation-packs">Number of packs</label><input id="q-recommendation-packs" type="number" min="1" max="20" step="1" value="1"><p id="q-recommendation-summary" class="row-sub" role="status"></p></fieldset>' +
-      '<p id="q-revision-status" class="row-sub" role="status"></p><button id="q-revision-cancel" class="btn ghost" type="button" hidden>Exit revision / new quote</button>' +
+      '<button id="q-revision-cancel" class="btn ghost" type="button" hidden>Exit revision / new quote</button>' +
       '<div class="field"><label>Note (optional)</label><input id="q-note" type="text"></div>' +
       // WHAT SHE READ THE SITE IN IS NOT ALWAYS WHAT SHE WANTS TO BE SOLD IN. The quote defaults
       // to the language on her lead, and this overrides it. Dayan hit exactly this on 2026-09-09:
@@ -289,6 +333,9 @@
       '</div></div>';
   }
 
+  function deliveryFee(){var raw=document.getElementById('q-delivery-fee').value.trim();return raw===''?null:/^\d+(?:\.\d{1,2})?$/.test(raw)?Math.round(Number(raw)*100):NaN;}
+  function deliverySummary(){var field=document.getElementById('q-delivery-summary');if(!field)return;var fee=deliveryFee(),food=readLines().length?readLines().reduce(function(n,line){return n+(Number.isInteger(line.cents)?line.cents:0);},0):toCents(document.getElementById('q-total').value);field.textContent=Number.isNaN(fee)?'Enter a non-negative delivery amount with no more than two decimals.':fee===null?'Delivery fee unconfirmed; not included in the food subtotal.': 'Food '+money(food||0)+' + delivery '+money(fee)+' = quote total '+money((food||0)+fee)+'.';}
+
   function body() {
     return {
       quote_id: revisionSource ? revisionSource.id : undefined,
@@ -301,7 +348,8 @@
       guests: Number(document.getElementById('q-guests').value),
       // When there are lines, THEY are the total. Sending a second number invites the two to
       // drift apart, and the server refuses a body where they disagree.
-      total_cents: readLines().length ? undefined : toCents(document.getElementById('q-total').value),
+      total_cents: readLines().length ? undefined : toCents(document.getElementById('q-total').value)+(deliveryFee()||0),
+      delivery_fee_cents: deliveryFee(),
       lines: readLines().length ? readLines() : undefined,
       note: document.getElementById('q-note').value.trim(),
       // Empty means "use her lead's language". A blank must NOT be sent as 'en' or it would
@@ -352,7 +400,7 @@
     var el = document.getElementById('q-lines-sum');
     if (!el) return;
     var rows = readLines();
-    if (!rows.length) { el.textContent = ''; document.getElementById('q-total').disabled = false; return; }
+    if (!rows.length) { el.textContent = ''; document.getElementById('q-total').disabled = false; deliverySummary(); return; }
     // The moment there are lines, they own the total — so the bare-total field is disabled rather
     // than left editable next to a number it cannot change.
     var totalEl = document.getElementById('q-total');
@@ -366,6 +414,7 @@
     totalEl.value = (sum / 100).toFixed(2);
     el.textContent = rows.length + ' line' + (rows.length === 1 ? '' : 's') + ' \u00b7 ' + dollars(sum) +
       (incomplete ? ' \u00b7 ' + incomplete + ' still needs a name and a price' : '');
+    deliverySummary();
   }
 
   function addLine(v) {
@@ -460,13 +509,17 @@
 
   function wireForm() {
     wireLines();
+    document.getElementById('q-delivery-fee').addEventListener('input',deliverySummary);
+    document.getElementById('q-total').addEventListener('input',deliverySummary);
+    deliverySummary();
     document.getElementById('q-revision-cancel').addEventListener('click', function () { render(); });
     document.getElementById('q-preview').addEventListener('click', function () {
       var b = body();
+      if(Number.isNaN(b.delivery_fee_cents)){Hub.toast('Enter a valid delivery fee, or leave it blank until confirmed.');return;}
       // Either the lines carry the money or the bare total does. Preview the same one the create
       // path will use, so the split on screen is the split that gets charged.
       if (!b.lines && (!Number.isFinite(b.total_cents) || b.total_cents <= 0)) { Hub.toast('Enter the agreed total, or add a line'); return; }
-      Hub.api(ENDPOINT, { method: 'POST', body: { op: 'preview', quote_id: b.quote_id, total_cents: b.total_cents, lines: b.lines, event_date: b.event_date } }).then(function (r) {
+      Hub.api(ENDPOINT, { method: 'POST', body: { op: 'preview', quote_id: b.quote_id, total_cents: b.total_cents, lines: b.lines, delivery_fee_cents:b.delivery_fee_cents, event_date: b.event_date } }).then(function (r) {
         var el = document.getElementById('q-split');
         if (!r || !r.ok) { Hub.toast((r && r.error) || 'Could not price that'); el.innerHTML = ''; return; }
         el.innerHTML = '<div class="split" style="margin-top:10px">' +
@@ -479,7 +532,7 @@
       // document being shown inside the Hub, so it gets no script, no forms and no same-origin.
       Hub.api(ENDPOINT, { method: 'POST', body: {
         op: 'render', quote_id: b.quote_id, total_cents: b.total_cents, lines: b.lines, event_date: b.event_date,
-        guests: b.guests, customer_name: b.customer_name, lang: b.lang || 'en', recommendations: b.recommendations,
+        delivery_fee_cents:b.delivery_fee_cents, guests: b.guests, customer_name: b.customer_name, lang: b.lang || 'en', recommendations: b.recommendations,
       } }).then(function (r) {
         var el = document.getElementById('q-mail');
         if (!r || !r.ok) { el.innerHTML = '<p class="row-sub">Could not render the email: ' + esc((r && r.error) || 'unknown') + '</p>'; return; }
@@ -493,9 +546,11 @@
 
     document.getElementById('q-create').addEventListener('click', function () {
       var btn = this, b = body();
-      var amount = b.lines ? b.lines.reduce(function (n, l) { return n + (Number.isInteger(l.cents) ? l.cents : 0); }, 0) : b.total_cents;
+      var amount = b.lines ? b.lines.reduce(function (n, l) { return n + (Number.isInteger(l.cents) ? l.cents : 0); }, 0)+(b.delivery_fee_cents||0) : b.total_cents;
+      if(Number.isNaN(b.delivery_fee_cents)){Hub.toast('Enter a valid delivery fee, or leave it blank until confirmed.');return;}
       if (!Number.isFinite(amount) || amount <= 0) { Hub.toast('Enter the agreed total, or add a line'); return; }
       if (!Number.isFinite(b.guests) || b.guests <= 0) { Hub.toast('Enter the guest count'); return; }
+      if(revisionSource && b.delivery_fee_cents===null){var original={};try{original=JSON.parse(revisionSource.quote_json||'{}');}catch(_error){}if(Number(original.delivery_fee_cents)>0&&!window.confirm('Clear the previously confirmed delivery fee? The revised quote will show delivery as unconfirmed.'))return;}
       if (revisionSource && revisionPreview !== JSON.stringify(b)) { Hub.toast('Read the updated email preview before saving this revision.'); return; }
       if (revisionSource && !window.confirm('Retire the old Square checkout and replace this unpaid quote? The old link will stop working. No message is sent until you review and press Send.')) return;
       if (!revisionSource && !window.confirm('Create a deposit checkout for ' + money(amount) + '?\n\n'
@@ -506,8 +561,9 @@
       if (revisionSource) b.op = 'revise';
       Hub.api(ENDPOINT, { method: 'POST', body: b }).then(function (r) {
         btn.disabled = false;
-        if (!r || !r.ok) { Hub.toast((r && r.error) || 'Could not create the deposit link'); return; }
-        Hub.toast('Deposit link created — ' + money(r.deposit_cents) + '. Nothing sent yet.');
+        if (!r || !r.ok) { if(r&&r.requires_revision){var candidates=quoteCache.filter(function(q){return q.id===r.existing_quote_id;});showExistingChoice(candidates,leadId,b);if(!candidates.length&&r.existing_quote_id){var existingId=r.existing_quote_id;Owner.get(ENDPOINT).then(function(fresh){if(fresh?.ok){quoteCache=fresh.quotes||[];showExistingChoice(quoteCache.filter(function(q){return q.id===existingId;}),leadId,b);}});}Hub.toast(r.error||'An active quote exists. Use its revision flow; no duplicate was created.');}else Hub.toast((r && r.error) || 'Could not create the deposit link'); return; }
+        Hub.toast((revisionSource?'Changes saved — replacement deposit ':'Deposit link created — ') + money(r.deposit_cents) + '. Nothing sent yet.');
+        document.getElementById('q-revision-status').textContent=revisionSource?'Changes saved. The old checkout was retired and this replacement is ready. Nothing has been sent.':'New quote saved. Nothing has been sent.';
         if (revisionSource) {
           document.getElementById('q-email').value = r.customer_email || b.customer_email;
           document.getElementById('q-phone').value = r.customer_phone || b.customer_phone;
@@ -521,12 +577,18 @@
   function wireRequests(root) {
     root.querySelectorAll('[data-prefill]').forEach(function (btn) {
       btn.addEventListener('click', function () {
+        var selectedRequest;try{selectedRequest=JSON.parse(btn.getAttribute('data-prefill')||'{}');}catch(_error){selectedRequest={};}
+        if(selectedRequest.quote_lookup_unavailable){Hub.toast('Existing quote lookup is unavailable. Refresh the quote list before starting another checkout.');return;}
+        var existing=(selectedRequest.existing_quote_ids||[]).map(function(id){return quoteCache.find(function(q){return q.id===id;});}).filter(Boolean);
+        if(existing.length===1){beginRevision(existing[0],selectedRequest.lead_id);return;}
+        if(existing.length>1){showExistingChoice(existing,selectedRequest.lead_id);return;}
+        document.getElementById('q-existing-choice').innerHTML='';document.getElementById('q-delivery-fee').value='';
         revisionSource = null; revisionPreview = null;document.getElementById('q-editor-title').textContent='New catering quote';
         document.getElementById('q-create').textContent = 'Create deposit checkout';
         document.getElementById('q-create').disabled = false;
         document.getElementById('q-revision-status').textContent = '';
         document.getElementById('q-revision-cancel').hidden = true;
-        document.querySelectorAll('#q-name,#q-email,#q-phone,#q-date,#q-guests,#q-lang,#q-note,#q-lines input,#q-lines button,#q-add-line,#q-recommendation,#q-recommendation-packs').forEach(function (input) { input.disabled = false; });
+        document.querySelectorAll('#q-name,#q-email,#q-phone,#q-date,#q-guests,#q-lang,#q-note,#q-delivery-fee,#q-lines input,#q-lines button,#q-add-line,#q-recommendation,#q-recommendation-packs').forEach(function (input) { input.disabled = false; });
         document.getElementById('q-sent').innerHTML = '';
         document.getElementById('q-mail').innerHTML = '';
         document.getElementById('q-recommendation').value = '';
@@ -651,33 +713,36 @@
     });
   }
 
-  function wireRevisionEditor(root) {
-    root.querySelectorAll('[data-revise]').forEach(function (button) {
-      button.addEventListener('click', function () {
-        var q = JSON.parse(button.getAttribute('data-revise'));
-        Hub.api(ENDPOINT, { method: 'POST', body: { op: 'revision_status', quote_id: q.id } }).then(function (result) {
-          if (!result.ok) { Hub.toast(result.error || 'Cannot verify revision status'); return; }
-          if (q.deposit_status === 'void' && !result.revision) { Hub.toast('This void quote has no recoverable revision.'); return; }
-          revisionSource = q; revisionPreview = null;document.getElementById('q-editor-title').textContent='Revise catering quote';
-          document.getElementById('q-revision-cancel').hidden = false;
-          document.getElementById('q-create').disabled = false;
-          document.getElementById('q-sent').innerHTML = '';
-          document.getElementById('q-mail').innerHTML = '';
-          var saved = result.revision && JSON.parse(result.revision.payload_json), blob = {};
-          try { blob = JSON.parse(q.quote_json || '{}'); } catch (e) { /* old total-only quote */ }
-          var values = saved || { customerName: q.customer_name, customerEmail: q.customer_email, customerPhone: q.customer_phone, eventDate: q.event_date, guests: q.guests, lang: q.lang, note: q.note, quoteBreakdown: blob };
-          [['q-name','customerName'],['q-email','customerEmail'],['q-phone','customerPhone'],['q-date','eventDate'],['q-guests','guests'],['q-lang','lang'],['q-note','note']].forEach(function (pair) { document.getElementById(pair[0]).value = values[pair[1]] || ''; });
-          var lines = values.quoteBreakdown.lines || [{ name: 'Catering package', cents: q.total_cents }];
-          document.getElementById('q-lines').innerHTML = lines.map(function (line) { return lineRowHtml({ name: line.name, qty: line.qty, price: (line.cents / 100).toFixed(2), metadata: line }); }).join('');
-          renderLinesSum();
-          document.getElementById('q-revision-status').textContent = saved ? 'Recover the saved revision. Its approved values are locked while the old Square checkout is retired and the replacement is recovered.' : 'Editing quote ' + q.id + '. Read the preview, then save a revision. The original checkout is retired before its replacement is created.';
-          document.getElementById('q-create').textContent = saved ? 'Recover saved revision' : 'Save revised quote';
-          document.querySelectorAll('#q-name,#q-email,#q-phone,#q-date,#q-guests,#q-lang,#q-note,#q-lines input,#q-lines button,#q-add-line,#q-recommendation,#q-recommendation-packs').forEach(function (input) { input.disabled = Boolean(saved); });
-          loadRecommendations(values.quoteBreakdown.recommendations && values.quoteBreakdown.recommendations[0]);
-          document.getElementById('q-name').scrollIntoView({ behavior: 'smooth', block: 'center' });
-        });
-      });
+  function beginRevision(q,requestLeadId,draft) {
+    if(q.deposit_status==='paid'){document.getElementById('q-create').disabled=true;document.getElementById('q-revision-status').textContent='This quote has a recorded deposit and is read-only here. Review the booked order before making any money changes.';document.getElementById('quote-'+q.id)?.scrollIntoView({behavior:'smooth',block:'center'});Hub.toast('A deposit is recorded. This quote cannot be replaced through the unpaid revision editor.');return Promise.resolve();}
+    document.getElementById('q-create').disabled=true;
+    document.getElementById('q-revision-status').textContent='Checking the current quote and any saved revision…';
+    return Hub.api(ENDPOINT, { method: 'POST', body: { op: 'revision_status', quote_id: q.id } }).then(function (result) {
+      if (!result.ok) { Hub.toast(result.error || 'Cannot verify revision status'); return; }
+      if (q.deposit_status === 'void' && !result.revision) { Hub.toast('This void quote has no recoverable revision.'); return; }
+      revisionSource=q;revisionPreview=null;document.getElementById('q-editor-title').textContent='Edit existing catering quote';
+      document.getElementById('q-existing-choice').innerHTML='';document.getElementById('q-revision-cancel').hidden=false;
+      document.getElementById('q-create').disabled=false;document.getElementById('q-sent').innerHTML='';document.getElementById('q-mail').innerHTML='';
+      var saved=result.revision&&JSON.parse(result.revision.payload_json),blob={};try{blob=JSON.parse(q.quote_json||'{}');}catch(_error){}
+      leadId=q.source_lead_id||blob.lead_id||requestLeadId||null;
+      var values=saved||{customerName:q.customer_name,customerEmail:q.customer_email,customerPhone:q.customer_phone,eventDate:q.event_date,guests:q.guests,lang:q.lang,note:q.note,quoteBreakdown:blob};
+      var breakdown=values.quoteBreakdown||{};
+      if(draft&&!saved){values={customerName:draft.customer_name,customerEmail:draft.customer_email,customerPhone:draft.customer_phone,eventDate:draft.event_date,guests:draft.guests,lang:draft.lang,note:draft.note,quoteBreakdown:{lines:draft.lines,recommendations:draft.recommendations,delivery_fee_cents:draft.delivery_fee_cents}};breakdown=values.quoteBreakdown;}
+      [['q-name','customerName'],['q-email','customerEmail'],['q-phone','customerPhone'],['q-date','eventDate'],['q-guests','guests'],['q-lang','lang'],['q-note','note']].forEach(function(pair){document.getElementById(pair[0]).value=values[pair[1]]||'';});
+      var fee=breakdown.delivery_fee_cents;document.getElementById('q-delivery-fee').value=Number.isInteger(fee)&&fee>=0?(fee/100).toFixed(2):'';
+      var lines=breakdown.lines||(draft&&!saved?[]:[{name:'Catering package',cents:q.total_cents-(Number.isInteger(fee)?fee:0)}]);
+      document.getElementById('q-lines').innerHTML=lines.map(function(line){return lineRowHtml({name:line.name,qty:line.qty,price:(line.cents/100).toFixed(2),metadata:line});}).join('');
+      if(!lines.length)document.getElementById('q-total').value=((draft?.total_cents||q.total_cents)-(Number.isInteger(fee)?fee:0))/100;
+      renderLinesSum();
+      document.getElementById('q-revision-status').textContent=saved?'Recover the saved revision. Its approved values stay locked while the old checkout is retired and the replacement recovered.':'Editing existing quote '+q.id+'. 1. Make changes. 2. Read the updated email preview. 3. Save changes to replace the old checkout. Sending is a separate step.';
+      document.getElementById('q-create').textContent=saved?'Recover saved revision':'Save changes · replace old checkout';
+      document.querySelectorAll('#q-name,#q-email,#q-phone,#q-date,#q-guests,#q-lang,#q-note,#q-delivery-fee,#q-lines input,#q-lines button,#q-add-line,#q-recommendation,#q-recommendation-packs').forEach(function(input){input.disabled=Boolean(saved);});
+      loadRecommendations(breakdown.recommendations&&breakdown.recommendations[0]);
+      document.getElementById('q-editor-title').scrollIntoView({behavior:'smooth',block:'start'});
     });
+  }
+  function wireRevisionEditor(root) {
+    root.querySelectorAll('[data-revise]').forEach(function(button){button.addEventListener('click',function(){return beginRevision(JSON.parse(button.getAttribute('data-revise')));});});
   }
 
   function render() {
@@ -687,6 +752,7 @@
       root.className = '';
       if (!d || !d.ok) { root.innerHTML = '<div class="card"><p class="row-sub">Could not load catering quotes.</p></div>'; return; }
       var qs = d.quotes || [];
+      quoteCache=qs;
       var rs = d.requests || [];
       var cs = d.changes || [];
       var openChanges = cs.filter(function (c) { return c.status === 'open'; });
@@ -716,6 +782,7 @@
 
       wireForm();
       wireRevisionEditor(root);
+      root.querySelectorAll('[data-retire-duplicate]').forEach(function(button){button.addEventListener('click',function(){var q=quoteCache.find(function(row){return row.id===button.getAttribute('data-retire-duplicate');});if(q)reviewDuplicateRetirement(q);});});
       loadRecommendations();
       wireChanges(root);
       wireRequests(root);
