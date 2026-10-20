@@ -5,6 +5,7 @@ on:
       - 'public/hub/owner/catering*'
       - 'public/hub/owner/assets/catering-service.js'
       - 'scripts/verify-catering-ui.cjs'
+      - 'scripts/verify-catering-workspace.cjs'
       - '.github/workflows/catering-ui.yml'
 jobs:
   catering-browser:
@@ -17,6 +18,7 @@ jobs:
       - run: npm install --no-save --package-lock=false --ignore-scripts playwright@1.62.1
       - run: npx playwright install --with-deps chromium
       - run: node scripts/verify-catering-ui.cjs
+      - run: node scripts/verify-catering-workspace.cjs
       - uses: actions/upload-artifact@v4
         if: always()
         with:

@@ -114,8 +114,8 @@
   async function loadDraft(id){if(!await guardEditorSwitch())return;try{var result=await Owner.get(DRAFTS+'?id='+encodeURIComponent(id));if(!result?.ok)throw Error(result?.error||'Draft unavailable');var record=result.draft,p=record.payload||{};if(record.state==='prepared'){var q=quoteCache.find(function(q){return q.id===record.quote_id;});if(q){document.getElementById('quote-'+q.id)?.scrollIntoView({behavior:'smooth'});return;}throw Error('Prepared quote is not in the current list. Reload quotes.');}if(record.state!=='draft')throw Error('Archived drafts are read-only.');var q=p.quote_id&&quoteCache.find(function(q){return q.id===p.quote_id;});editorDirty=false;if(p.quote_id&&!q)throw Error('The original quote is unavailable. Reload before editing this draft.');if(q)await beginRevision(q,p.lead_id,p);else{revisionSource=null;leadId=p.lead_id||null;fillDraftPayload(p);}draftRecord=record;editorDirty=false;document.getElementById('q-draft-status').textContent='Opened saved draft · version '+record.version+'. No checkout or message created.';document.getElementById('quote-editor').scrollIntoView({behavior:'smooth'});}catch(error){document.getElementById('q-draft-status').textContent=error.message;}}
   function fillDraftPayload(p){resetPreview();document.querySelectorAll('#q-name,#q-email,#q-phone,#q-date,#q-guests,#q-lang,#q-note,#q-delivery-fee,#q-lines input,#q-lines button,#q-add-line,#q-recommendation,#q-recommendation-packs').forEach(function(input){input.disabled=false;});loadRecommendations(p.recommendations&&p.recommendations[0]);[['q-name','customer_name'],['q-email','customer_email'],['q-phone','customer_phone'],['q-date','event_date'],['q-guests','guests'],['q-note','note'],['q-lang','lang']].forEach(function(pair){document.getElementById(pair[0]).value=p[pair[1]]??'';});document.getElementById('q-delivery-fee').value=Number.isInteger(p.delivery_fee_cents)?(p.delivery_fee_cents/100).toFixed(2):'';document.getElementById('q-lines').innerHTML=(p.lines||[]).map(function(line){return lineRowHtml({name:line.name,qty:line.qty,price:Number.isInteger(line.cents)?(line.cents/100).toFixed(2):'',metadata:line});}).join('');document.getElementById('q-total').value=Number.isInteger(p.total_cents)?((p.total_cents-(p.delivery_fee_cents||0))/100).toFixed(2):'';document.getElementById('q-create').disabled=false;document.getElementById('q-create').textContent='Create deposit checkout';document.getElementById('q-editor-title').textContent='Saved draft · no checkout yet';document.getElementById('q-sent').innerHTML='';renderLinesSum();}
   async function archiveDraft(id,version){if(!await confirmOwnerAction('Archive draft','Keep its history but remove this unfinished draft from active work. Existing quotes and payment links are not changed.','Confirm archive'))return;try{var result=await Hub.api(DRAFTS,{method:'POST',body:{op:'archive',id:id,expected_version:version}});if(!result?.ok)throw Error(result?.error||'Archive failed');if(draftRecord?.id===id)draftRecord=null;loadDrafts();}catch(error){document.getElementById('q-draft-status').textContent=error.message;}}
-  async function recoverDraft(){var button=document.getElementById('q-recover-draft');if(!draftRecord){document.getElementById('q-draft-status').textContent='Open a saved draft first. No checkout has been created by this check.';return;}if(button.disabled)return;button.disabled=true;try{var result=await Hub.api(DRAFTS,{method:'POST',body:{op:'recover',id:draftRecord.id,expected_version:draftRecord.version}});if(!result?.ok)throw Error(result?.error||'No matching prepared checkout could be verified.');draftRecord=result.draft;document.getElementById('q-draft-status').textContent='Existing prepared quote found. No duplicate checkout created. Reload the quote list to open it.';document.getElementById('q-create').disabled=true;loadDrafts();}catch(error){document.getElementById('q-draft-status').textContent=error.message+' Do not create another checkout until the quote list is checked.';}finally{button.disabled=false;}}
-  async function attachDraft(quoteId){try{var result=await Hub.api(DRAFTS,{method:'POST',body:{op:'attach',id:draftRecord.id,expected_version:draftRecord.version,quote_id:quoteId}});if(!result?.ok)throw Error(result?.error||'Could not link draft');draftRecord=result.draft;document.getElementById('q-draft-status').textContent='Draft linked to the prepared quote. Nothing sent.';loadDrafts();}catch(error){document.getElementById('q-draft-status').textContent='Checkout exists, but the draft link is unconfirmed. Do not create another checkout. '+error.message;}}
+  async function recoverDraft(){var button=document.getElementById('q-recover-draft');if(!draftRecord){document.getElementById('q-draft-status').textContent='Open a saved draft first. No checkout has been created by this check.';return;}if(button.disabled)return;button.disabled=true;try{var result=await Hub.api(DRAFTS,{method:'POST',body:{op:'recover',id:draftRecord.id,expected_version:draftRecord.version}});if(!result?.ok)throw Error(result?.error||'No matching prepared checkout could be verified.');draftRecord=result.draft;document.getElementById('q-draft-status').textContent='Existing prepared quote found. No duplicate checkout created. Reload the quote list to open it.';document.getElementById('q-save-draft').disabled=true;document.getElementById('q-create').disabled=true;loadDrafts();}catch(error){document.getElementById('q-draft-status').textContent=error.message+' Do not create another checkout until the quote list is checked.';}finally{button.disabled=draftRecord?.state==='prepared';}}
+  async function attachDraft(quoteId){try{var result=await Hub.api(DRAFTS,{method:'POST',body:{op:'attach',id:draftRecord.id,expected_version:draftRecord.version,quote_id:quoteId}});if(!result?.ok)throw Error(result?.error||'Could not link draft');draftRecord=result.draft;document.getElementById('q-draft-status').textContent='Draft linked to the prepared quote. Nothing sent.';document.getElementById('q-save-draft').disabled=true;document.getElementById('q-recover-draft').disabled=true;loadDrafts();}catch(error){document.getElementById('q-draft-status').textContent='Checkout exists, but the draft link is unconfirmed. Do not create another checkout. '+error.message;}}
   async function reviewSavedQuote(id,contact){
     var host=document.getElementById('q-saved-review'),seq=++savedReviewSequence;document.getElementById('q-sent').innerHTML='';host.textContent='Loading the exact saved quote email…';
     try{var result=await Hub.api(ENDPOINT,{method:'POST',body:{op:'render_saved',quote_id:id}});if(seq!==savedReviewSequence)return;if(!result?.ok||!result.review_hash)throw Error(result?.error||'Saved email preview unavailable');var loaded=await mountEmailPreview(host,result,function(){return seq===savedReviewSequence;});if(!loaded||seq!==savedReviewSequence)return;var q=result.quote||quoteCache.find(function(q){return q.id===id;})||contact||{};showSend({quote_id:id,customer_email:result.customer_email||q.customer_email||result.to,customer_phone:result.customer_phone||q.customer_phone||'',review_hash:result.review_hash});host.scrollIntoView({behavior:'smooth'});}catch(error){if(seq===savedReviewSequence)host.textContent='Cannot approve this email: '+error.message+' Use Review / send this quote to retry.';}
@@ -383,7 +383,7 @@
   // ---------- the create form ----------
   function formHtml(d) {
     return '<div class="hub-section" id="quote-editor"><h2 id="q-editor-title">New catering quote</h2><div class="card">' +
-      '<section class="q-drafts" aria-labelledby="q-draft-heading"><h3 id="q-draft-heading">Saved work · no payment link</h3><div id="q-draft-list"></div><button id="q-save-draft" type="button" class="btn ghost">Save draft</button><button id="q-recover-draft" type="button" class="btn ghost">Check whether this draft already has a checkout</button><p id="q-draft-status" role="status" class="row-sub">Save unfinished work without creating a checkout or sending anything.</p></section><div id="q-duplicate-retirement"></div><div id="q-existing-choice"></div><p id="q-revision-status" class="q-editor-status" role="status">For a new event only. Use Edit existing quote to change an offer already created.</p>' +
+      '<section class="q-drafts" aria-labelledby="q-draft-heading"><h3 id="q-draft-heading">Saved drafts & prepared quotes</h3><div id="q-draft-list"></div><button id="q-save-draft" type="button" class="btn ghost">Save draft</button><button id="q-recover-draft" type="button" class="btn ghost">Check whether this draft already has a checkout</button><p id="q-draft-status" role="status" class="row-sub">Save unfinished work without creating a checkout or sending anything.</p></section><div id="q-duplicate-retirement"></div><div id="q-existing-choice"></div><p id="q-revision-status" class="q-editor-status" role="status">For a new event only. Use Edit existing quote to change an offer already created.</p>' +
       '<div class="field"><label for="q-name">Customer name</label><input id="q-name" type="text" placeholder="Who the event is for"></div>' +
       '<div class="field"><label for="q-email">Email</label><input id="q-email" type="email" placeholder="For the deposit link"></div>' +
       '<div class="field"><label for="q-phone">Phone</label><input id="q-phone" type="tel"></div>' +
@@ -553,6 +553,7 @@
     if (!el) return;
     var to = Object.prototype.hasOwnProperty.call(created,'customer_email')?created.customer_email:document.getElementById('q-email').value.trim();
     var phone = Object.prototype.hasOwnProperty.call(created,'customer_phone')?created.customer_phone:document.getElementById('q-phone').value.trim();
+    var sendLocked=false;
     el.innerHTML = '<div class="card" style="margin-top:12px">' +
       '<p><b>Saved quote preview loaded. Nothing has been sent by this action.</b></p>' +
       '<p class="row-sub">Read the preview above one more time. When you are happy, this emails it to ' +
@@ -560,14 +561,14 @@
       '<label style="display:flex;gap:8px;align-items:center;margin:0 0 10px">' +
         '<input id="q-send-sms" type="checkbox" style="width:auto"' + (phone ? '' : ' disabled') + '>' +
         '<span>' + (phone ? 'Also text it to ' + esc(phone) : 'No phone number on this quote — email only') + '</span></label>' +
-      '<label class="q-review-check"><input id="q-send-reviewed" type="checkbox"><span>I reviewed this saved quote email and recipient.</span></label><button class="btn gold block" id="q-send-now" type="button" disabled>Send reviewed quote</button>' +
+      '<label class="q-review-check"><input id="q-send-reviewed" type="checkbox"><span>I reviewed this saved quote email and recipient.</span></label><p id="q-send-status" class="row-sub" role="status"></p><button class="btn gold block" id="q-send-now" type="button" disabled>Send reviewed quote</button>' +
       (created.quote_url ? '<p class="row-sub" style="margin-top:8px">Or send it yourself: <code>' + esc(created.quote_url) + '</code></p>' : '') +
       '</div>';
-    document.getElementById('q-send-reviewed').onchange=function(){document.getElementById('q-send-now').disabled=!this.checked||!created.review_hash;};
+    document.getElementById('q-send-reviewed').onchange=function(){document.getElementById('q-send-now').disabled=sendLocked||!this.checked||!created.review_hash;};
     document.getElementById('q-send-now').disabled=true;
     document.getElementById('q-send-now').addEventListener('click', async function () {
       var btn = this;
-      if(btn.disabled||!created.review_hash||!document.getElementById('q-send-reviewed').checked)return;
+      if(sendLocked||btn.disabled||!created.review_hash||!document.getElementById('q-send-reviewed').checked)return;
       btn.disabled = true;
       // Snapshot the channels named in the confirmation; the checkbox cannot change this send.
       var wantsSms = document.getElementById('q-send-sms').checked;
@@ -575,9 +576,10 @@
         + (wantsSms ? ' and text ' + phone : '') + ' now? Confirm only after reading the rendered email preview above.','Confirm send')) { btn.disabled=false; return; }
       // The text is opt-in per send and it is the owner authorising it, not a consent flag being
       // read off a row that has none. Unchecked means email only.
+      document.getElementById('q-send-status').textContent='Submitting the reviewed quote. Waiting for provider evidence…';
       Hub.api(ENDPOINT, { method: 'POST', body: { op: 'send', quote_id: created.quote_id, sms: wantsSms,reviewed:true,review_hash:created.review_hash } }).then(function (r) {
         btn.disabled = false;
-        if (!r || !r.ok || ['unknown','pending'].includes(r.status)) { btn.disabled=!!(r&&['unknown','pending'].includes(r.status));Hub.toast((r && r.error) || 'Send outcome is unconfirmed. Check message history before retrying.'); return; }
+        if (!r || !r.ok || ['unknown','pending'].includes(r.status)) { sendLocked=!!(r&&['unknown','pending'].includes(r.status));btn.disabled=sendLocked;document.getElementById('q-send-status').textContent=(r&&r.error)||'No email acceptance confirmed. Check message history before retrying.';Hub.toast((r && r.error) || 'Send outcome is unconfirmed. Check message history before retrying.'); return; }
         // sendQuote reports each channel separately: { email: {sent, skipped}, sms: {...} }.
         var d = r.delivery || {};
         var mailed = Boolean(d.email && d.email.sent);
@@ -586,9 +588,10 @@
           ? (texted ? 'Email and text accepted · delivery unverified' : 'Email accepted · delivery unverified' + (d.sms && d.sms.skipped ? ' · no text: ' + d.sms.skipped : ''))
           : ((d.email && d.email.skipped) || d.error || 'Nothing was sent'));
         btn.textContent = mailed ? 'Email accepted · delivery not verified' : 'Try again';
-        btn.disabled = mailed;
+        sendLocked=mailed;btn.disabled = mailed;
+        document.getElementById('q-send-status').textContent=mailed?'Email provider accepted the quote. Customer delivery is not verified here.':'No email acceptance confirmed. Review message history before retrying.';
         document.getElementById('q-draft-status').textContent=mailed?'Email provider accepted the quote. Customer delivery is not established by this receipt.':'No confirmed email acceptance. Review the result before retrying.';
-      }).catch(function(error){btn.disabled=true;Hub.toast('Send outcome unconfirmed. Check message history before retrying. '+error.message);});
+      }).catch(function(error){sendLocked=true;btn.disabled=true;document.getElementById('q-send-status').textContent='Send outcome unconfirmed. Check message history before retrying. '+error.message;Hub.toast('Send outcome unconfirmed. Check message history before retrying. '+error.message);});
     });
   }
 
@@ -666,10 +669,10 @@
           document.getElementById('q-phone').value = r.customer_phone || b.customer_phone;
           btn.disabled = true;
         }
-        editorDirty=false;
+        editorDirty=false;btn.disabled=true;
         if(draftRecord)attachDraft(r.quote_id);
         reviewSavedQuote(r.quote_id,{customer_email:r.customer_email||b.customer_email,customer_phone:r.customer_phone||b.customer_phone});
-      }).catch(function(error){Hub.toast('Checkout outcome could not be confirmed. Refresh the quote list before retrying: '+error.message);});
+      }).catch(function(error){document.getElementById('q-revision-status').textContent='Checkout outcome could not be confirmed. Reload the quote list or recover the saved draft before retrying. '+error.message;Hub.toast('Checkout outcome could not be confirmed. Refresh the quote list before retrying: '+error.message);});
     });
   }
 
@@ -843,7 +846,7 @@
       }
       document.getElementById('q-preview').disabled=false;
       var lines=breakdown.lines||(draft&&!saved?[]:[{name:'Catering package',cents:q.total_cents-(Number.isInteger(fee)?fee:0)}]);
-      document.getElementById('q-lines').innerHTML=lines.map(function(line){return lineRowHtml({name:line.name,qty:line.qty,price:(line.cents/100).toFixed(2),metadata:line});}).join('');
+      document.getElementById('q-lines').innerHTML=lines.map(function(line){var metadata=Object.assign({},line);if(!saved&&!draft&&(!metadata.pricing_mode||metadata.pricing_mode==='catalog'))metadata.pricing_mode='quoted';return lineRowHtml({name:line.name,qty:line.qty,price:(line.cents/100).toFixed(2),metadata:metadata});}).join('');
       if(!lines.length)document.getElementById('q-total').value=((draft?.total_cents||q.total_cents)-(Number.isInteger(fee)?fee:0))/100;
       renderLinesSum();
       document.getElementById('q-revision-status').textContent=saved?'Recover the saved revision. Its approved values stay locked while the old checkout is retired and the replacement recovered.':'Editing existing quote '+q.id+'. 1. Make changes. 2. Read the updated email preview. 3. Save changes to replace the old checkout. Sending is a separate step.';

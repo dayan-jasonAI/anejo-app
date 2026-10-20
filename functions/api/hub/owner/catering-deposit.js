@@ -483,6 +483,8 @@ export const onRequestPost = async ({ request, env }) => {
     const receipt=await finishReviewedQuoteSend(env,claim.claim_id,r);
     return json({
       receipt,
+      status:receipt.state,
+      error:receipt.state==='unknown'?'Some message outcomes are unverified. Check the saved provider receipt before retrying or changing checkout.':r.error,
       ok: r.ok,
       delivery: r,
       sms_authorized_by_owner: owed,

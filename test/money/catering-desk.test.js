@@ -235,7 +235,7 @@ test('the desk calls the real endpoint, for the list and for the create', () => 
   assert.match(DESK, /Owner\.get\(ENDPOINT\)/, 'the list is fetched');
   assert.match(DESK, /id="q-create"/, 'there is a create button');
   assert.match(DESK, /b\.op = 'create'/, 'and it posts the create op');
-  assert.match(DESK, /op: 'preview'/, 'the split is previewed before a payable link exists');
+  assert.match(DESK, /op:\s*'render'/, 'the split is previewed before a payable link exists');
   assert.match(DESK, /op: 'mark_balance_paid'/, 'and the balance can be closed after the event');
   assert.match(DESK, /Owner\.init\('catering'/, 'it renders the owner nav, so it is not a floating page');
   assert.match(DESK, /d\.requests/, 'website requests are read from the owner endpoint');

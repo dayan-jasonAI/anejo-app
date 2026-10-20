@@ -144,7 +144,7 @@ test('sending requires explicit in-page confirmation and cancel sends nothing',a
   const f=fixture(body=>body.op==='send'?{ok:true,delivery:{email:{sent:true}}}:{ok:false});
   f.get('q-email').value='guest@example.test';f.api.showSend({quote_id:'cq_synthetic',review_hash:'synthetic_review'});f.get('q-send-reviewed').checked=true;f.get('q-send-reviewed').onchange.call(f.get('q-send-reviewed'));
   const cancelled=f.click('q-send-now');await f.tick();assert.equal(f.get('q-action-confirm').open,true);assert.equal(f.calls.length,0);assert.match(f.get('q-action-message').textContent,/guest@example.test/);f.get('q-action-cancel').onclick();await cancelled;assert.equal(f.calls.length,0);assert.equal(f.get('q-send-now').disabled,false);
-  const sending=f.click('q-send-now');await f.tick();assert.equal(f.calls.length,0);f.get('q-action-approve').onclick();await sending;await f.tick();assert.equal(f.calls.filter(x=>x.op==='send').length,1);assert.equal(f.calls.find(x=>x.op==='send').sms,false);assert.equal(f.confirms.length,0);
+  const sending=f.click('q-send-now');await f.tick();assert.equal(f.calls.length,0);f.get('q-action-approve').onclick();await sending;await f.tick();assert.equal(f.calls.filter(x=>x.op==='send').length,1);assert.equal(f.calls.find(x=>x.op==='send').reviewed,true);assert.equal(f.calls.find(x=>x.op==='send').review_hash,'synthetic_review');assert.equal(f.calls.find(x=>x.op==='send').sms,false);assert.equal(f.confirms.length,0);
 });
 
 
@@ -198,4 +198,24 @@ test('stale saved-email iframe cannot enable sending for another selected quote'
 
 test('editing during a preview request prevents its stale response from authorizing checkout',async()=>{
  let resolveRender;const f=fixture(b=>b.op==='render'?new Promise(r=>{resolveRender=r;}):{ok:true,total_cents:10000,deposit_cents:5000,balance_cents:5000});f.wire();await f.api.beginRevision(clone(quote));const pending=f.click('q-preview');await f.tick();f.get('q-note').value='Changed while rendering';f.api.markEditorDirty();resolveRender({ok:true,html:'<p>Stale</p>'});await pending;f.click('q-create');await f.tick();assert.equal(f.calls.filter(b=>b.op==='revise').length,0);assert.match(f.toasts.at(-1),/Read the updated email preview/);assert.equal(f.get('q-preview').disabled,false);
+});
+
+test('reopening an earlier catalog quote uses its agreed amount rather than current published pricing',async()=>{
+ const f=fixture(),q={...clone(quote),quote_json:JSON.stringify({lines:[{name:'Synthetic historic pack',qty:'3',cents:10000,product_id:'historic_pack',unit_cents:3500,pricing_mode:'catalog'}]})};await f.api.beginRevision(q);const line=f.api.body().lines[0];assert.equal(line.cents,10000);assert.equal(line.pricing_mode,'quoted');assert.match(f.get('q-lines').innerHTML,/data-rate-cents="10000" data-rate-qty="3"/);
+});
+
+test('a draft save with a lost acknowledgement retries the same UUID without minting a checkout',async()=>{
+ let attempts=0;const f=fixture(b=>{if(b.op==='save'){attempts++;if(attempts===1)throw Error('Network interrupted');return {ok:true,draft:{id:b.id,version:1,state:'draft'}};}return {ok:true};});f.get('q-name').value='Synthetic unfinished event';await f.api.saveDraft();assert.match(f.get('q-draft-status').textContent,/Network interrupted/);await f.api.saveDraft();assert.equal(f.calls.length,2);assert.equal(f.calls[0].id,f.calls[1].id);assert.equal(f.calls[1].expected_version,0);assert.equal(f.get('q-save-draft').disabled,false);
+});
+
+test('saved-email frame failure keeps all send controls unavailable',async()=>{
+ const f=fixture(()=>({ok:true,review_hash:'review',html:'<p>Email</p>'}));const pending=f.api.reviewSavedQuote('cq_synthetic');await f.tick();f.get('q-saved-review').querySelector('iframe').listeners.error();await pending;assert.equal(f.get('q-sent').innerHTML,'');assert.match(f.get('q-saved-review').textContent,/Cannot approve this email/);assert.equal(f.calls.filter(b=>b.op==='send').length,0);
+});
+
+test('unknown email outcome stays locked against a blind retry',async()=>{
+ const f=fixture(()=>({ok:false,status:'unknown',error:'Provider outcome unknown'}));f.api.showSend({quote_id:'cq_synthetic',review_hash:'review',customer_email:'synthetic@example.test',customer_phone:''});f.get('q-send-reviewed').checked=true;f.get('q-send-reviewed').onchange.call(f.get('q-send-reviewed'));const pending=f.click('q-send-now');await f.tick();f.get('q-action-approve').onclick();await pending;await f.tick();assert.equal(f.get('q-send-now').disabled,true);f.get('q-send-reviewed').checked=false;f.get('q-send-reviewed').onchange.call(f.get('q-send-reviewed'));f.get('q-send-reviewed').checked=true;f.get('q-send-reviewed').onchange.call(f.get('q-send-reviewed'));assert.equal(f.get('q-send-now').disabled,true);await f.click('q-send-now');assert.equal(f.calls.filter(b=>b.op==='send').length,1);
+});
+
+test('checkout preview response alone cannot approve a revision before iframe load',async()=>{
+ const f=fixture();f.wire();await f.api.beginRevision(clone(quote));const previewing=f.click('q-preview');await f.tick();await f.click('q-create');assert.equal(f.get('q-action-confirm').open,undefined);assert.equal(f.calls.filter(b=>b.op==='revise').length,0);f.get('q-mail').querySelector('iframe').listeners.load();await previewing;const pending=f.click('q-create');await f.tick();assert.equal(f.get('q-action-confirm').open,true);f.get('q-action-cancel').onclick();await pending;assert.equal(f.calls.filter(b=>b.op==='revise').length,0);
 });
