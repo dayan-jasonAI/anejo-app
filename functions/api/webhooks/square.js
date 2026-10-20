@@ -44,7 +44,7 @@ export const onRequestPost = async ({ request, env }) => {
   const type = evt.type || '';
   const obj = (evt.data && evt.data.object) || {};
 
-  if (!env.DB) return ok('no db');
+  if (!env.DB) return new Response('Webhook storage temporarily unavailable', { status:503 });
 
   try {
     // Keep our subscription status in sync.
@@ -268,8 +268,17 @@ export const onRequestPost = async ({ request, env }) => {
         // balance owing. Idempotent via the deposit_status guard, so Square's retries are no-ops.
         // Deliberately silent when nothing matches: most payments are not deposits.
         try {
-          const cq = await markDepositPaid(env, pay.order_id, (pay.amount_money && Number(pay.amount_money.amount)) || null);
-          if (cq) {
+          const cq = await markDepositPaid(env, pay.order_id, pay.amount_money?.amount, pay.amount_money?.currency, pay.id);
+          if (cq?.reconciliation_required) {
+            const alert = await raiseAlert(env, {
+              alert_type: 'catering_deposit_paid', severity: 'critical',
+              dedupe_key: 'catering_deposit_reconciliation:' + cq.receipt_id,
+              title: 'Catering payment needs reconciliation',
+              body: 'A completed Square capture does not match an active quote deposit. Booking status was not changed; review the saved payment receipt.',
+              ref_type: 'catering_quote', ref_id: cq.quote_id,
+            });
+            if (!alert.ok) return new Response('Deposit reconciliation alert temporarily unavailable', { status:503 });
+          } else if (cq) {
             await raiseAlert(env, {
               alert_type: 'catering_deposit_paid', severity: 'info',
               dedupe_key: 'catering_deposit_paid:' + cq,
@@ -278,7 +287,7 @@ export const onRequestPost = async ({ request, env }) => {
               ref_type: 'catering_quote', ref_id: cq,
             }).catch(() => {});
           }
-        } catch (e) { console.log('catering deposit error:', e && e.message); }
+        } catch { return new Response('Deposit reconciliation temporarily unavailable', { status:503 }); }
 
         // CONTRACT INVOICE: a paid Square payment link on a B2B contract invoice → mark it paid
         // automatically, same idempotent pattern as the catering deposit above (guarded on

@@ -200,23 +200,42 @@ export async function createDepositCheckout(env, {
   };
 }
 
-/**
- * A deposit payment landed in Square → mark the quote paid and leave the balance owing.
- * Idempotent: the `deposit_status='unpaid'` guard means Square's webhook retries are no-ops.
- * Returns the quote id when THIS call is the one that flipped it, else null.
+/** Persist Square's completed receipt and booking transition in one transaction.
+ * Provider acceptance is not delivery, and an unexpected capture is not a booking.
+ * Storage errors deliberately propagate so Square can retry its webhook.
  */
-export async function markDepositPaid(env, squareOrderId, capturedCents) {
-  if (!env || !env.DB || !squareOrderId) return null;
-  try {
-    const q = await env.DB
-      .prepare("SELECT id, deposit_cents FROM catering_quotes WHERE square_order_id = ? AND deposit_status = 'unpaid' LIMIT 1")
-      .bind(squareOrderId).first();
-    if (!q) return null;
-    const paid = Number.isFinite(Number(capturedCents)) && Number(capturedCents) > 0
-      ? Math.round(Number(capturedCents)) : q.deposit_cents;
-    const r = await env.DB.prepare(
-      "UPDATE catering_quotes SET deposit_status='paid', deposit_paid_at=?, deposit_paid_cents=?, updated_at=? WHERE id=? AND deposit_status='unpaid'"
-    ).bind(now(), paid, now(), q.id).run();
-    return (r && r.meta && r.meta.changes === 1) ? q.id : null;
-  } catch { return null; }
+export async function markDepositPaid(env, squareOrderId, capturedCents, currency, paymentId) {
+  if (!env?.DB || !squareOrderId) return null;
+  const q = await env.DB.prepare('SELECT id FROM catering_quotes WHERE square_order_id = ? LIMIT 1')
+    .bind(squareOrderId).first();
+  if (!q) return null;
+  const valid = Number.isSafeInteger(capturedCents) && capturedCents > 0 && currency === 'USD'
+    && typeof paymentId === 'string' && paymentId.length > 0 && paymentId.length <= 192;
+  const material = JSON.stringify([squareOrderId, paymentId || null, capturedCents ?? null, currency ?? null]);
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(material));
+  const receiptId = 'catering_deposit_' + Array.from(new Uint8Array(digest), b => b.toString(16).padStart(2, '0')).join('');
+  const stamp = now();
+  const results = await env.DB.batch([
+    env.DB.prepare(`INSERT OR IGNORE INTO activity_log (id,event,actor_type,properties,created_at)
+      SELECT ?, 'catering.deposit.receipt', 'system',
+        json_object('quote_id',id,'square_order_id',square_order_id,'payment_id',?,
+          'amount_cents',?,'currency',?,'expected_cents',deposit_cents,
+          'outcome',CASE WHEN ? = 1 AND deposit_status = 'unpaid' AND deposit_cents = ?
+            THEN 'accepted' ELSE 'reconciliation_required' END), ?
+      FROM catering_quotes WHERE id = ?`)
+      .bind(receiptId, typeof paymentId === 'string' ? paymentId.slice(0,192) : null,
+        Number.isFinite(capturedCents) ? capturedCents : null,
+        typeof currency === 'string' ? currency.slice(0,12) : null, valid ? 1 : 0,
+        valid ? capturedCents : null, stamp, q.id),
+    env.DB.prepare(`UPDATE catering_quotes SET deposit_status='paid', deposit_paid_at=?, deposit_paid_cents=?, updated_at=?
+      WHERE id=? AND deposit_status='unpaid' AND EXISTS
+        (SELECT 1 FROM activity_log WHERE id=? AND json_extract(properties,'$.outcome')='accepted')`)
+      .bind(stamp, valid ? capturedCents : null, stamp, q.id, receiptId),
+  ]);
+  const receipt = await env.DB.prepare('SELECT properties FROM activity_log WHERE id=?').bind(receiptId).first();
+  if (!receipt) throw new Error('Deposit receipt persistence unavailable');
+  if (JSON.parse(receipt.properties).outcome === 'reconciliation_required') {
+    return { reconciliation_required: true, quote_id: q.id, receipt_id: receiptId, reason: 'capture_requires_review' };
+  }
+  return results[1]?.meta?.changes === 1 ? q.id : null;
 }

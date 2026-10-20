@@ -123,6 +123,7 @@ function fakeEnv({ rows = [ROW], insertChanges = 1 } = {}) {
   const env = {
     RESEND_API_KEY: 'k', EMAIL_FROM: 'Añejo <n@a.test>',
     DB: {
+      batch: async (statements) => Promise.all(statements.map(s => s.run())),
       prepare(sql) {
         const stmt = {
           bind: (...args) => { statements.push({ sql, args }); return stmt; },
@@ -159,7 +160,7 @@ test('the reminder sends once, and a second run sends nothing', async () => {
     const r = await runBalanceReminders(second.env, '2026-09-24');
     assert.equal(r.sent.length, 0);
     assert.equal(r.skipped.length, 1);
-    assert.match(r.skipped[0].why, /already sent/);
+    assert.match(r.skipped[0].why, /already attempted/);
     assert.equal(second.sent.length, 0, 'and NOTHING was emailed the second time');
   } finally { second.restore(); }
 });
