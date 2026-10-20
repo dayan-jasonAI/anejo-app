@@ -84,9 +84,9 @@ export const onRequestGet = async ({ request, env }) => {
     // and shipping both invites a caller to pick the wrong one.
     quotes = ((r && r.results) || []).map((q) => {
       const { terms_json, quote_json, ...rest } = q;
-      // `gift` is surfaced on its own rather than shipping the whole breakdown: the Hub's switch
-      // needs to show what is currently set, and nothing else on this card reads quote_json.
-      return { ...rest, source_lead_id:rest.source_lead_id||parseJson(quote_json,null)?.lead_id||null, delivery_fee_cents:parseJson(quote_json,null)?.delivery_fee_cents??null, terms: parseJson(terms_json, null), gift: parseJson(quote_json, null)?.gift || null };
+      // The owner revision editor needs the saved itemization and fee. Returning only
+      // the total silently collapses a reopened quote into a generic package.
+      return { ...rest, quote_json, source_lead_id:rest.source_lead_id||parseJson(quote_json,null)?.lead_id||null, delivery_fee_cents:parseJson(quote_json,null)?.delivery_fee_cents??null, terms: parseJson(terms_json, null), gift: parseJson(quote_json, null)?.gift || null };
     });
   } catch { quotes = []; }
 

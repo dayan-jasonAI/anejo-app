@@ -15,7 +15,8 @@ test('staff reader paginates all records without exposing costs, contacts or his
  const env=setup();let response=await onRequestGet({env,request:request('?limit=1')});
  assert.equal(response.status,200);assert.match(response.headers.get('cache-control'),/no-store/);
  let body=await response.json();assert.equal(body.next_offset,1);assert.equal(body.items[0].name,'Beef');assert.equal(body.items[0].on_hand.quantity,2);assert.ok(body.read_at);
- const serial=JSON.stringify(body);for(const secret of ['unit_cost_cents','vendor_id','changes','before_json','photo_key','999'])assert.ok(!serial.includes(secret));
+ // Timestamp digits can coincidentally contain the seeded cost; inspect business data.
+ const serial=JSON.stringify(body,(key,value)=>['read_at','counted_at'].includes(key)?null:value);for(const secret of ['unit_cost_cents','vendor_id','changes','before_json','photo_key','999'])assert.ok(!serial.includes(secret));
  response=await onRequestGet({env,request:request('?limit=2&offset=1')});body=await response.json();assert.equal(body.items.length,2);assert.equal(body.next_offset,null);assert.equal(body.items[0].on_hand.quantity,null);assert.equal(body.items[1].on_hand.status,'invalid_future_count');assert.equal(body.items[1].on_hand.quantity,null);
 });
 test('literal wildcard and vendor search, parameter bounds and read-only role enforcement',async()=>{

@@ -141,7 +141,13 @@
       '</p></div>';
   }
 
+  function quoteDeliveryFee(q) {
+    if(Object.prototype.hasOwnProperty.call(q,'delivery_fee_cents'))return q.delivery_fee_cents;
+    try{return JSON.parse(q.quote_json||'{}').delivery_fee_cents;}catch(_error){return null;}
+  }
+
   function quoteCard(q) {
+    var fee = quoteDeliveryFee(q);
     var paid = q.deposit_status === 'paid';
     var balPaid = q.balance_status === 'paid';
     var summary = {};
@@ -162,7 +168,7 @@
         : '') +
 
       (summary.revised_from ? '<p class="row-sub">Revised from ' + esc(summary.revised_from) + '</p>' : '') +
-      '<p class="row-sub">Delivery / setup: '+(Number.isInteger(summary.delivery_fee_cents)?money(summary.delivery_fee_cents)+' · confirmed': 'unconfirmed · not included in food subtotal')+'</p>'+
+      '<p class="row-sub">Delivery / setup: '+(Number.isInteger(fee)?money(fee)+' · confirmed': 'unconfirmed · not included in food subtotal')+'</p>'+
       (Array.isArray(summary.lines) && summary.lines.length ? '<details class="terms"><summary>View quoted menu</summary>' + summary.lines.map(function (line) { return '<p class="row-sub">' + esc(line.qty || '') + ' ' + esc(line.name || '') + ' · ' + money(line.cents) + '</p>'; }).join('') + '</details>' : '') +
       // The split, straight off the row: deposit + balance were computed by depositSplit() at
       // creation and stored, so they always sum to the total on screen exactly as they do in D1.
@@ -597,7 +603,7 @@
       if(Number.isNaN(b.delivery_fee_cents)){Hub.toast('Enter a valid delivery / setup fee, or leave it blank until confirmed.');return;}
       if (!Number.isFinite(amount) || amount <= 0) { Hub.toast('Enter the agreed total, or add a line'); return; }
       if (!Number.isFinite(b.guests) || b.guests <= 0) { Hub.toast('Enter the guest count'); return; }
-      var clearingDelivery=false;if(revisionSource&&b.delivery_fee_cents===null){var original={};try{original=JSON.parse(revisionSource.quote_json||'{}');}catch(_error){}clearingDelivery=Number(original.delivery_fee_cents)>0;}
+      var clearingDelivery=false;if(revisionSource&&b.delivery_fee_cents===null){clearingDelivery=Number(quoteDeliveryFee(revisionSource))>0;}
       if (revisionSource && revisionPreview !== JSON.stringify(b)) { Hub.toast('Read the updated email preview before saving this revision.'); return; }
       if(revisionSource&&!await confirmOwnerAction('Confirm quote replacement','Quote: '+revisionSource.id+'\nRevised total: '+money(amount)+'\n\nRetire the old Square checkout and replace this unpaid quote. The old link will stop working; a saved revision is recovered using the same approved values. No email or text is sent until you separately review and press Send.'+(clearingDelivery?'\n\nYou are also clearing the previously confirmed delivery / setup fee. The revised quote will show delivery as unconfirmed.':''),'Confirm replacement'))return;
       if (!revisionSource && !window.confirm('Create a deposit checkout for ' + money(amount) + '?\n\n'
@@ -778,9 +784,16 @@
       leadId=q.source_lead_id||blob.lead_id||requestLeadId||null;
       var values=saved||{customerName:q.customer_name,customerEmail:q.customer_email,customerPhone:q.customer_phone,eventDate:q.event_date,guests:q.guests,lang:q.lang,note:q.note,quoteBreakdown:blob};
       var breakdown=values.quoteBreakdown||{};
+      if(!saved)breakdown.delivery_fee_cents=quoteDeliveryFee(q);
       if(draft&&!saved){values={customerName:draft.customer_name,customerEmail:draft.customer_email,customerPhone:draft.customer_phone,eventDate:draft.event_date,guests:draft.guests,lang:draft.lang,note:draft.note,quoteBreakdown:{lines:draft.lines,recommendations:draft.recommendations,delivery_fee_cents:draft.delivery_fee_cents}};breakdown=values.quoteBreakdown;}
       [['q-name','customerName'],['q-email','customerEmail'],['q-phone','customerPhone'],['q-date','eventDate'],['q-guests','guests'],['q-lang','lang'],['q-note','note']].forEach(function(pair){document.getElementById(pair[0]).value=values[pair[1]]||'';});
       var fee=breakdown.delivery_fee_cents;document.getElementById('q-delivery-fee').value=Number.isInteger(fee)&&fee>=0?(fee/100).toFixed(2):'';
+      if(Number.isInteger(fee)&&fee>0&&!(Array.isArray(breakdown.lines)&&breakdown.lines.length)){
+        document.getElementById('q-create').disabled=true;document.getElementById('q-preview').disabled=true;
+        document.getElementById('q-revision-status').textContent='The itemized menu is unavailable. Reload the quotes before editing; the confirmed delivery / setup fee has been preserved. No replacement can be saved.';
+        document.getElementById('q-lines').innerHTML='';return;
+      }
+      document.getElementById('q-preview').disabled=false;
       var lines=breakdown.lines||(draft&&!saved?[]:[{name:'Catering package',cents:q.total_cents-(Number.isInteger(fee)?fee:0)}]);
       document.getElementById('q-lines').innerHTML=lines.map(function(line){return lineRowHtml({name:line.name,qty:line.qty,price:(line.cents/100).toFixed(2),metadata:line});}).join('');
       if(!lines.length)document.getElementById('q-total').value=((draft?.total_cents||q.total_cents)-(Number.isInteger(fee)?fee:0))/100;

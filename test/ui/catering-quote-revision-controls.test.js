@@ -33,7 +33,7 @@ function fixture(handler){
   const Hub={boot(){},esc:value=>String(value??'').replace(/[&"<]/g,c=>({'&':'&amp;','"':'&quot;','<':'&lt;'}[c])),toast:text=>toasts.push(text),api:async(_url,options)=>{calls.push(options.body);if(handler)return handler(options.body);if(options.body.op==='revision_status')return {ok:true};if(options.body.op==='preview')return {ok:true,total_cents:10000,deposit_cents:5000,balance_cents:5000,deposit_pct:.5};if(options.body.op==='render')return {ok:true,subject:'Synthetic quote',html:'<p>Synthetic quote preview</p>'};return {ok:true,quote_id:'cq_synthetic_replacement',deposit_cents:5000};}};
   const window={CateringI18n:{label:x=>x},location:{search:''},confirm:message=>{confirms.push(message);return true;}};
   const ctx=vm.createContext({Hub,Owner:{get:async()=>({ok:false}),money:c=>'$'+(Number(c||0)/100).toFixed(2),init(){}},window,document,URLSearchParams,console});
-  const hooked=script.replace("Owner.init('catering', render);", "loadRecommendations=function(){};window.testQuote={showSend:showSend,checkCheckoutStatus:checkCheckoutStatus,quoteListHtml:quoteListHtml,body:body,deliveryFee:deliveryFee,deliverySummary:deliverySummary,beginRevision:beginRevision,associatedQuotes:associatedQuotes,wireRequests:wireRequests,wireForm:wireForm,showExistingChoice:showExistingChoice,retire:reviewDuplicateRetirement,formHtml:formHtml,setQuotes:function(q){quoteCache=q;},setLead:function(id){leadId=id;}};");
+  const hooked=script.replace("Owner.init('catering', render);", "loadRecommendations=function(){};window.testQuote={quoteCard:quoteCard,showSend:showSend,checkCheckoutStatus:checkCheckoutStatus,quoteListHtml:quoteListHtml,body:body,deliveryFee:deliveryFee,deliverySummary:deliverySummary,beginRevision:beginRevision,associatedQuotes:associatedQuotes,wireRequests:wireRequests,wireForm:wireForm,showExistingChoice:showExistingChoice,retire:reviewDuplicateRetirement,formHtml:formHtml,setQuotes:function(q){quoteCache=q;},setLead:function(id){leadId=id;}};");
   vm.runInContext(hooked,ctx);const api=window.testQuote;
   return {get,calls,toasts,confirms,api,Element,tick:()=>new Promise(resolve=>setImmediate(resolve)),click:id=>get(id).listeners.click?.call(get(id)),wire:()=>api.wireForm()};
 }
@@ -143,4 +143,23 @@ test('sending requires explicit in-page confirmation and cancel sends nothing',a
   f.get('q-email').value='guest@example.test';f.api.showSend({quote_id:'cq_synthetic'});
   const cancelled=f.click('q-send-now');await f.tick();assert.equal(f.get('q-action-confirm').open,true);assert.equal(f.calls.length,0);assert.match(f.get('q-action-message').textContent,/guest@example.test/);f.get('q-action-cancel').onclick();await cancelled;assert.equal(f.calls.length,0);assert.equal(f.get('q-send-now').disabled,false);
   const sending=f.click('q-send-now');await f.tick();assert.equal(f.calls.length,0);f.get('q-action-approve').onclick();await sending;await f.tick();assert.equal(f.calls.filter(x=>x.op==='send').length,1);assert.equal(f.calls.find(x=>x.op==='send').sms,false);assert.equal(f.confirms.length,0);
+});
+
+
+test('owner GET delivery fee is shown and editing preserves the exact five item lines and grand total',async()=>{
+  const f=fixture(),lines=[6000,7000,8000,5000,4625].map((cents,i)=>({name:'Synthetic dish '+i,qty:'35',cents,product_id:'synthetic_'+i}));
+  const liveShape={...clone(quote),delivery_fee_cents:2500,total_cents:33125,quote_json:JSON.stringify({lines})};
+  assert.match(f.api.quoteCard(liveShape),/Delivery \/ setup: \$25.00 · confirmed/);
+  await f.api.beginRevision(liveShape);assert.equal(f.get('q-delivery-fee').value,'25.00');
+  const body=f.api.body();assert.equal(body.lines.length,5);assert.equal(body.lines.reduce((n,l)=>n+l.cents,0),30625);assert.equal(body.delivery_fee_cents,2500);assert.equal(body.total_cents,undefined);assert.deepEqual(clone(body.lines.map(l=>l.product_id)),lines.map(l=>l.product_id));
+});
+
+test('safe GET fee without item lines remains confirmed and blocks a fabricated package revision',async()=>{
+  const f=fixture(),safe={...clone(quote),delivery_fee_cents:2500,total_cents:33125};delete safe.quote_json;
+  assert.match(f.api.quoteCard(safe),/Delivery \/ setup: \$25.00 · confirmed/);
+  await f.api.beginRevision(safe);assert.equal(f.get('q-delivery-fee').value,'25.00');assert.equal(f.get('q-create').disabled,true);assert.equal(f.get('q-preview').disabled,true);assert.equal(f.get('q-lines').innerHTML,'');assert.match(f.get('q-revision-status').textContent,/itemized menu is unavailable/);assert.equal(f.calls.filter(b=>b.op==='revise'||b.op==='send').length,0);
+});
+
+test('explicit fee null or zero on safe GET takes precedence over stale JSON',()=>{
+  const f=fixture();assert.match(f.api.quoteCard({...clone(quote),delivery_fee_cents:null}),/Delivery \/ setup: unconfirmed/);assert.match(f.api.quoteCard({...clone(quote),delivery_fee_cents:0}),/Delivery \/ setup: \$0.00 · confirmed/);
 });
