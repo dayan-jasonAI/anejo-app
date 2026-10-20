@@ -95,6 +95,7 @@ test('optional croquetas render separately and their CTA only requests a change'
 test('cancellation proof rejects completed or tendered orders', () => {
   assert.equal(canceledUnpaidOrder({ id: 'o', state: 'CANCELED' }, 'o'), true);
   assert.equal(canceledUnpaidOrder({ id: 'o', state: 'COMPLETED' }, 'o'), false);
+  assert.equal(canceledUnpaidOrder({ id: 'o', state: 'CANCELED', tenders: {} }, 'o'), false);
   assert.equal(canceledUnpaidOrder({ id: 'o', state: 'CANCELED', tenders: [{ id: 'p' }] }, 'o'), false);
   assert.equal(revisionPayload({ ...body(), guests: 1.5 }, { deposit_pct: .5 }).ok, false);
 });
@@ -141,3 +142,6 @@ test('source changed between initial read and journal claim causes no provider e
   await provider(async (calls) => { assert.equal((await reviseQuote(env, body(), options)).ok, false); assert.equal(calls.length, 0); });
   assert.equal(sql.prepare('SELECT COUNT(*) AS n FROM catering_quote_revisions').get().n, 0);
 });
+
+test('Square Checkout DRAFT order retires only with no tender and confirmed CANCELED readback',async()=>{const {env}=fixture();await provider(async calls=>{const result=await reviseQuote(env,body(),options);assert.equal(result.ok,true);assert.deepEqual(calls.map(c=>c.method),['GET','DELETE','GET','POST']);},{orderState:'DRAFT'});});
+test('DRAFT order with any tender remains blocked and is never canceled',async()=>{const {env}=fixture();await provider(async calls=>{const result=await reviseQuote(env,body(),options);assert.equal(result.ok,false);assert.equal(calls.some(c=>c.method==='DELETE'||c.method==='POST'),false);},{orderState:'DRAFT',tender:true});});

@@ -10,7 +10,7 @@ function fixture(handler){
   const nodes=new Map(),calls=[],toasts=[],confirms=[];
   const decode=s=>String(s).replace(/&quot;/g,'"').replace(/&lt;/g,'<').replace(/&amp;/g,'&');
   class Element{
-    constructor(){this.value='';this.innerHTML='';this.textContent='';this.disabled=false;this.hidden=false;this.listeners={};this.attributes={};this.dataset={};this.selectedOptions=[];}
+    constructor(){this.value='';this.innerHTML='';this.textContent='';this.disabled=false;this.checked=false;this.hidden=false;this.listeners={};this.attributes={};this.dataset={};this.selectedOptions=[];}
     addEventListener(type,fn){this.listeners[type]=fn;}
     getAttribute(key){return this.attributes[key]||'';}
     setAttribute(key,value){this.attributes[key]=value;}
@@ -33,7 +33,7 @@ function fixture(handler){
   const Hub={boot(){},esc:value=>String(value??'').replace(/[&"<]/g,c=>({'&':'&amp;','"':'&quot;','<':'&lt;'}[c])),toast:text=>toasts.push(text),api:async(_url,options)=>{calls.push(options.body);if(handler)return handler(options.body);if(options.body.op==='revision_status')return {ok:true};if(options.body.op==='preview')return {ok:true,total_cents:10000,deposit_cents:5000,balance_cents:5000,deposit_pct:.5};if(options.body.op==='render')return {ok:true,subject:'Synthetic quote',html:'<p>Synthetic quote preview</p>'};return {ok:true,quote_id:'cq_synthetic_replacement',deposit_cents:5000};}};
   const window={CateringI18n:{label:x=>x},location:{search:''},confirm:message=>{confirms.push(message);return true;}};
   const ctx=vm.createContext({Hub,Owner:{get:async()=>({ok:false}),money:c=>'$'+(Number(c||0)/100).toFixed(2),init(){}},window,document,URLSearchParams,console});
-  const hooked=script.replace("Owner.init('catering', render);", "loadRecommendations=function(){};window.testQuote={body:body,deliveryFee:deliveryFee,deliverySummary:deliverySummary,beginRevision:beginRevision,associatedQuotes:associatedQuotes,wireRequests:wireRequests,wireForm:wireForm,showExistingChoice:showExistingChoice,retire:reviewDuplicateRetirement,formHtml:formHtml,setQuotes:function(q){quoteCache=q;},setLead:function(id){leadId=id;}};");
+  const hooked=script.replace("Owner.init('catering', render);", "loadRecommendations=function(){};window.testQuote={showSend:showSend,checkCheckoutStatus:checkCheckoutStatus,quoteListHtml:quoteListHtml,body:body,deliveryFee:deliveryFee,deliverySummary:deliverySummary,beginRevision:beginRevision,associatedQuotes:associatedQuotes,wireRequests:wireRequests,wireForm:wireForm,showExistingChoice:showExistingChoice,retire:reviewDuplicateRetirement,formHtml:formHtml,setQuotes:function(q){quoteCache=q;},setLead:function(id){leadId=id;}};");
   vm.runInContext(hooked,ctx);const api=window.testQuote;
   return {get,calls,toasts,confirms,api,Element,tick:()=>new Promise(resolve=>setImmediate(resolve)),click:id=>get(id).listeners.click?.call(get(id)),wire:()=>api.wireForm()};
 }
@@ -113,4 +113,34 @@ test('in-page revision confirmation can be cancelled and repeated clicks cannot 
   const confirmed=f.click('q-create');await f.tick();f.get('q-action-approve').onclick();await confirmed;await f.tick();
   assert.equal(f.calls.filter(x=>x.op==='revise').length,1);assert.equal(f.calls.filter(x=>x.op==='send').length,0);
   assert.equal(f.confirms.length,0,'revision flow never calls native window.confirm');
+});
+
+
+test('Check payment status makes only a read-only status request and retains clear provider evidence',async()=>{
+  const f=fixture(()=>({ok:true,source:{quote_id:'cq_synthetic',local_status:'unpaid',provider_verified:true,order_state:'DRAFT',tender_count:0,payments:[]},retained:{quote_id:'cq_synthetic_keep',local_status:'unpaid',provider_verified:false,order_state:'UNKNOWN',payments:[{id:'synthetic_payment',status:'UNKNOWN'}],error:'Payment lookup unavailable'}}));
+  const button=f.get('check-button');await f.api.checkCheckoutStatus('cq_synthetic',button);
+  assert.equal(f.calls.length,1);assert.equal(f.calls[0].op,'checkout_status');assert.equal(f.calls[0].quote_id,'cq_synthetic');assert.equal(button.disabled,false);
+  const evidence=f.get('q-payment-status-cq_synthetic').textContent;assert.match(evidence,/Square order state: DRAFT/);assert.match(evidence,/Recorded tenders: 0/);assert.match(evidence,/Retained replacement/);assert.match(evidence,/synthetic_payment: UNKNOWN/);assert.match(evidence,/Order state alone does not establish payment/);
+});
+
+test('payment lookup failure stays visible without changing quotes or sending messages',async()=>{
+  const f=fixture(()=>({ok:false,error:'Provider lookup unavailable'}));await f.api.checkCheckoutStatus('cq_synthetic',f.get('button'));
+  assert.match(f.get('q-payment-status-cq_synthetic').textContent,/could not be verified.*Provider lookup unavailable/);
+  assert.equal(f.calls.length,1);assert.equal(f.calls[0].op,'checkout_status');
+});
+
+test('void quote history remains available but is collapsed separately from active offers',()=>{
+  const f=fixture();const markup=f.api.quoteListHtml([clone(quote),{...clone(quote),id:'cq_retired_synthetic',deposit_status:'void'}]);
+  assert.match(markup,/<details class="q-retired-history"><summary>Previous \/ retired quotes \(1\)/);
+  assert.ok(!markup.includes('<details class="q-retired-history" open'));
+  assert.ok(markup.indexOf('id="quote-cq_synthetic"')<markup.indexOf('q-retired-history'));
+  assert.ok(markup.indexOf('id="quote-cq_retired_synthetic"')>markup.indexOf('q-retired-history'));
+});
+
+
+test('sending requires explicit in-page confirmation and cancel sends nothing',async()=>{
+  const f=fixture(body=>body.op==='send'?{ok:true,delivery:{email:{sent:true}}}:{ok:false});
+  f.get('q-email').value='guest@example.test';f.api.showSend({quote_id:'cq_synthetic'});
+  const cancelled=f.click('q-send-now');await f.tick();assert.equal(f.get('q-action-confirm').open,true);assert.equal(f.calls.length,0);assert.match(f.get('q-action-message').textContent,/guest@example.test/);f.get('q-action-cancel').onclick();await cancelled;assert.equal(f.calls.length,0);assert.equal(f.get('q-send-now').disabled,false);
+  const sending=f.click('q-send-now');await f.tick();assert.equal(f.calls.length,0);f.get('q-action-approve').onclick();await sending;await f.tick();assert.equal(f.calls.filter(x=>x.op==='send').length,1);assert.equal(f.calls.find(x=>x.op==='send').sms,false);assert.equal(f.confirms.length,0);
 });

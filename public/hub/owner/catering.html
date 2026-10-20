@@ -30,6 +30,7 @@
   .rbody{margin-top:10px;padding:10px 12px;background:var(--cream);border-radius:9px;color:var(--muted);font-size:13px;line-height:1.55;white-space:pre-line}
   .ractions{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}.ractions .btn{width:auto}
   .rfiles{margin-top:10px;padding:10px 12px;border:1px solid var(--line);border-radius:9px;background:#faf8f2}.rfiles b{display:block;color:var(--green);font-size:12px;margin-bottom:5px}.rfiles a{display:block;font-size:12.5px;line-height:1.6;word-break:break-word}
+  .q-payment-status{white-space:pre-line;overflow-wrap:anywhere;line-height:1.6}.q-retired-history{margin-top:20px;border-top:1px solid var(--line);padding-top:12px}.q-retired-history>summary{min-height:44px;padding:10px 0;cursor:pointer;color:var(--green);font-weight:700}
   .q-action-dialog{width:min(560px,calc(100% - 28px));max-height:85vh;overflow:auto;border:1px solid var(--line);border-radius:14px;background:var(--cream);color:var(--green);padding:24px}.q-action-dialog::backdrop{background:rgba(12,32,22,.7)}.q-action-dialog h2{font:600 27px/1.15 Georgia,serif;margin:0 0 14px}.q-action-dialog p{white-space:pre-line;overflow-wrap:anywhere;line-height:1.6}.q-action-actions{display:flex;gap:12px;flex-wrap:wrap;margin-top:20px}.q-action-actions button{width:auto;min-height:44px;flex:1}
   .q-line{display:grid!important;grid-template-columns:minmax(0,2fr) minmax(0,.8fr) minmax(0,1fr) 44px;gap:6px!important}.q-line input{min-width:0!important;width:100%}.q-line button{min-width:44px;min-height:44px}.qcard .btn{white-space:normal;min-height:44px}
   .q-editor-status{padding:14px;border-left:4px solid var(--gold);background:var(--cream);line-height:1.6;color:var(--green)}.q-existing-choice{padding:16px;border:1px solid var(--line);border-radius:10px;margin-bottom:16px}.q-existing-choice select,.q-existing-choice button{min-height:44px;width:100%;margin:8px 0}.qcard [data-revise]{min-height:48px;background:var(--green);color:#fff}
@@ -188,6 +189,7 @@
       (!balPaid && paid && !q.balance_payment_link_url ? '<button class="btn gold block" data-balance-link="'+esc(q.id)+'">Create Square balance link</button>' : '') +
       (q.deposit_status === 'unpaid' || q.deposit_status === 'void' ? '<button class="btn ghost block" data-revise="' + esc(JSON.stringify(q)) + '">' + (q.deposit_status === 'void' ? 'View / recover replacement' : 'Edit quote · save changes') + '</button>' : '') +
       (q.deposit_status==='unpaid'&&duplicateAlternatives(q).length?'<button type="button" class="btn ghost block" data-retire-duplicate="'+esc(q.id)+'">Retire duplicate checkout</button>':'')+
+      '<button type="button" class="btn ghost block" data-checkout-status="'+esc(q.id)+'">Check payment status</button><p class="row-sub q-payment-status" id="q-payment-status-'+esc(q.id)+'" role="status" aria-live="polite"></p>'+
       giftHtml(q) +
       termsHtml(q) +
 
@@ -201,6 +203,30 @@
   function msgField(message, label) {
     var line = String(message || '').split('\n').find(function (x) { return x.indexOf(label + ':') === 0; });
     return line ? line.slice(label.length + 1).trim() : '';
+  }
+
+  function checkoutEvidence(row,label){
+    if(!row)return label+': not available.';
+    var lines=[label+' · '+String(row.quote_id||'Quote not recorded'),'Local deposit status: '+String(row.local_status||'not recorded'),'Square order lookup: '+(row.provider_verified?'verified':'not verified'),'Square order state: '+String(row.order_state||'UNKNOWN'),'Recorded tenders: '+(Number.isInteger(row.tender_count)?row.tender_count:'not verified')];
+    var payments=Array.isArray(row.payments)?row.payments:[];
+    payments.forEach(function(payment){lines.push('Payment '+String(payment.id||'receipt not recorded')+': '+String(payment.status||'UNKNOWN'));});
+    if(!payments.length)lines.push('No payment receipt was returned by this lookup.');
+    if(row.error)lines.push('Lookup detail: '+String(row.error));
+    return lines.join('\n');
+  }
+  async function checkCheckoutStatus(id,button){
+    if(button.disabled)return;
+    button.disabled=true;var host=document.getElementById('q-payment-status-'+id);host.textContent='Checking the current Square order and recorded payment statuses…';
+    try{
+      var result=await Hub.api(ENDPOINT,{method:'POST',body:{op:'checkout_status',quote_id:id}});
+      if(!result?.ok){host.textContent='Payment status could not be verified. '+(result?.error||'Try the read-only lookup again when the connection is available.');return;}
+      host.textContent='Read-only check · '+new Date().toLocaleString()+'\n'+checkoutEvidence(result.source,'Selected quote')+(result.retained?'\n\n'+checkoutEvidence(result.retained,'Retained replacement'):'')+'\n\nThis lookup does not charge, cancel, revise or send a message. Order state alone does not establish payment.';
+    }catch(_error){host.textContent='Payment status could not be verified. No quote, checkout or message was changed.';}finally{button.disabled=false;}
+  }
+  function wireCheckoutStatus(root){root.querySelectorAll('[data-checkout-status]').forEach(function(button){button.onclick=function(){return checkCheckoutStatus(button.getAttribute('data-checkout-status'),button);};});}
+  function quoteListHtml(quotes){
+    var active=quotes.filter(function(q){return q.deposit_status!=='void';}),retired=quotes.filter(function(q){return q.deposit_status==='void';});
+    return (active.length?active.map(quoteCard).join(''):'<div class="hub-empty">No active catering quotes.</div>')+(retired.length?'<details class="q-retired-history"><summary>Previous / retired quotes ('+retired.length+')</summary><p class="row-sub">Historical records are preserved here. These checkouts are no longer active; use the active quote above for the current offer.</p>'+retired.map(quoteCard).join('')+'</details>':'');
   }
 
   function duplicateAlternatives(source){return quoteCache.filter(function(q){return q.id!==source.id&&q.deposit_status!=='void'&&q.event_date&&q.event_date===source.event_date&&String(q.customer_email||'').trim().toLowerCase()===String(source.customer_email||'').trim().toLowerCase()&&String(source.customer_email||'').includes('@');});}
@@ -478,14 +504,16 @@
       '<button class="btn gold block" id="q-send-now" type="button">Send it to her now</button>' +
       (created.quote_url ? '<p class="row-sub" style="margin-top:8px">Or send it yourself: <code>' + esc(created.quote_url) + '</code></p>' : '') +
       '</div>';
-    document.getElementById('q-send-now').addEventListener('click', function () {
+    document.getElementById('q-send-now').addEventListener('click', async function () {
       var btn = this;
-      if (!window.confirm('Email this quote to ' + (to || 'the customer')
-        + (document.getElementById('q-send-sms').checked ? ' and text ' + phone : '') + ' now?')) return;
+      if(btn.disabled)return;
       btn.disabled = true;
+      // Snapshot the channels named in the confirmation; the checkbox cannot change this send.
+      var wantsSms = document.getElementById('q-send-sms').checked;
+      if (!await confirmOwnerAction('Confirm quote email','Email this quote to ' + (to || 'the customer')
+        + (wantsSms ? ' and text ' + phone : '') + ' now? Confirm only after reading the rendered email preview above.','Confirm send')) { btn.disabled=false; return; }
       // The text is opt-in per send and it is the owner authorising it, not a consent flag being
       // read off a row that has none. Unchecked means email only.
-      var wantsSms = document.getElementById('q-send-sms').checked;
       Hub.api(ENDPOINT, { method: 'POST', body: { op: 'send', quote_id: created.quote_id, sms: wantsSms } }).then(function (r) {
         btn.disabled = false;
         if (!r || !r.ok) { Hub.toast((r && r.error) || 'Could not send it'); return; }
@@ -800,11 +828,12 @@
         '</div>' +
         formHtml(d) +
         '<div class="hub-section"><h2>Quotes</h2>' +
-        (qs.length ? qs.map(quoteCard).join('') : '<div class="hub-empty">No catering quotes yet.</div>') +
+        (qs.length ? quoteListHtml(qs) : '<div class="hub-empty">No catering quotes yet.</div>') +
         '</div>';
 
       wireForm();
       wireRevisionEditor(root);
+      wireCheckoutStatus(root);
       root.querySelectorAll('[data-retire-duplicate]').forEach(function(button){button.addEventListener('click',function(){var q=quoteCache.find(function(row){return row.id===button.getAttribute('data-retire-duplicate');});if(q)reviewDuplicateRetirement(q);});});
       loadRecommendations();
       wireChanges(root);

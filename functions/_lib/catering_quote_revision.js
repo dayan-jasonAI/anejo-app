@@ -2,6 +2,7 @@
 // Square DELETE cancels the associated order. Never infer retirement from 404/timeouts:
 // https://developer.squareup.com/reference/square/checkout-api/delete-payment-link
 import { square } from './square.js';
+import {editableUnpaidCheckout} from './catering_checkout_state.js';
 import { createDepositCheckout } from './catering_deposit.js';
 import { mintAccessToken } from './catering_quote_delivery.js';
 import { quoteLineTotals } from './catering_quote_totals.js';
@@ -36,7 +37,7 @@ export function revisionPayload(body, source) {
 
 export function canceledUnpaidOrder(order, expectedId) {
   return Boolean(order && order.id === expectedId && order.state === 'CANCELED'
-    && (!Array.isArray(order.tenders) || order.tenders.length === 0)
+    && (order.tenders == null || (Array.isArray(order.tenders) && order.tenders.length === 0))
     && (!order.net_amounts?.total_money || Number(order.net_amounts.total_money.amount) >= 0));
 }
 
@@ -78,7 +79,7 @@ export async function reviseQuote(env, body, { actor, baseUrl, approvedLines, ap
     if (!before.ok || !before.data?.order) return { ok: false, error: 'Cannot verify original Square order. Retry this revision to recover.' };
     const order = before.data.order;
     if (!canceledUnpaidOrder(order, source.square_order_id)) {
-      if (order.state !== 'OPEN' || order.tenders?.length) return { ok: false, error: 'Square shows payment or a non-editable order. Replacement is blocked; review payments.' };
+      if (!editableUnpaidCheckout(order,source.square_order_id)) return { ok: false, error: 'Square shows payment or a non-editable order. Replacement is blocked; review payments.' };
       const retired = await square(env, `/v2/online-checkout/payment-links/${encodeURIComponent(source.payment_link_id)}`, { method: 'DELETE' });
       if (!retired.ok || retired.data?.cancelled_order_id !== source.square_order_id) return { ok: false, error: 'Original checkout retirement is unconfirmed. Retry to recover; no replacement has been created.' };
     }
