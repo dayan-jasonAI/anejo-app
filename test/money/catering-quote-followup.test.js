@@ -36,3 +36,17 @@ test('new quote ignores old quote response but unresolved old send blocks contac
  env.DB.sqlite.prepare("INSERT INTO catering_quote_followups(id,quote_id,lead_id,step,review_hash,snapshot_json,status,idempotency_key,created_by,created_at,updated_at) VALUES('oldattempt','quote','lead','review_quote',?,'{}','unknown','oldkey','owner',1,1)").run(body.review_hash);
  view=await getQuoteFollowup(env,'lead');assert.equal(view.eligible,false);assert.match(view.reason,/reconciliation/);await provider(async calls=>{const result=await sendQuoteFollowup(env,await approved(env),'owner');assert.equal(result.ok,false);assert.equal(calls.length,0);});
 });
+
+function pendingDuplicate(env,asTarget=false) {
+ const original=env.DB.one("SELECT * FROM catering_quotes WHERE id='quote'"),columns=Object.keys(original),other={...original,id:'duplicate_other',access_token:'b'.repeat(32),source_lead_id:null,quote_json:'{}',created_at:original.created_at-1};
+ env.DB.sqlite.prepare(`INSERT INTO catering_quotes(${columns.join(',')}) VALUES(${columns.map(()=>'?').join(',')})`).run(...columns.map(k=>other[k]));
+ env.DB.sqlite.prepare("INSERT INTO catering_quote_duplicate_retirements(source_quote_id,target_quote_id,source_updated_at,target_updated_at,state,created_by,created_at,updated_at) VALUES(?,?,?,?,'pending','owner',1,1)").run(asTarget?'duplicate_other':'quote',asTarget?'quote':'duplicate_other',original.updated_at,original.updated_at);
+}
+test('pending duplicate retirement blocks quote reminders for both obsolete and retained quote',async()=>{
+ for(const asTarget of [false,true]){const env=fixture();pendingDuplicate(env,asTarget);await provider(async calls=>{const preview=await getQuoteFollowup(env,'lead');assert.equal(preview.eligible,false);assert.match(preview.reason,/retirement/);const result=await sendQuoteFollowup(env,{lead_id:'lead',reviewed:true,review_hash:preview.review_hash},'owner');assert.equal(result.ok,false);assert.equal(calls.length,0);});}
+});
+test('duplicate retirement arriving at the atomic send fence suppresses the already reviewed reminder',async()=>{
+ const env=fixture(),body=await approved(env),prepare=env.DB.prepare;let inserted=false;
+ env.DB.prepare=query=>{if(!inserted&&query.includes("SET status='unknown'")){inserted=true;pendingDuplicate(env);}return prepare(query);};
+ await provider(async calls=>{const result=await sendQuoteFollowup(env,body,'owner');assert.equal(result.ok,false);assert.equal(calls.length,0);assert.equal(env.DB.one('SELECT status FROM catering_quote_followups').status,'suppressed');});
+});

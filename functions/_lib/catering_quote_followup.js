@@ -62,14 +62,14 @@ async function context(env,leadId,step='review_quote') {
  // read cannot permit this optional reminder.
  const suppression=await env.DB.prepare('SELECT reason FROM email_suppressions WHERE email=?').bind(recipient).first();
  const optout=await env.DB.prepare("SELECT id FROM campaign_unsubscribes WHERE lower(email)=? AND channel IN ('email','all') LIMIT 1").bind(recipient).first();
- const revision=await env.DB.prepare("SELECT state FROM catering_quote_revisions WHERE source_quote_id=? AND state!='complete'").bind(quote.id).first();
+ const revision=await env.DB.prepare("SELECT source_quote_id FROM catering_quote_revisions WHERE source_quote_id=? AND state!='complete' UNION ALL SELECT source_quote_id FROM catering_quote_duplicate_retirements WHERE (source_quote_id=? OR target_quote_id=?) AND state!='complete'").bind(quote.id,quote.id,quote.id).first();
  let reason=null;
  if(quote.deposit_status!=='unpaid')reason='Only unpaid active quotes may receive a review reminder.';
  else if(['lost','won'].includes(service?.state))reason='This lead is closed. No reminder will be sent.';
  else if(!Number.isFinite(cateringEventTimestamp(quote.event_date,'23:59'))||cateringEventTimestamp(quote.event_date,'23:59')<Date.now())reason='The event date is missing, invalid or past.';
  else if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(recipient))reason='The quote needs a valid recipient email.';
  else if(!/^[a-f0-9]{32}$/.test(quote.access_token||'')||!sent)reason='A valid quote must already have been sent before following up.';
- else if(revision)reason='A quote revision is still in progress.';
+ else if(revision)reason='A quote revision or duplicate retirement is still in progress.';
  else if(suppression||optout)reason='This recipient is suppressed or opted out. Do not send.';
  else if(response&&response.status!=='awaiting_reply')reason='A customer response has been recorded. Review it instead of sending this reminder.';
  else if(Number(inbound?.at)>=Math.max(sent,response?.status==='awaiting_reply'?response.updated_at:0))reason='An inbound reply is recorded. Review the conversation first.';
@@ -126,12 +126,13 @@ export async function sendQuoteFollowup(env,body,actor) {
   AND NOT EXISTS(SELECT 1 FROM catering_quote_responses WHERE lead_id=? AND quote_id=? AND (status!='awaiting_reply' OR updated_at!=?))
   AND NOT EXISTS(SELECT 1 FROM catering_quote_followups WHERE lead_id=? AND id!=? AND status IN ('pending','unknown'))
   AND NOT EXISTS(SELECT 1 FROM catering_quote_revisions WHERE source_quote_id=? AND state!='complete')
+  AND NOT EXISTS(SELECT 1 FROM catering_quote_duplicate_retirements WHERE (source_quote_id=? OR target_quote_id=?) AND state!='complete')
   AND NOT EXISTS(SELECT 1 FROM messages WHERE thread_id=? AND direction='inbound' AND created_at>=?)
   AND NOT EXISTS(SELECT 1 FROM catering_callback_requests WHERE quote_id=? AND status='requested' AND created_at>=?)
   AND NOT EXISTS(SELECT 1 FROM catering_quote_changes WHERE quote_id=? AND handled_at IS NULL AND created_at>=?)
   AND NOT EXISTS(SELECT 1 FROM email_suppressions WHERE email=?)
   AND NOT EXISTS(SELECT 1 FROM campaign_unsubscribes WHERE lower(email)=? AND channel IN ('email','all'))`)
-  .bind(Date.now(),attempt.id,c.quote.id,c.snapshot.quote_updated_at,c.lead.id,c.lead.id,c.quote.id,c.snapshot.response_updated_at??-1,c.lead.id,attempt.id,c.quote.id,`thr_catering_lead_${c.lead.id}`,cutoff,c.quote.id,cutoff,c.quote.id,cutoff,c.preview.to,c.preview.to).run();
+  .bind(Date.now(),attempt.id,c.quote.id,c.snapshot.quote_updated_at,c.lead.id,c.lead.id,c.quote.id,c.snapshot.response_updated_at??-1,c.lead.id,attempt.id,c.quote.id,c.quote.id,c.quote.id,`thr_catering_lead_${c.lead.id}`,cutoff,c.quote.id,cutoff,c.quote.id,cutoff,c.preview.to,c.preview.to).run();
  if(claim.meta?.changes!==1){await env.DB.prepare("UPDATE catering_quote_followups SET status='suppressed',last_error='Eligibility changed at send claim',updated_at=? WHERE id=? AND status='pending'").bind(Date.now(),attempt.id).run();return fail('Quote or response status changed before sending. No new email was sent.');}
  await audit(env,c.lead.id,c.quote.id,actor,'attempt_claimed');
  let receipt;

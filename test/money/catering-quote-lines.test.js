@@ -140,6 +140,7 @@ test('the returned lines are a fresh array — a caller cannot smuggle fields pa
 // anything else. That is the only property that actually protects a customer.
 
 import { onRequestPost } from '../../functions/api/hub/owner/catering-deposit.js';
+import {ownerEnv as sqliteOwnerEnv} from '../helpers/sqlite-d1.js';
 
 function stubSquare() {
   const calls = [];
@@ -152,24 +153,15 @@ function stubSquare() {
 }
 
 function ownerEnv() {
-  const kv = new Map([['session:tok-owner', JSON.stringify({ type: 'staff', role: 'owner', uid: 'stf_1', email: 'owner@test', la: Date.now(), created: Date.now() })]]);
-  const inserted = [];
-  const env = {
-    SQUARE_ACCESS_TOKEN: 'tok', SQUARE_LOCATION_ID: 'loc', SQUARE_ENV: 'sandbox',
-    SESSIONS: { async get(k) { return kv.get(k) || null; }, async put() {}, async delete() {} },
-    DB: {
-      prepare(sql) {
-        const stmt = {
-          bind: (...args) => { if (/INSERT INTO catering_quotes/i.test(sql)) inserted.push(args); return stmt; },
-          all: async () => ({ results: [] }),
-          first: async () => (sql.includes('FROM staff') ? { active: 1, id: 'stf_1', email: 'owner@example.test', role: 'owner', team: null, is_lead: 0 } : null),
-          run: async () => ({ meta: {} }),
-        };
-        return stmt;
-      },
-    },
+  const inserted=[];
+  const env=sqliteOwnerEnv({SQUARE_ACCESS_TOKEN:'tok',SQUARE_LOCATION_ID:'loc',SQUARE_ENV:'sandbox'});
+  const prepare=env.DB.prepare;
+  env.DB.prepare=sql=>{
+    const statement=prepare(sql),bind=statement.bind;
+    if(/INSERT INTO catering_quotes/i.test(sql))statement.bind=(...args)=>{inserted.push(args);return bind(...args);};
+    return statement;
   };
-  return { env, inserted };
+  return {env,inserted};
 }
 
 const post = (env, body) => onRequestPost({

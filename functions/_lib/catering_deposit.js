@@ -83,7 +83,8 @@ export async function createDepositCheckout(env, {
   // Revisions journal their identities before provider I/O so retries recover one checkout.
   if (fixedQuoteId) {
     const existing = await env.DB.prepare('SELECT * FROM catering_quotes WHERE id = ?').bind(fixedQuoteId).first();
-    if (existing) return { ok: true, quote_id: existing.id, url: existing.payment_link_url, quote_url: `${(baseUrl || 'https://anejocateringco.com').replace(/\/$/, '')}/q/${existing.access_token}`, access_token: existing.access_token, total_cents: existing.total_cents, deposit_cents: existing.deposit_cents, balance_cents: existing.balance_cents, deposit_pct: existing.deposit_pct, lang: existing.lang };
+    if (existing && existing.deposit_status === 'void') return {ok:false,error:'The retained checkout has been voided. Recover its current replacement before continuing.'};
+    if (existing) return { ok: true, quote_id: existing.id, url: existing.deposit_status==='unpaid'?existing.payment_link_url:undefined, quote_url: `${(baseUrl || 'https://anejocateringco.com').replace(/\/$/, '')}/q/${existing.access_token}`, access_token: existing.access_token, total_cents: existing.total_cents, deposit_cents: existing.deposit_cents, balance_cents: existing.balance_cents, deposit_pct: existing.deposit_pct, lang: existing.lang };
   }
   const pctLabel = `${Math.round(split.deposit_pct * 100)}%`;
   const totalLabel = `$${(split.total_cents / 100).toFixed(2)}`;

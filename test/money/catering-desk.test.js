@@ -16,6 +16,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { onRequestGet, onRequestPost } from '../../functions/api/hub/owner/catering-deposit.js';
+import {ownerEnv as sqliteOwnerEnv} from '../helpers/sqlite-d1.js';
 import { termsFor, DEPOSIT_PCT, TERMS_VERSION } from '../../functions/_lib/catering_terms.js';
 
 const DESK = readFileSync(new URL('../../public/hub/owner/catering.html', import.meta.url), 'utf8');
@@ -123,7 +124,10 @@ test('website catering requests appear on the quote desk before any price or pay
   const out = await (await get(ownerEnv({ requests: [request] }))).json();
   assert.equal(out.ok, true);
   assert.equal(out.requests.length, 1);
-  assert.deepEqual(out.requests[0], request);
+  const {active_quote_ids,existing_quote_id,...original}=out.requests[0];
+  assert.deepEqual(original,request);
+  assert.deepEqual(active_quote_ids,[]);
+  assert.equal(existing_quote_id,null);
   assert.equal(out.quotes.length, 1, 'the request is not silently promoted into a priced quote');
 });
 
@@ -201,7 +205,7 @@ test('preview refuses the same junk the create path refuses, without a Square ca
 
 test('the desk’s create button mints the deposit link for the DEPOSIT, not the total', async () => {
   const sq = stubSquare();
-  const env = { ...ENV_SQUARE, ...ownerEnv() };
+  const env = sqliteOwnerEnv(ENV_SQUARE);
   const out = await (await post(env, {
     op: 'create', total_cents: 120000, guests: 60, event_date: '2026-09-20',
     customer_name: 'Marisol Reyes', customer_email: 'marisol@example.test',
@@ -213,7 +217,7 @@ test('the desk’s create button mints the deposit link for the DEPOSIT, not the
   assert.equal(out.balance_cents, 60000);
   assert.equal(out.url, 'https://sq.link/deposit');
   assert.equal(sq.calls[0].body.order.line_items[0].base_price_money.amount, 60000);
-  assert.ok(env._sql.some((s) => /INSERT INTO catering_quotes/i.test(s.flat)), 'and the quote is recorded');
+  assert.ok(env.DB.sqlLog().some(s => /INSERT INTO catering_quotes/i.test(s)), 'and the quote is recorded');
 });
 
 test('a stranger reaches none of it — not the list, not the preview, not the link', async () => {
