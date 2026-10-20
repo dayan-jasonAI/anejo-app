@@ -1,4 +1,4 @@
-/* global require, process, URL, document, innerWidth, console */
+/* global process, URL, document, innerWidth, console */
 const {chromium}=require('playwright');const fs=require('node:fs'),http=require('node:http'),path=require('node:path'),assert=require('node:assert/strict');const repo=process.cwd(),root=repo+'/public';fs.mkdirSync('/tmp/catering-ui-evidence',{recursive:true});const calls=[];const drafts=new Map();
 const quote=(id,total)=>({id,source_lead_id:'ld_synthetic',customer_name:'Synthetic Guest',customer_email:'guest@example.test',event_date:'2030-12-20',guests:35,lang:'en',deposit_status:'unpaid',balance_status:'due',deposit_cents:total/2,balance_cents:total/2,total_cents:total,deposit_pct:.5,updated_at:1000,quote_json:JSON.stringify({lead_id:'ld_synthetic',lines:[{name:'Synthetic catering tray',qty:'35',cents:total,product_id:'catering_example-10'}]})});const quotes=[quote('cq_synthetic_old',10000),quote('cq_synthetic_correct',12000)];
 const lead={id:'ld_synthetic',name:'Synthetic Guest',email:'guest@example.test',message:'Event date: 2030-12-20\nGuest count: 35',active_quote_ids:quotes.map(q=>q.id)};
