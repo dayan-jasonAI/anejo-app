@@ -14,7 +14,7 @@ const paid=q=>q?.deposit_status==='paid'&&(q.balance_status==='paid'||q.balance_
 const dateValid=value=>/^\d{4}-\d{2}-\d{2}$/.test(value||'')&&!Number.isNaN(Date.parse(value+'T12:00:00Z'));
 async function reviewUrl(env){
  const value=(await env.DB.prepare("SELECT value FROM app_settings WHERE key='reviews.google_url'").first())?.value;
- try{const url=new URL(String(value||''));return url.protocol==='https:'&&!url.username&&!url.password?url.href:null;}catch{return null;}
+ try{const url=new URL(String(value||''));const google=url.hostname==='g.page'||url.hostname==='maps.app.goo.gl'||url.hostname==='google.com'||url.hostname.endsWith('.google.com');return url.protocol==='https:'&&!url.username&&!url.password&&google?url.href:null;}catch{return null;}
 }
 async function delivery(env,qid){return env.DB.prepare(`SELECT t.recorded_at,t.version FROM catering_execution e JOIN catering_execution_transitions t ON t.quote_id=e.quote_id AND t.version=e.version WHERE e.quote_id=? AND e.status='completed' AND e.delivery_mode IN ('owner_self','staff_driver') AND t.to_status='completed'`).bind(qid).first();}
 async function eligibility(env,q,kind,at){
@@ -27,8 +27,8 @@ async function eligibility(env,q,kind,at){
 }
 export function cateringExperienceEmail({q,kind,feedbackUrl,accountUrl,googleUrl}){
  const es=q.lang==='es',pre=kind==='pre_event_checkin',first=String(q.customer_name||'').trim().split(/\s+/)[0];
- const subject=pre?(es?'¿Cómo ha sido planificar su celebración con Añejo?':'How has planning your celebration with Añejo felt?'):(es?'Gracias por celebrar con Añejo. ¿Cómo estuvo todo?':'Thank you for celebrating with Añejo. How was everything?');
- const opening=pre?(es?'Antes de su celebración, queremos saber cómo ha sido el proceso de reserva y planificación. ¿Hay algo que debamos aclarar o algún detalle que quiera compartir antes de la entrega?':'Before your celebration, we would love to know how the booking and planning experience has felt. Is anything unclear, or is there a detail you would like us to know before delivery?'):(es?'Gracias por recibir a Añejo en su celebración. Nos gustaría saber cómo estuvieron la comida y el servicio: qué disfrutó y qué podemos mejorar.':'Thank you for welcoming Añejo to your celebration. We would love your honest feedback on the food and service: what you enjoyed and what we can improve.');
+ const subject=pre?(es?'¿Cómo ha sido su experiencia con Añejo hasta ahora?':'How has your Añejo experience been so far?'):(es?'Gracias por celebrar con Añejo. ¿Cómo estuvo todo?':'Thank you for celebrating with Añejo. How was everything?');
+ const opening=pre?(es?'Antes de su celebración, queremos saber cómo ha sido el proceso de reserva y planificación. ¿Hay algo que debamos aclarar o algún detalle que quiera compartir antes de la entrega?':'Your celebration is almost here. How has the booking and planning experience with Añejo been so far? If there is anything you would like us to clarify or keep in mind before delivery, we would love to hear it.'):(es?'Gracias por recibir a Añejo en su celebración. Nos gustaría saber cómo estuvieron la comida y el servicio: qué disfrutó y qué podemos mejorar.':'Thank you for letting Añejo be part of your celebration. How was everything? Tell us what you enjoyed about the food and service, and what we can do better.');
  const cta=pre?(es?'Calificar la experiencia de reserva':'Rate your booking experience'):(es?'Compartir mi experiencia':'Share your experience');
  const reply=es?'También puede responder a este correo para hablar directamente con Dayan. Su opinión es voluntaria.':'You can also reply to this email to speak directly with Dayan. Feedback is voluntary.';
  const account=es?'Ver mi cuenta y los detalles de mi evento':'View my account and event details',google=es?'Compartir una reseña honesta en Google':'Share an honest Google review';
@@ -37,7 +37,7 @@ export function cateringExperienceEmail({q,kind,feedbackUrl,accountUrl,googleUrl
 }
 async function currentSnapshot(env,q,kind,{baseUrl,at}){
  const token=await env.DB.prepare('SELECT * FROM catering_experience_tokens WHERE quote_id=? AND kind=?').bind(q.id,kind).first();
- if(!token||token.expires_at<=at)return null;
+ if(!token||token.expires_at<=at||token.recipient!==String(q.customer_email||'').trim().toLowerCase())return null;
  const googleUrl=await reviewUrl(env),feedbackUrl=baseUrl+'/catering-feedback?t='+token.token,accountUrl=baseUrl+'/client/dashboard?catering=1';
  return {version:'catering-experience-v1',quote_id:q.id,kind,recipient:q.customer_email.trim().toLowerCase(),event_date:q.event_date,lang:q.lang==='es'?'es':'en',feedback_url:feedbackUrl,account_url:accountUrl,google_review_url:googleUrl,...cateringExperienceEmail({q,kind,feedbackUrl,accountUrl,googleUrl})};
 }
@@ -53,7 +53,7 @@ export async function stageCateringExperience(env,qid,{baseUrl=SITE,at=Date.now(
  const q=await quote(env,qid);if(!q||!paid(q)||!dateValid(q.event_date)||!isEmail(q.customer_email))return fail('A fully paid booking, event date and saved customer email are required.');
  for(const kind of EXPERIENCE_KINDS){
   const expires=Math.max(at+DAY,Date.parse(q.event_date+'T23:59:59Z')+30*DAY);
-  await env.DB.prepare('INSERT OR IGNORE INTO catering_experience_tokens(quote_id,kind,token,expires_at,created_at) VALUES(?,?,?,?,?)').bind(qid,kind,randToken(32),expires,at).run();
+  await env.DB.prepare(`INSERT INTO catering_experience_tokens(quote_id,kind,token,recipient,expires_at,created_at) VALUES(?,?,?,?,?,?) ON CONFLICT(quote_id,kind) DO UPDATE SET token=excluded.token,recipient=excluded.recipient,expires_at=excluded.expires_at,created_at=excluded.created_at WHERE catering_experience_tokens.recipient!=excluded.recipient`).bind(qid,kind,randToken(32),q.customer_email.trim().toLowerCase(),expires,at).run();
   const snapshot=await currentSnapshot(env,q,kind,{baseUrl,at});if(!snapshot)return fail('This booking’s feedback link expired. Review it manually before further contact.');
   const reviewHash=await hash(snapshot);
   await env.DB.prepare(`INSERT INTO catering_experience_outbox(quote_id,kind,review_hash,snapshot_json,status,created_at,updated_at) VALUES(?,?,?,?,'staged',?,?) ON CONFLICT(quote_id,kind) DO UPDATE SET review_hash=excluded.review_hash,snapshot_json=excluded.snapshot_json,status=CASE WHEN catering_experience_outbox.review_hash=excluded.review_hash THEN catering_experience_outbox.status ELSE 'staged' END,approved_hash=CASE WHEN catering_experience_outbox.review_hash=excluded.review_hash THEN catering_experience_outbox.approved_hash ELSE NULL END,approved_at=CASE WHEN catering_experience_outbox.review_hash=excluded.review_hash THEN catering_experience_outbox.approved_at ELSE NULL END,updated_at=excluded.updated_at WHERE catering_experience_outbox.status IN ('staged','approved')`).bind(qid,kind,reviewHash,JSON.stringify(snapshot),at,at).run();
@@ -110,9 +110,9 @@ export async function runCateringLifecycle(env,{baseUrl=SITE,at=Date.now(),limit
 }
 export async function readCateringFeedback(env,token,{at=Date.now()}={}){
  if(!/^[a-f0-9]{64}$/.test(token||''))return fail('Feedback link unavailable.');
- const t=await env.DB.prepare('SELECT quote_id,kind,expires_at FROM catering_experience_tokens WHERE token=?').bind(token).first();
+ const t=await env.DB.prepare('SELECT quote_id,kind,recipient,expires_at FROM catering_experience_tokens WHERE token=?').bind(token).first();
  if(!t||t.expires_at<=at)return fail('Feedback link unavailable.');
- const q=await quote(env,t.quote_id);if(!q||q.deposit_status!=='paid'||t.kind==='pre_event_checkin'&&day(at)>q.event_date)return fail('Feedback link unavailable.');
+ const q=await quote(env,t.quote_id);if(!q||q.deposit_status!=='paid'||String(q.customer_email||'').trim().toLowerCase()!==t.recipient||t.kind==='pre_event_checkin'&&day(at)>q.event_date)return fail('Feedback link unavailable.');
  if(t.kind==='post_delivery_review'){const proof=await delivery(env,q.id);if(!proof||proof.recorded_at>at||day(proof.recorded_at)<q.event_date)return fail('Feedback opens after the catering delivery has been recorded.');}
  return {ok:true,kind:t.kind,prompt:t.kind==='pre_event_checkin'?'How has booking and planning your celebration with Añejo felt so far?':'How were the food and service at your celebration?',google_review_url:t.kind==='post_delivery_review'?await reviewUrl(env):null,expires_at:t.expires_at};
 }
@@ -120,7 +120,12 @@ export async function saveCateringFeedback(env,b,{at=Date.now()}={}){
  const publicView=await readCateringFeedback(env,b.t,{at});if(!publicView.ok)return publicView;
  const rating=b.rating==null?null:b.rating,mood=b.mood==null?null:b.mood,again=b.would_again==null?null:b.would_again,comment=typeof b.comment==='string'?b.comment.trim():'';
  if(rating!==null&&(!Number.isInteger(rating)||rating<1||rating>10)||mood!==null&&!['sad','neutral','happy'].includes(mood)||rating===null&&mood===null||again!==null&&typeof again!=='boolean'||comment.length>2000)return fail('Choose a score from 1 to 10 or a mood, and keep comments under 2,000 characters.');
- const token=await env.DB.prepare('SELECT quote_id,kind FROM catering_experience_tokens WHERE token=?').bind(b.t).first();
- await env.DB.prepare(`INSERT INTO catering_experience_feedback(quote_id,kind,rating,mood,would_again,comment,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?) ON CONFLICT(quote_id,kind) DO UPDATE SET rating=excluded.rating,mood=excluded.mood,would_again=excluded.would_again,comment=excluded.comment,updated_at=excluded.updated_at`).bind(token.quote_id,token.kind,rating,mood,again===null?null:again?1:0,comment||null,at,at).run();
+ const token=await env.DB.prepare('SELECT t.quote_id,t.kind,q.event_date FROM catering_experience_tokens t JOIN catering_quotes q ON q.id=t.quote_id WHERE t.token=?').bind(b.t).first();
+ if(!token)return fail('Feedback link unavailable.');
+ // Revalidate after reading the immutable event predicate; the final write guards delivery,
+ // identity and expiration too, so a concurrent owner correction cannot admit stale feedback.
+ const current=await readCateringFeedback(env,b.t,{at});if(!current.ok)return current;
+ const saved=await env.DB.prepare(`INSERT INTO catering_experience_feedback(quote_id,kind,rating,mood,would_again,comment,created_at,updated_at) SELECT t.quote_id,t.kind,?,?,?,?,?,? FROM catering_experience_tokens t JOIN catering_quotes q ON q.id=t.quote_id WHERE t.token=? AND t.expires_at>? AND q.deposit_status='paid' AND lower(trim(q.customer_email))=t.recipient AND q.event_date=? AND ((t.kind='pre_event_checkin' AND q.event_date>=?) OR (t.kind='post_delivery_review' AND EXISTS(SELECT 1 FROM catering_execution e JOIN catering_execution_transitions x ON x.quote_id=e.quote_id AND x.version=e.version WHERE e.quote_id=q.id AND e.status='completed' AND e.delivery_mode IN ('owner_self','staff_driver') AND x.to_status='completed' AND x.recorded_at<=?))) ON CONFLICT(quote_id,kind) DO UPDATE SET rating=excluded.rating,mood=excluded.mood,would_again=excluded.would_again,comment=excluded.comment,updated_at=excluded.updated_at`).bind(rating,mood,again===null?null:again?1:0,comment||null,at,at,b.t,at,token.event_date,day(at),at).run();
+ if(saved.meta?.changes!==1)return fail('The booking or delivery changed. Reload the feedback link.');
  return {...publicView,saved:true};
 }

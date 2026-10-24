@@ -21,7 +21,7 @@
   function permissions(){
     if(!current)return;byId('q-experience-close').disabled=busy;byId('q-experience-refresh').disabled=busy;
     current.cards.forEach(function(card){
-      var ready=card.loaded&&card.message.review_hash&&!card.locked;
+      var ready=card.loaded&&card.message.review_hash&&!card.locked&&!current.readOnly;
       card.review.disabled=busy||!ready;card.send.disabled=busy||!ready||!card.review.checked||!card.message.send_eligible;
       card.futureReview.disabled=busy||!ready||Boolean(card.message.approved_at);card.approve.disabled=busy||!ready||!card.futureReview.checked||Boolean(card.message.approved_at);
     });
@@ -71,11 +71,14 @@
   }
   async function open(quoteId,refreshOnly){
     ensure();if(busy)return;var seq=++sequence;current={quoteId:quoteId,cards:[]};byId('q-experience-messages').textContent='';byId('q-experience-feedback').textContent='';byId('q-experience-context').textContent='';byId('q-experience-status').textContent=refreshOnly?'Reading saved event-care status…':'Staging event-care email previews. Nothing is being sent…';if(!dialog.open)dialog.showModal();permissions();
-    try{var result=refreshOnly?await Hub.api(endpoint+'?quote_id='+encodeURIComponent(quoteId)):await Hub.api(endpoint,{method:'POST',body:{op:'stage',quote_id:quoteId}});if(seq!==sequence)return;if(!result?.ok)throw Error(result?.error||'The event-care previews could not be loaded.');render(result,seq);byId('q-experience-status').textContent='These are saved previews and statuses. Opening this screen did not send an email.';}
+    try{var result=refreshOnly?await Hub.api(endpoint+'?quote_id='+encodeURIComponent(quoteId)):await Hub.api(endpoint,{method:'POST',body:{op:'stage',quote_id:quoteId}});if(seq!==sequence)return;
+      var stageError=null;
+      if(!result?.ok&&!refreshOnly){stageError=result?.error||'New email previews could not be staged.';result=await Hub.api(endpoint+'?quote_id='+encodeURIComponent(quoteId));if(seq!==sequence)return;current.readOnly=true;}
+      if(!result?.ok)throw Error(result?.error||'The event-care previews could not be loaded.');render(result,seq);byId('q-experience-status').textContent=stageError?stageError+' Showing saved history only. New approvals and sends stay disabled.':'These are saved previews and statuses. Opening this screen did not send an email.';}
     catch(error){if(seq===sequence)byId('q-experience-status').textContent=error.message+' Nothing was sent by opening this screen.';}
   }
   async function act(card,op){
-    if(busy||!current||!card.loaded||card.locked)return;if(op==='send'&&(!card.review.checked||!card.message.send_eligible))return;if(op==='approve'&&(!card.futureReview.checked||card.message.approved_at))return;
+    if(busy||!current||current.readOnly||!card.loaded||card.locked)return;if(op==='send'&&(!card.review.checked||!card.message.send_eligible))return;if(op==='approve'&&(!card.futureReview.checked||card.message.approved_at))return;
     var seq=sequence,snapshot=current;busy=true;permissions();card.out.textContent=op==='send'?'Sending this reviewed email once…':'Saving the reviewed future-trigger approval…';
     try{var result=await Hub.api(endpoint,{method:'POST',body:{op:op,quote_id:snapshot.quoteId,kind:card.message.kind,review_hash:card.message.review_hash,reviewed:true,...(op==='approve'?{enable:true}:{})}});if(seq!==sequence)return;
       if(op==='send'){

@@ -1,7 +1,7 @@
 -- Per-booking reviewed service messages and private, scoped feedback links.
 CREATE TABLE catering_experience_tokens (
  quote_id TEXT NOT NULL REFERENCES catering_quotes(id), kind TEXT NOT NULL CHECK(kind IN ('pre_event_checkin','post_delivery_review')),
- token TEXT NOT NULL UNIQUE, expires_at INTEGER NOT NULL, created_at INTEGER NOT NULL,
+ token TEXT NOT NULL UNIQUE, recipient TEXT NOT NULL, expires_at INTEGER NOT NULL, created_at INTEGER NOT NULL,
  PRIMARY KEY(quote_id,kind)
 );
 CREATE TABLE catering_experience_outbox (

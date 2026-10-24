@@ -4,7 +4,7 @@
   var token=new URLSearchParams(window.location.search).get('t')||'';
   var form=byId('cf-form'),state=byId('cf-state'),error=byId('cf-error'),submit=byId('cf-submit'),busy=false;
   function googleLink(value){
-    try{var url=new URL(value);if(url.protocol!=='https:'||!(['google.com','www.google.com','maps.google.com','maps.app.goo.gl','g.page'].includes(url.hostname)))return null;return url.href;}catch(_error){return null;}
+    try{var url=new URL(value);if(url.protocol!=='https:'||url.username||url.password||!(['google.com','www.google.com','maps.google.com','maps.app.goo.gl','g.page'].includes(url.hostname)))return null;return url.href;}catch(_error){return null;}
   }
   function showReview(value){var url=googleLink(value);if(!url)return;byId('cf-google').href=url;byId('cf-public-review').hidden=false;}
   function paint(){
@@ -21,10 +21,11 @@
       var before=data.kind==='pre_event_checkin';
       byId('cf-title').innerHTML=before?'Before we set<br><em>your table.</em>':'How was<br><em>your Añejo moment?</em>';
       byId('cf-intro').textContent=data.prompt||(before?'A quick check-in before your gathering. Tell us how you are feeling and anything we should know.':'The food. The care. The little details. Tell us how your experience felt.');
-      byId('cf-mood-label').textContent=before?'How are you feeling about your event?':'How was your experience?';
+      byId('cf-mood-label').textContent=before?'How has planning with us felt?':'How was your experience?';
       byId('cf-again-field').hidden=before;
       byId('cf-scores').closest('fieldset').hidden=before;
       if(before){
+        byId('cf-mood-hint').textContent='Choose how you are feeling, then add a note if you would like.';
         byId('cf-comment').placeholder='Any last details or concerns we should know before your event?';
         var beforeLabels={sad:'Need some help',neutral:'Feeling ready',happy:'Very excited'};
         form.querySelectorAll('input[name="mood"]').forEach(function(input){input.nextElementSibling.querySelector('span').textContent=beforeLabels[input.value];});
@@ -40,14 +41,14 @@
     var mood=form.querySelector('input[name="mood"]:checked'),rating=form.querySelector('input[name="rating"]:checked'),again=form.querySelector('input[name="would_again"]:checked');
     if(!mood&&!rating){error.textContent='Choose a feeling or a score so we know how it went.';form.querySelector('input[name="mood"]').focus();return;}
     var payload={t:token,comment:byId('cf-comment').value.trim()};if(mood)payload.mood=mood.value;if(rating)payload.rating=Number(rating.value);if(again)payload.would_again=again.value==='true';
-    busy=true;submit.disabled=true;submit.textContent='Saving your feedback…';
+    busy=true;submit.disabled=true;submit.textContent='Saving your feedback…';form.setAttribute('aria-busy','true');form.querySelectorAll('input,textarea').forEach(function(input){input.disabled=true;});
     try{
       var response=await fetch('/api/catering-feedback',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)}),data=await response.json();
       if(!response.ok||!data.ok)throw Error(data.error||'Your feedback was not saved. Please try again.');
       form.hidden=true;byId('cf-thanks').hidden=false;byId('cf-thanks').focus();
       if(!byId('cf-again-field').hidden)showReview(data.google_review_url);
-    }catch(sendError){error.textContent=sendError.message||'We could not save your feedback. Please try again.';submit.disabled=false;submit.textContent='Share your feedback →';}
-    finally{busy=false;}
+    }catch(sendError){error.textContent=sendError.message||'We could not save your feedback. Please try again.';submit.disabled=false;submit.textContent='Share your feedback →';form.querySelectorAll('input,textarea').forEach(function(input){input.disabled=false;});}
+    finally{busy=false;form.setAttribute('aria-busy','false');}
   });
   load();
 })();
