@@ -216,12 +216,15 @@ export function cateringQuoteEmail({
   modifyUrl,
   termsLines = [],
   altLangUrl,
+  hostedPaymentState = null,
 } = {}) {
   const L = lang === 'es' ? 'es' : 'en';
   const c = COPY[L];
   const pctLabel = `${Math.round(Number(depositPct) * 100)}%`;
   const dateLong = longDate(eventDate, L);
   const cajitaUrl = `${SITE}/cajita-builder.html`;
+  const hostedStatus = ['paid_in_full','deposit_received','processing','waived','review'].includes(hostedPaymentState);
+  const paymentPreheader = hostedStatus ? (L === 'es' ? 'Su reserva y estado de pago de Añejo.' : 'Your Añejo booking and recorded payment status.') : c.preheader(money(totalCents));
 
   const meta = [
     [c.eventFor, dateLong],
@@ -231,7 +234,7 @@ export function cateringQuoteEmail({
 
   const inner = `
   <!-- preheader: the grey line an inbox shows next to the subject. Hidden in the body. -->
-  <div style="display:none;max-height:0;overflow:hidden;opacity:0">${escHtml(c.preheader(money(totalCents)))}</div>
+  <div style="display:none;max-height:0;overflow:hidden;opacity:0">${escHtml(paymentPreheader)}</div>
 
   <p style="margin:0 0 14px;font-family:Georgia,serif;font-size:19px;color:${INK}">${escHtml(c.hello(customerName))}</p>
   <p style="margin:0 0 22px;font-family:Georgia,serif;font-size:15px;line-height:1.65;color:${INK}">${escHtml(c.intro)}</p>
@@ -268,14 +271,14 @@ export function cateringQuoteEmail({
     ${button(modifyUrl ? `${modifyUrl}${modifyUrl.includes('?') ? '&' : '?'}recommendation=${encodeURIComponent(r.sku)}` : '#preview', L === 'es' ? 'Me interesan estas croquetas' : 'Ask about these croquetas', { solid: false })}
   </td></tr></table>`).join('')}
 
-  <!-- The two ways to pay -->
+  ${hostedStatus ? '' : `<!-- The two ways to pay -->
   <p style="margin:0 0 6px;font-family:Georgia,serif;font-size:12px;letter-spacing:.14em;
     text-transform:uppercase;color:${GOLD};font-weight:bold">${escHtml(c.payHead)}</p>
   <p style="margin:0 0 16px;font-family:Georgia,serif;font-size:14px;line-height:1.6;color:${INK}">${escHtml(c.payNote(pctLabel))}</p>
   <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="border-collapse:collapse">
     <tr><td style="padding:0 0 10px">${button(depositUrl, c.payDeposit(money(depositCents), pctLabel), { solid: true, full: true })}</td></tr>
   </table>
-  <p style="margin:0 0 28px;font-family:Georgia,serif;font-size:13px;color:${MUTED}">${escHtml(c.balanceNote(money(balanceCents), balanceDueDate || ''))}</p>
+  <p style="margin:0 0 28px;font-family:Georgia,serif;font-size:13px;color:${MUTED}">${escHtml(c.balanceNote(money(balanceCents), balanceDueDate || ''))}</p>`}
 
   <!-- Modify -->
   <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%"
@@ -381,8 +384,7 @@ export function cateringQuoteEmail({
     `${c.total}: ${money(totalCents)}`,
     '',
     c.payNote(pctLabel),
-    `${c.payDeposit(money(depositCents), pctLabel)}: ${depositUrl || ''}`,
-    c.balanceNote(money(balanceCents), balanceDueDate || ''),
+    ...(hostedStatus ? [] : [`${c.payDeposit(money(depositCents), pctLabel)}: ${depositUrl || ''}`, c.balanceNote(money(balanceCents), balanceDueDate || '')]),
     '',
     `${c.modifyHead} ${modifyUrl || ''}`,
     '',
