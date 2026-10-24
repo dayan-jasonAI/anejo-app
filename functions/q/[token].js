@@ -10,7 +10,7 @@
 //     not. One artifact, served two ways.
 //   · IT IS never CACHED. A quote whose deposit has since been paid, or whose price changed, must
 //     not be served from an intermediary.
-import { cateringQuoteEmail } from '../_lib/catering_quote_email.js';
+import { cateringQuoteEmail, longDate, clockTime } from '../_lib/catering_quote_email.js';
 import { loadQuoteEmailArgs } from '../_lib/catering_quote_delivery.js';
 import { customerQuoteEditor } from '../_lib/catering_customer_page.js';
 import { cakeRevealHtml } from '../_lib/cake_reveal.js';
@@ -50,14 +50,14 @@ export const onRequestGet = async ({ params, request, env }) => {
   let row = null;
   try {
     row = await env.DB.prepare(
-      `SELECT id, customer_name, customer_email, customer_phone, event_date, guests,
+      `SELECT id, customer_name, customer_email, customer_phone, event_date, serving_time, guests,
               total_cents, deposit_pct, deposit_cents, balance_cents, deposit_status,
               balance_status, balance_due_date, payment_link_url, terms_json, quote_json,
               access_token, lang
          FROM catering_quotes WHERE access_token = ?`
     ).bind(token).first();
   } catch {
-    return notFound(override || 'en');
+    return html('<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Añejo · Payment status unavailable</title><main style="max-width:520px;margin:10vh auto;padding:24px;font:18px/1.6 Georgia,serif"><h1>Payment status temporarily unavailable</h1><p>We cannot verify the saved payment record right now. Please refresh this page or open your account. If Square issued a receipt, do not pay again.</p><p><a href="/client/dashboard?catering=1">Open my Añejo account</a></p></main>',503);
   }
   if (!row) return notFound(override || 'en');
 
@@ -80,11 +80,19 @@ export const onRequestGet = async ({ params, request, env }) => {
 
   const lang = override || (row.lang === 'es' ? 'es' : 'en');
   const args = await loadQuoteEmailArgs(env, row, { lang, baseUrl: url.origin });
+  const paymentReturn=url.searchParams.get('paid')==='1';
+  const paid = row.deposit_status === 'paid';
+  const paidFull=paid&&row.balance_status==='paid';
+  const waived=paid&&(row.balance_status==='waived'||Number(row.balance_cents)===0);
+  const contradictory=!paid&&['paid','waived'].includes(row.balance_status);
+  const paymentState=contradictory?'review':paidFull?'paid_in_full':waived?'waived':paid?'deposit_received':paymentReturn?'processing':null;
+  // A checkout return is only a request to check confirmation; it is never evidence of payment.
+  args.hostedPaymentState=paymentState;
+  args.eventTime=row.serving_time||null;
   const { subject, html: body } = cateringQuoteEmail(args);
 
   // Once the deposit is paid the page must stop offering to take it again. The quote stays
   // readable — it is the customer's record of what they bought — but the buttons go.
-  const paid = row.deposit_status === 'paid';
 
   // THE GIFT REVEAL. Both gates are here, on the server, and both must hold:
   //
@@ -97,7 +105,7 @@ export const onRequestGet = async ({ params, request, env }) => {
   //
   // A customer cannot reach either one. Anything short of both renders nothing at all — not a
   // hidden element, nothing in the document.
-  const settled = row.balance_status === 'paid';
+  const settled = paidFull;
   let gift = null;
   if (settled) {
     try {
@@ -106,14 +114,26 @@ export const onRequestGet = async ({ params, request, env }) => {
     } catch { /* an unreadable breakdown is simply no gift */ }
   }
   const reveal = gift ? cakeRevealHtml({ gift, name: row.customer_name, lang }) : '';
-  const banner = paid
-    ? `<div style="max-width:520px;margin:0 auto 14px;padding:14px 18px;background:#e8f1eb;color:#2f6b4f;
-         border-radius:10px;font-family:Georgia,serif;font-size:15px;text-align:center">
-         ${lang === 'es'
-           ? `Depósito recibido. Su fecha está reservada — saldo de ${(row.balance_cents / 100).toFixed(2)} USD pendiente.`
-           : `Deposit received. Your date is booked — $${(row.balance_cents / 100).toFixed(2)} balance to come.`}
-       </div>`
-    : '';
+  const e=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const amount=`$${(Number(row.balance_cents||0)/100).toFixed(2)}`;
+  const heading=contradictory?(lang==='es'?'Su registro de pago necesita revisión':'Your payment record needs review'):paidFull?(lang==='es'?'Pagado por completo':'Paid in full'):waived?(lang==='es'?'Reserva confirmada · no hay saldo pendiente':'Booking confirmed · no balance due'):paid?(lang==='es'?'Depósito recibido':'Deposit received'):(lang==='es'?'Confirmando su pago':'Confirming your payment');
+  const description=contradictory?(lang==='es'?'Los registros de depósito y pago final no coinciden. No vuelva a pagar; contáctenos para conciliar sus recibos.':'The deposit and final-payment records do not agree. Do not pay again; contact us so we can reconcile your receipts.'):paidFull?(lang==='es'?'Recibimos su pago final. Su evento está reservado y no hay saldo pendiente.':'Your final payment is recorded. Your event is booked and no balance remains.')
+    :waived?(lang==='es'?'No se requiere otro pago para esta reserva.':'No further payment is required for this booking.')
+    :paid?(lang==='es'?`Su fecha está reservada. Saldo registrado: ${amount}, con vencimiento el ${row.balance_due_date||'fecha por confirmar'}.`:`Your date is booked. Recorded balance: ${amount}, due ${row.balance_due_date||'date to be confirmed'}.`)
+    :(lang==='es'?'Aún no se ha registrado la confirmación de pago. No vuelva a pagar mientras comprobamos el estado.':'Payment confirmation has not been recorded yet. Do not pay again while confirmation is being checked.');
+  const pendingNote=paymentReturn&&paid&&!paidFull&&!waived?(lang==='es'?'Si acaba de pagar el saldo final, la confirmación puede seguir procesándose. Actualice el estado antes de intentar otro pago.':'If you just paid the final balance, confirmation may still be processing. Refresh the status before attempting another payment.'):'';
+  const awaiting=paymentReturn&&!paidFull&&!waived&&!contradictory;
+  const paymentRevision=encodeURIComponent(JSON.stringify([row.deposit_status,row.balance_status,row.balance_cents,row.event_date,row.serving_time]));
+  const currentPath='/q/'+token+'?'+new URLSearchParams({...(paymentReturn?{paid:'1'}:{}),lang}).toString();
+  const banner=paymentState?`<section id="catering-payment-state" data-payment-state="${paymentState}" data-payment-revision="${paymentRevision}" data-awaiting-confirmation="${awaiting?'true':'false'}" aria-labelledby="catering-payment-heading" style="box-sizing:border-box;max-width:640px;margin:0 auto 14px;padding:24px;background:#fbf9f3;color:#20392e;border:1px solid #ae8745;border-radius:14px;font-family:Georgia,serif;line-height:1.6">
+    <p style="margin:0 0 8px;font-size:12px;letter-spacing:.14em;color:#8b6b3e">AÑEJO · ${lang==='es'?'SU RESERVA':'YOUR BOOKING'}</p>
+    <h1 id="catering-payment-heading" style="margin:0 0 12px;font-size:30px;line-height:1.15">${heading}</h1>
+    <p style="margin:0 0 16px">${e(description)}</p>
+    <div style="padding:14px;background:#f0ebdd;border-radius:9px;margin:0 0 16px"><strong>${e(row.event_date?longDate(row.event_date,lang):(lang==='es'?'Fecha por confirmar':'Event date to be confirmed'))}</strong><br>${row.serving_time?e((lang==='es'?'Hora de servicio confirmada: ':'Confirmed serving time: ')+clockTime(row.serving_time,lang)+' · '+(lang==='es'?'hora del Este':'Eastern Time')):e(lang==='es'?'Hora de servicio por confirmar':'Serving time to be confirmed')}</div>
+    ${pendingNote?`<p style="margin:0 0 16px">${e(pendingNote)}</p>`:''}
+    ${awaiting?`<a id="catering-payment-refresh" href="${e(currentPath)}" style="display:inline-flex;align-items:center;box-sizing:border-box;min-height:48px;padding:12px 18px;margin:0 8px 10px 0;border-radius:8px;background:#ae8745;color:#fff;text-decoration:none">${lang==='es'?'Actualizar estado de pago':'Refresh payment status'}</a><p id="catering-payment-progress" role="status" aria-live="polite" style="font-size:14px;margin:0 0 14px">${lang==='es'?'Comprobando la confirmación guardada.':'Checking the recorded payment confirmation.'}</p>`:''}
+    <a href="/client/dashboard?catering=1" style="display:inline-flex;align-items:center;box-sizing:border-box;min-height:48px;padding:12px 18px;border:1px solid #20392e;border-radius:8px;color:#20392e;text-decoration:none">${lang==='es'?'Ver mi cuenta y actividad de pagos':'View my account and payment activity'}</a>
+  </section>`:'';
 
   // ?edit=1 is the "Modify my order" button. It used to be read by nothing at all, so the button
   // reloaded the page and looked broken. It now opens a real form, ABOVE the quote so she does not
@@ -179,16 +199,17 @@ export const onRequestGet = async ({ params, request, env }) => {
 
   const editPanel = wantsEdit ? customerQuoteEditor(token, lang) + '<details style="max-width:640px;margin:16px auto;color:#fffdf7;padding:16px"><summary>' + (lang === 'es' ? 'Otros cambios y necesidades especiales' : 'Other changes and special requests') + '</summary>' + requestPanel + '</details>' : '';
 
-  const page = `<!doctype html><meta charset="utf-8">
+  const page = `<!doctype html><html lang="${lang}"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="robots" content="noindex, nofollow">
-<title>${subject.replace(/[<>]/g, '')}</title>
+<title>${subject.replace(/[<>]/g, '')}</title></head>
 <body style="margin:0;background:#0b1f0a">
 ${reveal ? `<div style="padding:24px 16px 0">${reveal}</div>` : ''}
 ${banner ? `<div style="padding:24px 16px 0">${banner}</div>` : ''}
 ${editPanel ? `<div style="padding:24px 16px 0">${editPanel}</div>` : ''}
-${paid ? body.replace(/<table role="presentation"[^>]*>\s*<tr><td style="padding:0 0 10px">[\s\S]*?<\/table>\s*(?=<p style="margin:0 0 28px)/, '') : body}
-</body>`;
+${body}
+${awaiting?'<script src="/assets/js/catering-payment-return.js" defer></script>':''}
+</body></html>`;
 
   return html(page);
 };

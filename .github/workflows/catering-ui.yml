@@ -6,6 +6,16 @@ on:
       - 'public/hub/owner/assets/catering-service.js'
       - 'public/hub/owner/assets/catering-balance.js'
       - 'public/client/**'
+      - 'functions/q/**'
+      - 'functions/_lib/catering_quote_email.js'
+      - 'public/assets/js/catering-payment-return.js'
+      - 'public/assets/js/catering-feedback.js'
+      - 'public/catering-feedback.html'
+      - 'public/hub/owner/assets/catering-lifecycle.js'
+      - 'scripts/verify-catering-payment-return.mjs'
+      - 'scripts/verify-catering-experience-ui.cjs'
+      - 'public/hub/owner/assets/catering-lifecycle.css'
+      - 'public/assets/css/catering-feedback.css'
       - 'public/assets/js/client-catering.js'
       - 'public/assets/css/client-catering.css'
       - 'scripts/verify-catering-balance-ui.cjs'
@@ -27,6 +37,8 @@ jobs:
       - run: node scripts/verify-catering-workspace.cjs
       - run: node scripts/verify-catering-balance-ui.cjs
       - run: node scripts/verify-catering-client-account.cjs
+      - run: node scripts/verify-catering-payment-return.mjs
+      - run: node scripts/verify-catering-experience-ui.cjs
       - uses: actions/upload-artifact@v4
         if: always()
         with:

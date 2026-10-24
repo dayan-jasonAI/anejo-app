@@ -259,7 +259,7 @@ test('the desk renders the SNAPSHOT and cannot re-derive the terms', () => {
 
 test('every figure the owner needs to run the booking is on the card', () => {
   assert.match(DESK, />Deposit /, 'the deposit');
-  assert.match(DESK, />Balance</, 'the balance');
+  assert.match(DESK, /Final payment received/, 'recorded final-payment amount is labeled clearly after payment');
   assert.match(DESK, />Total</, 'and the total they add up to');
   assert.match(DESK, /q\.deposit_status/, 'paid or not');
   assert.match(DESK, /q\.deposit_paid_at/, 'and when it was paid');
