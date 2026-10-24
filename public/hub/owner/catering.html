@@ -328,7 +328,7 @@
       // asking whoever fills this in to remember what she agreed to.
       lead_id: r.lead_id || r.id || '',
     };
-    var linkedQuotes=associatedQuotes(r), dueQuotes=linkedQuotes.filter(isBalanceDue);
+    var linkedQuotes=associatedQuotes(r), dueQuotes=linkedQuotes.filter(isBalanceDue),currentBooking=linkedQuotes.length===1?linkedQuotes[0]:null;
     var contact = [r.email || '', r.phone || ''].filter(Boolean).join(' · ');
     var targetLead = new URLSearchParams(window.location.search).get('lead');
     var files = (r.attachments || []).map(function (file) {
@@ -343,11 +343,12 @@
         (r.company ? ' · ' + esc(r.company) : '') +
         (r.created_at ? ' · ' + C.label('received') + ' ' + day(r.created_at) : '') + '</div>' +
       (contact ? '<div class="row-sub">' + esc(contact) + '</div>' : '') +
-      '<div class="rbody"><b>'+esc(msgField(r.message,'Event type')||'Event')+'</b><br>'+esc(msgField(r.message,'Event date'))+' · '+esc(msgField(r.message,'Serving time'))+'<br>'+esc(msgField(r.message,'Guest count'))+' guests · '+esc(msgField(r.message,'Location'))+'</div>'+
+      (currentBooking?'<div class="rbody"><b>Current saved '+(currentBooking.deposit_status==='paid'?'booking':'quote')+'</b><br>'+esc(currentBooking.event_date||'Date not recorded')+' · '+esc(currentBooking.guests||'—')+' guests<br><b>'+money(currentBooking.total_cents)+'</b> · deposit '+esc(currentBooking.deposit_status||'unpaid')+'<br><a href="#quote-'+esc(currentBooking.id)+'">View saved booking details</a></div>':'')+
+      '<div class="rbody"><b>Original request · '+esc(msgField(r.message,'Event type')||'Event')+'</b><br>'+esc(msgField(r.message,'Event date'))+' · '+esc(msgField(r.message,'Serving time'))+'<br>'+esc(msgField(r.message,'Guest count'))+' guests · '+esc(msgField(r.message,'Location'))+'</div>'+
       '<details class="rbody"><summary>' + C.label('Original request (as submitted)') + '</summary>' + (r.message ? esc(r.message) : C.label('No event details provided.')) + '</details>' +
       (r.cajita_configuration || r.cajita_summary ? '<details class="rbody"><summary>' + C.label('Exact Cajita configuration') + '</summary>' + C.summaryHtml(r.cajita_configuration,r.cajita_summary) + '</details>' : '') +
       (files ? '<div class="rfiles"><b>' + C.label('Private design files · owner only') + '</b>' + files + '</div>' : '') +
-      suggestionHtml(r.suggested) +
+      (linkedQuotes.length?'<details class="terms"><summary>Original request menu suggestion · not the agreed quote</summary>'+suggestionHtml(r.suggested)+'</details>':suggestionHtml(r.suggested)) +
       (dueQuotes.length ? dueQuotes.map(function(q){return '<div class="q-balance-note"><b>Booked · deposit received</b><br>Final balance '+money(q.balance_cents)+(q.balance_due_date?' · due '+esc(q.balance_due_date):' · due date not recorded')+'<button type="button" class="btn gold block" data-collect-balance="'+esc(q.id)+'">Collect final balance · '+money(q.balance_cents)+'</button></div>';}).join('') : '') +
       '<div class="ractions">' +
         '<a class="btn ghost" href="/hub/owner/catering-service.html?lead='+encodeURIComponent(r.id)+'">Messages &amp; follow-up</a>'+

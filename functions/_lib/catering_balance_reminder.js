@@ -123,7 +123,7 @@ export function balanceReminderEmail({ kind, customerName, eventDate, balanceCen
     ${payUrl ? `<p style="margin:26px 0"><a href="${esc(payUrl)}" style="display:block;text-align:center;background:${GOLD};color:white;padding:16px;border-radius:8px;text-decoration:none;font:16px Arial">${c.cta}</a></p>` : ''}
     <p>${esc(c.reassure)}</p><p><a href="${esc(accountUrl)}" style="color:${INK};font-weight:bold">${accountLabel}</a></p><p style="font:13px Arial;line-height:1.5;color:${MUTED}">${accountHelp}</p>
     <p style="font-size:13px;color:${MUTED}">${L === 'es' ? '¿Alguna pregunta? Responda a este correo y Dayan podrá ayudarle.' : 'Questions? Reply to this email and Dayan can help.'}</p>`;
-  return {subject,html:emailShell(body),text:[text,'',`${accountLabel}: ${accountUrl}`,accountHelp].join('\n')};
+  return {subject,html:emailShell(body),text:[text.replace(c.questions,L === 'es' ? '¿Alguna pregunta? Responda a este correo y Dayan podrá ayudarle.' : 'Questions? Reply to this email and Dayan can help.'),'',`${accountLabel}: ${accountUrl}`,accountHelp].join('\n')};
 }
 
 /** YYYY-MM-DD, n days after the given date. Null in, null out — never a guess. */

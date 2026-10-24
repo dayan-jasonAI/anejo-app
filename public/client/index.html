@@ -62,7 +62,7 @@ window.signOut=signOut;
 async function requestLink(e){e.preventDefault();const email=$('gemail').value.trim();if(!email)return;
   const btn=e.target.querySelector('button');btn.disabled=true;btn.textContent='Sending…';
   try{const r=await fetch('/api/auth/request-link',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,type:'client'})});
-    if(!r.ok)throw new Error();$('main').innerHTML='<div class="gate"><h2>Check your email</h2><p>We sent a sign-in link to <strong>'+esc(email)+'</strong>.</p></div>';
+    if(!r.ok)throw new Error();$('main').innerHTML='<div class="gate"><h2>Check your email</h2><p>If we can send a link to <strong>'+esc(email)+'</strong>, it will arrive shortly. Check your inbox and spam folder.</p></div>';
   }catch(_){btn.disabled=false;btn.textContent='Send sign-in link';}return false;}
 window.requestLink=requestLink;
 function gate(){$('main').innerHTML='<div class="gate"><h2>Your Añejo account</h2><p>Enter your email for a one-time sign-in link to view your orders, rewards, and any meal plan.</p>'+

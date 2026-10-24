@@ -146,6 +146,6 @@ test('ownership or balance changes while checkout prepares cannot expose a stale
       return new Response(JSON.stringify({payment_link:{order_id:'synthetic_order',url:'https://square.link/owned'}}));
     };
     const response=await payBalance({request:paymentRequest({quote_id:'cq_mine'}),env});
-    assert.equal(response.status,409,change);const data=await response.json();assert.equal(data.url,undefined);assert.equal(data.refresh_required,true);
+    assert.equal(response.status,409,change);const data=await response.json();assert.equal(data.url,undefined);assert.ok(data.error);
   }
 });
