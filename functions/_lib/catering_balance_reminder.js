@@ -15,7 +15,7 @@
 // Idempotence lives in the database, not here: catering_balance_reminders has UNIQUE(quote_id,
 // kind), so a scheduler that runs twice, retries, or overlaps itself cannot send twice. The row
 // is written BEFORE the send, so a crash mid-send leaves a record rather than a silent repeat.
-import { sendEmail } from './email.js';
+import { sendEmail, emailShell } from './email.js';
 import { longDate } from './catering_quote_email.js';
 import { createBalanceCheckout } from './catering_balance.js';
 
@@ -61,19 +61,20 @@ const COPY = {
  * The reminder email. Pure — takes values, returns { subject, html, text }. No gift, no upsell,
  * no menu: a person who owes money should be able to read this in five seconds and act.
  */
-export function balanceReminderEmail({ kind, customerName, eventDate, balanceCents, dueDate, payUrl, lang } = {}) {
+export function balanceReminderEmail({ kind, customerName, eventDate, balanceCents, dueDate, payUrl, accountUrl, lang } = {}) {
   const L = lang === 'es' ? 'es' : 'en';
   const c = COPY[L];
   const first = String(customerName || '').trim().split(/\s+/)[0] || '';
   const today = kind === 'due_today';
   const subject = today ? c.subjectToday() : c.subject(longDate(dueDate, L) || dueDate || '');
 
+  const lead = kind === 'balance_request' ? (L === 'es' ? `El saldo de su catering vence el ${longDate(dueDate, L) || dueDate}.` : `Your remaining catering balance is due ${longDate(dueDate, L) || dueDate}.`) : today ? c.today : c.soon;
   const html = `<div style="margin:0;padding:24px 16px;background:#f6f2e7">
 <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="max-width:520px;margin:0 auto;background:#fffdf8;border-radius:10px">
   <tr><td style="padding:26px 26px 0">
     <p style="margin:0 0 18px;font-family:Georgia,serif;font-size:15px;letter-spacing:3px;color:${GOLD}">AÑEJO</p>
     <p style="margin:0 0 14px;font-family:Georgia,serif;font-size:18px;color:${INK}">${esc(c.hello(first))}</p>
-    <p style="margin:0 0 20px;font-family:Georgia,serif;font-size:15px;line-height:1.6;color:${INK}">${esc(today ? c.today : c.soon)}</p>
+    <p style="margin:0 0 20px;font-family:Georgia,serif;font-size:15px;line-height:1.6;color:${INK}">${esc(lead)}</p>
 
     <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%"
       style="border-collapse:collapse;background:#f6f2e7;border-radius:8px;margin:0 0 22px">
@@ -102,7 +103,7 @@ export function balanceReminderEmail({ kind, customerName, eventDate, balanceCen
   const text = [
     c.hello(first),
     '',
-    today ? c.today : c.soon,
+    lead,
     '',
     `${c.eventLabel}: ${longDate(eventDate, L) || eventDate || ''}`,
     `${c.owing}: ${money(balanceCents)}`,
@@ -113,7 +114,16 @@ export function balanceReminderEmail({ kind, customerName, eventDate, balanceCen
     c.questions,
   ].join('\n');
 
-  return { subject, html, text };
+  if (!accountUrl) return { subject, html, text };
+  const accountLabel = L === 'es' ? 'Ver mi cuenta y actividad' : 'View my account and activity';
+  const accountHelp = L === 'es' ? 'Ingrese con el mismo correo de su reserva. No necesita crear una contraseña.' : 'Sign in with the same email used for your booking. No password is needed.';
+  const body = `<p style="font-size:20px;margin-top:0">${esc(c.hello(first))}</p><p>${esc(lead)}</p>
+    <div style="background:#f6f2e7;padding:20px;border-radius:10px"><p style="font:11px Arial;letter-spacing:2px;color:${MUTED}">${c.eventLabel}</p><p>${esc(longDate(eventDate,L)||eventDate||'')}</p>
+    <p style="font:11px Arial;letter-spacing:2px;color:${MUTED}">${c.owing}</p><p style="font:32px Georgia;margin:8px 0">${money(balanceCents)}</p></div>
+    ${payUrl ? `<p style="margin:26px 0"><a href="${esc(payUrl)}" style="display:block;text-align:center;background:${GOLD};color:white;padding:16px;border-radius:8px;text-decoration:none;font:16px Arial">${c.cta}</a></p>` : ''}
+    <p>${esc(c.reassure)}</p><p><a href="${esc(accountUrl)}" style="color:${INK};font-weight:bold">${accountLabel}</a></p><p style="font:13px Arial;line-height:1.5;color:${MUTED}">${accountHelp}</p>
+    <p style="font-size:13px;color:${MUTED}">${L === 'es' ? '¿Alguna pregunta? Responda a este correo y Dayan podrá ayudarle.' : 'Questions? Reply to this email and Dayan can help.'}</p>`;
+  return {subject,html:emailShell(body),text:[text.replace(c.questions,L === 'es' ? '¿Alguna pregunta? Responda a este correo y Dayan podrá ayudarle.' : 'Questions? Reply to this email and Dayan can help.'),'',`${accountLabel}: ${accountUrl}`,accountHelp].join('\n')};
 }
 
 /** YYYY-MM-DD, n days after the given date. Null in, null out — never a guess. */
@@ -293,5 +303,31 @@ export async function runBalanceReminders(env, today, { baseUrl = SITE, dryRun =
     }
   }
 
+  return out;
+}
+
+
+// New collection workflow stages exact, branded payment previews. Automatic sends require
+// a current language/template approval record; staging never grants that authority.
+export async function runStagedBalanceReminders(env,today,{baseUrl=SITE,dryRun=false}={}) {
+  const out={ok:true,date:today,considered:0,staged:[],sent:[],skipped:[],failed:[]};
+  if(!env?.DB)return {...out,ok:false,error:'no_db'};
+  try {
+    const {stageBalanceCollection,sendBalanceCollection,balanceAutomationApproved}=await import('./catering_balance_collection.js');
+    const rows=(await env.DB.prepare("SELECT id,deposit_status,balance_status,balance_cents,balance_due_date,lang FROM catering_quotes WHERE deposit_status='paid' AND balance_status='due'").all()).results||[];
+    for(const row of rows){
+      const kind=reminderDueToday(row,today);if(!kind)continue;out.considered++;
+      if(dryRun){out.staged.push({quote_id:row.id,kind,dry_run:true});continue;}
+      try {
+        const draft=await stageBalanceCollection(env,row.id,{baseUrl,today,kind,actor:'system'});
+        if(!draft.ok){out.skipped.push({quote_id:row.id,kind,why:draft.error});continue;}
+        out.staged.push({quote_id:row.id,kind});
+        if(!await balanceAutomationApproved(env,row.lang)){out.skipped.push({quote_id:row.id,kind,why:'Rendered template approval required; payment email staged for owner review.'});continue;}
+        const result=await sendBalanceCollection(env,{quote_id:row.id,review_hash:draft.draft.review_hash,reviewed:true},{baseUrl,today,actor:'system:approved-template'});
+        if(result.ok)out.sent.push({quote_id:row.id,kind,...result});
+        else {out.ok=false;out.failed.push({quote_id:row.id,kind,error:result.error});}
+      }catch{out.ok=false;out.failed.push({quote_id:row.id,kind,error:'Collection storage or provider unavailable.'});}
+    }
+  }catch{return {...out,ok:false,error:'Collection storage unavailable.'};}
   return out;
 }

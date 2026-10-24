@@ -36,6 +36,8 @@
   .q-editor-status{padding:14px;border-left:4px solid var(--gold);background:var(--cream);line-height:1.6;color:var(--green)}.q-existing-choice{padding:16px;border:1px solid var(--line);border-radius:10px;margin-bottom:16px}.q-existing-choice select,.q-existing-choice button{min-height:44px;width:100%;margin:8px 0}.qcard [data-revise]{min-height:48px;background:var(--green);color:#fff}
   .cajita-review-summary{white-space:pre-wrap;overflow-wrap:anywhere;font:inherit}
   .q-catalog,.q-drafts{padding:16px;background:var(--cream);border:1px solid var(--line);border-radius:12px;margin:16px 0}.q-catalog-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,240px),1fr));gap:12px;margin-top:12px}.q-catalog-item{display:grid;grid-template-columns:68px minmax(0,1fr);gap:12px;background:#fff;padding:12px;border-radius:10px;border:1px solid var(--line)}.q-catalog-item img{width:68px;height:68px;object-fit:contain}.q-catalog-item button{min-height:44px;width:100%;margin-top:8px}.q-catalog-item small{display:block;line-height:1.5}.q-line label{display:block;font-size:13px;font-weight:650}.q-line-options{grid-column:1/-1;display:grid;gap:6px;padding:8px 0 12px;border-bottom:1px solid var(--line)}.q-line-options input[type=checkbox]{width:auto;min-width:24px!important}.q-line-options small{line-height:1.5;font-weight:400}.q-draft-row{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0}.q-draft-row button{min-height:44px}.q-review-check{display:flex;gap:12px;align-items:center;padding:14px;background:var(--cream)}.q-review-check input{width:24px;height:24px}.q-preview-failure{color:#7a2418}.q-plain-preview{white-space:pre-wrap;overflow-wrap:anywhere}.q-line input{min-height:44px}@media(max-width:560px){.q-line{grid-template-columns:minmax(0,1fr) minmax(0,1fr) 44px}.q-line>label:first-child{grid-column:1/-1}.q-line-options{grid-column:1/-1}.split .s{padding:8px}.split .s b{display:block}.q-drafts,.q-catalog{padding:12px}}
+  .q-balance-tile{display:block;text-align:left;width:100%;min-height:115px;padding:20px;border:1px solid var(--gold);border-left:5px solid var(--gold);border-radius:12px;background:#fff;color:var(--green);cursor:pointer;font:inherit}.q-balance-tile strong{display:block;font-size:28px;line-height:1.2}.q-balance-tile span{display:block;margin-top:8px;font-size:13px;line-height:1.5}.q-due-section{scroll-margin-top:90px}.q-due-section:focus{outline:3px solid var(--gold);outline-offset:5px}.q-due-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr));gap:14px}.q-due-card{border:1px solid var(--line);border-top:4px solid var(--gold);border-radius:12px;padding:18px;background:#fff;overflow-wrap:anywhere}.q-due-card h3{font:600 25px/1.2 Georgia,serif;color:var(--green);margin:0 0 10px}.q-due-amount{font:700 30px/1.2 Georgia,serif;color:var(--green);margin:12px 0}.q-due-card .btn{min-height:48px;white-space:normal}.q-payment-links{display:flex;gap:10px;flex-wrap:wrap;margin:10px 0}.q-payment-links .btn{width:auto;flex:1;min-width:140px}.q-balance-note{padding:12px;background:var(--cream);border-radius:8px;line-height:1.6}.q-collection-dialog{width:min(860px,calc(100% - 24px));max-height:92vh;max-height:92dvh;overflow:auto;padding:clamp(16px,3vw,28px);border:1px solid var(--line);border-radius:16px;background:var(--cream);color:var(--green)}.q-collection-dialog::backdrop{background:rgba(12,32,22,.72)}.q-collection-top{position:sticky;top:0;z-index:2;background:var(--cream);padding-bottom:12px;display:flex;gap:14px;justify-content:space-between;align-items:center}.q-collection-top h2{font:600 28px/1.15 Georgia,serif;margin:0}.q-collection-dialog .btn{min-height:44px;width:auto;white-space:normal}.q-collection-dialog p,.q-collection-history{line-height:1.6;overflow-wrap:anywhere}.q-collection-dialog iframe{display:block;width:100%;height:460px;max-height:52vh;background:#fff;border:1px solid var(--line);border-radius:10px}.q-collection-dialog label{font-size:16px;display:flex;align-items:flex-start;gap:12px;padding:16px 0;line-height:1.5}.q-collection-dialog input[type=checkbox]{width:22px;height:22px;flex:0 0 auto;margin-top:2px}.q-collection-dialog [hidden]{display:none!important}.q-collection-dialog pre{white-space:pre-wrap;overflow-wrap:anywhere;font:inherit}.q-collection-dialog button:disabled{opacity:.55;cursor:not-allowed}.q-collection-history{padding-left:20px}.q-collection-links{display:flex;gap:12px;flex-wrap:wrap;margin:14px 0}.q-collection-links a{min-height:44px;display:flex;align-items:center}.q-collection-dialog summary{min-height:44px;padding:10px 0;cursor:pointer}button:focus-visible,a:focus-visible,input:focus-visible{outline:3px solid var(--gold);outline-offset:3px}
+.q-collection-dialog .q-message-field{display:block;font-weight:700}.q-message-field input,.q-message-field textarea{display:block;width:100%;min-height:44px;padding:12px;margin-top:8px;border:1px solid var(--line);border-radius:8px;background:#fff;font:inherit;color:var(--green)}
 </style>
 </head>
 <body>
@@ -55,6 +57,7 @@
 <script src="/hub/assets/catering-i18n.js"></script>
 <script src="/hub/assets/hub.js"></script>
 <script src="/hub/owner/assets/owner.js"></script>
+<script src="/hub/owner/assets/catering-balance.js?v=20261024-collection1"></script>
 <script>
 (function () {
   Hub.boot();
@@ -226,12 +229,10 @@
       '</div>' +
 
 
-      (q.payment_link_url && q.deposit_status !== 'void'
-        ? '<div class="row-sub lnk">Deposit link: <a href="' + esc(q.payment_link_url) + '" target="_blank" rel="noopener">' + esc(q.payment_link_url) + '</a></div>'
-        : '<div class="row-sub">No deposit link on this quote.</div>') +
-
-      (q.balance_payment_link_url && !balPaid ? '<div class="row-sub lnk">Balance link: <a href="'+esc(q.balance_payment_link_url)+'" target="_blank" rel="noopener">Pay final balance through Square</a></div>' : '') +
-      (!balPaid && paid && !q.balance_payment_link_url ? '<button class="btn gold block" data-balance-link="'+esc(q.id)+'">Create Square balance link</button>' : '') +
+      (paid && !balPaid && Number(q.balance_cents)>0 ? '<button type="button" class="btn gold block" data-collect-balance="'+esc(q.id)+'">Collect '+money(q.balance_cents)+' final balance</button><p class="row-sub">Open the branded email preview, payment link and client account. Nothing sends until you approve.</p>' : '') +
+      '<div class="q-payment-links">'+
+      (q.payment_link_url && q.deposit_status !== 'void' && !paid ? '<a class="btn ghost" href="'+esc(q.payment_link_url)+'" target="_blank" rel="noopener">Open deposit checkout</a>' : '')+
+      (q.balance_payment_link_url && paid && !balPaid ? '<a class="btn ghost" href="'+esc(q.balance_payment_link_url)+'" target="_blank" rel="noopener">Open final-payment checkout</a>' : '')+'</div>'+
       (q.deposit_status === 'unpaid'?'<button type="button" class="btn gold block" data-review-saved="'+esc(q.id)+'">Review / send this quote</button>':'')+
       (q.deposit_status === 'unpaid' || q.deposit_status === 'void' ? '<button class="btn ghost block" data-revise="' + esc(JSON.stringify(q)) + '">' + (q.deposit_status === 'void' ? 'View / recover replacement' : 'Edit quote · save changes') + '</button>' : '') +
       (q.deposit_status==='unpaid'&&duplicateAlternatives(q).length?'<button type="button" class="btn ghost block" data-retire-duplicate="'+esc(q.id)+'">Retire duplicate checkout</button>':'')+
@@ -239,9 +240,6 @@
       giftHtml(q) +
       termsHtml(q) +
 
-      (!balPaid && paid && !q.balance_payment_link_url
-        ? '<button class="btn ghost block" style="margin-top:10px" data-balance="' + esc(q.id) + '">Mark ' + money(q.balance_cents) + ' balance paid</button>'
-        : '') +
     '</div>';
   }
 
@@ -330,6 +328,7 @@
       // asking whoever fills this in to remember what she agreed to.
       lead_id: r.lead_id || r.id || '',
     };
+    var linkedQuotes=associatedQuotes(r), dueQuotes=linkedQuotes.filter(isBalanceDue),currentBooking=linkedQuotes.length===1?linkedQuotes[0]:null;
     var contact = [r.email || '', r.phone || ''].filter(Boolean).join(' · ');
     var targetLead = new URLSearchParams(window.location.search).get('lead');
     var files = (r.attachments || []).map(function (file) {
@@ -344,15 +343,17 @@
         (r.company ? ' · ' + esc(r.company) : '') +
         (r.created_at ? ' · ' + C.label('received') + ' ' + day(r.created_at) : '') + '</div>' +
       (contact ? '<div class="row-sub">' + esc(contact) + '</div>' : '') +
-      '<div class="rbody"><b>'+esc(msgField(r.message,'Event type')||'Event')+'</b><br>'+esc(msgField(r.message,'Event date'))+' · '+esc(msgField(r.message,'Serving time'))+'<br>'+esc(msgField(r.message,'Guest count'))+' guests · '+esc(msgField(r.message,'Location'))+'</div>'+
+      (currentBooking?'<div class="rbody"><b>Current saved '+(currentBooking.deposit_status==='paid'?'booking':'quote')+'</b><br>'+esc(currentBooking.event_date||'Date not recorded')+' · '+esc(currentBooking.guests||'—')+' guests<br><b>'+money(currentBooking.total_cents)+'</b> · deposit '+esc(currentBooking.deposit_status||'unpaid')+'<br><a href="#quote-'+esc(currentBooking.id)+'">View saved booking details</a></div>':'')+
+      '<div class="rbody"><b>Original request · '+esc(msgField(r.message,'Event type')||'Event')+'</b><br>'+esc(msgField(r.message,'Event date'))+' · '+esc(msgField(r.message,'Serving time'))+'<br>'+esc(msgField(r.message,'Guest count'))+' guests · '+esc(msgField(r.message,'Location'))+'</div>'+
       '<details class="rbody"><summary>' + C.label('Original request (as submitted)') + '</summary>' + (r.message ? esc(r.message) : C.label('No event details provided.')) + '</details>' +
       (r.cajita_configuration || r.cajita_summary ? '<details class="rbody"><summary>' + C.label('Exact Cajita configuration') + '</summary>' + C.summaryHtml(r.cajita_configuration,r.cajita_summary) + '</details>' : '') +
       (files ? '<div class="rfiles"><b>' + C.label('Private design files · owner only') + '</b>' + files + '</div>' : '') +
-      suggestionHtml(r.suggested) +
+      (linkedQuotes.length?'<details class="terms"><summary>Original request menu suggestion · not the agreed quote</summary>'+suggestionHtml(r.suggested)+'</details>':suggestionHtml(r.suggested)) +
+      (dueQuotes.length ? dueQuotes.map(function(q){return '<div class="q-balance-note"><b>Booked · deposit received</b><br>Final balance '+money(q.balance_cents)+(q.balance_due_date?' · due '+esc(q.balance_due_date):' · due date not recorded')+'<button type="button" class="btn gold block" data-collect-balance="'+esc(q.id)+'">Collect final balance · '+money(q.balance_cents)+'</button></div>';}).join('') : '') +
       '<div class="ractions">' +
         '<a class="btn ghost" href="/hub/owner/catering-service.html?lead='+encodeURIComponent(r.id)+'">Messages &amp; follow-up</a>'+
         '<button class="btn ghost" type="button" data-prefill="' + esc(JSON.stringify(payload)) + '">' + (payload.existing_quote_ids.length ? (payload.existing_quote_ids.length === 1 ? 'Edit existing quote' : 'Choose existing quote') : C.label('Start a quote')) + '</button>' +
-        (r.email ? '<a class="btn ghost" href="mailto:' + esc(encodeURIComponent(r.email)) + '?subject=' + encodeURIComponent('Your Añejo catering request') + '">' + C.label('Email customer') + '</a>' : '') +
+        (r.email ? '<button type="button" class="btn ghost" data-email-lead="'+esc(r.id)+'">Email customer · branded</button>' : '') +
       '</div></article>';
   }
 
@@ -859,6 +860,9 @@
     root.querySelectorAll('[data-revise]').forEach(function(button){button.addEventListener('click',function(){return beginRevision(JSON.parse(button.getAttribute('data-revise')));});});
   }
 
+  function isBalanceDue(q){return q.deposit_status==='paid'&&q.balance_status==='due'&&Number(q.balance_cents)>0;}
+  function dueCard(q){return '<article class="q-due-card"><h3>'+esc(q.customer_name||'Catering booking')+'</h3><p class="row-sub">Event '+esc(q.event_date||'date not recorded')+' · '+esc(q.guests||'—')+' guests</p><p>Deposit received: <b>'+money(q.deposit_cents)+'</b>'+ (q.deposit_paid_at?' · '+esc(day(q.deposit_paid_at)):'')+'</p><div class="q-due-amount">'+money(q.balance_cents)+'</div><p><b>Final payment due '+esc(q.balance_due_date||'date not recorded')+'</b></p><button class="btn gold block" type="button" data-collect-balance="'+esc(q.id)+'">Collect final balance</button><p class="row-sub">Review the branded payment email and client account before sending.</p><a class="btn ghost block" href="#quote-'+esc(q.id)+'">View booking and payment record</a></article>';}
+  function openBalances(){var section=document.getElementById('balances-due');if(section){section.scrollIntoView({behavior:window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth',block:'start'});section.focus({preventScroll:true});}}
   function render() {
     revisionSource = null; revisionPreview = null;editorDirty=false;draftRecord=null;
     Owner.get(ENDPOINT).then(function (d) {
@@ -871,7 +875,8 @@
       var cs = d.changes || [];
       var openChanges = cs.filter(function (c) { return c.status === 'open'; });
       var unpaid = qs.filter(function (q) { return q.deposit_status === 'unpaid'; });
-      var owed = qs.reduce(function (n, q) { return n + (q.deposit_status !== 'void' && q.balance_status === 'due' ? Number(q.balance_cents || 0) : 0); }, 0);
+      var dueQuotes=qs.filter(isBalanceDue).sort(function(a,b){return String(a.balance_due_date||a.event_date||'9999').localeCompare(String(b.balance_due_date||b.event_date||'9999'));});
+      var owed=dueQuotes.reduce(function(n,q){return n+Number(q.balance_cents||0);},0);
 
       root.innerHTML =
         '<div class="card-grid">' +
@@ -879,8 +884,9 @@
           Owner.tile(String(rs.length), 'Website requests', { accent: rs.length ? 'accent' : '' }) +
           Owner.tile(String(qs.length), 'Quotes') +
           Owner.tile(String(unpaid.length), 'Deposits unpaid', { accent: unpaid.length ? 'accent' : '' }) +
-          Owner.tile(money(owed), 'Balances still owed') +
+          '<button type="button" class="q-balance-tile" id="show-balances-due" aria-controls="balances-due"><strong>'+money(owed)+'</strong><span>Balances still owed · '+dueQuotes.length+' booked event'+(dueQuotes.length===1?'':'s')+'<br>View and collect final payments →</span></button>' +
         '</div>' +
+        '<section class="hub-section q-due-section" id="balances-due" tabindex="-1" aria-labelledby="balances-due-heading"><h2 id="balances-due-heading">Final payments to collect</h2><p class="row-sub">Booked events with a recorded deposit and an outstanding final balance. Dates and amounts come from the saved booking.</p><div class="q-due-grid">'+(dueQuotes.length?dueQuotes.map(dueCard).join(''):'<p class="q-balance-note">No final balances currently due on deposit-paid bookings.</p>')+'</div></section>'+
         // Ahead of everything else on this page: somebody who has already booked is waiting on an
         // answer, and an unanswered customer phones instead.
         '<div class="hub-section"><h2>Customer requests</h2>' +
@@ -895,6 +901,10 @@
         '</div>';
 
       wireForm();loadCatalog();loadDrafts();
+      document.getElementById('show-balances-due').onclick=openBalances;
+      root.querySelectorAll('[data-collect-balance]').forEach(function(button){button.onclick=function(){window.CateringBalance.open(button.getAttribute('data-collect-balance'));};});
+      root.querySelectorAll('[data-email-lead]').forEach(function(button){button.onclick=function(){window.CateringBalance.compose(button.getAttribute('data-email-lead'));};});
+      if(window.location.hash==='#balances-due')openBalances();
       root.querySelectorAll('[data-review-saved]').forEach(function(button){button.addEventListener('click',function(){reviewSavedQuote(button.getAttribute('data-review-saved'));});});
       wireRevisionEditor(root);
       wireCheckoutStatus(root);

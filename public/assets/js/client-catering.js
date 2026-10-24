@@ -41,6 +41,10 @@
       call: 'Call 561-778-7474', email: 'Email us',
       loading: 'Loading the menu…', addSel: 'Add', none: 'Nothing selected yet.',
       pickQty: 'Quantity',
+      opening: 'Opening secure payment…', paymentFailed: 'Payment could not be opened. Please try again.',
+      activity: 'Payment activity', deposit_received: 'Deposit received', balance_received: 'Final payment recorded',
+      balance_waived: 'Balance waived', balance_email_accepted: 'Balance email accepted by our email provider',
+      waived: 'Balance waived', payDeposit: 'Pay booking deposit',
     },
     es: {
       yours: 'Sus eventos', past: 'Eventos pasados', guests: 'invitados', at: 'a las',
@@ -65,6 +69,10 @@
       call: 'Llamar 561-778-7474', email: 'Escríbanos',
       loading: 'Cargando el menú…', addSel: 'Agregar', none: 'Nada seleccionado todavía.',
       pickQty: 'Cantidad',
+      opening: 'Abriendo el pago seguro…', paymentFailed: 'No se pudo abrir el pago. Inténtelo nuevamente.',
+      activity: 'Actividad de pagos', deposit_received: 'Depósito recibido', balance_received: 'Pago final registrado',
+      balance_waived: 'Saldo exonerado', balance_email_accepted: 'El proveedor de correo aceptó el recordatorio de saldo',
+      waived: 'Saldo exonerado', payDeposit: 'Pagar el depósito',
     },
   };
 
@@ -74,7 +82,7 @@
     });
   };
   var money = function (c) { return '$' + ((Number(c) || 0) / 100).toFixed(2); };
-  var today = function () { return new Date().toISOString().slice(0, 10); };
+  var today = function () { return new Intl.DateTimeFormat('en-CA', {timeZone:'America/New_York'}).format(new Date()); };
 
   function shortDate(ms, lang) {
     if (!ms) return '';
@@ -126,6 +134,7 @@
 
   function statusPill(e, t) {
     if (e.balance_status === 'paid') return '<span class="cc-pill ok">' + esc(t.paidFull) + '</span>';
+    if (e.balance_status === 'waived') return '<span class="cc-pill ok">' + esc(t.waived) + '</span>';
     if (e.deposit_status === 'paid') {
       return '<span class="cc-pill warn">' + money(e.balance_cents) + ' ' + esc(t.owes) +
         (e.balance_due_date ? ' · ' + esc(e.balance_due_date) : '') + '</span>';
@@ -196,9 +205,16 @@
 
       '<div class="cc-cta">' +
         (e.url ? '<a class="cc-btn" href="' + esc(e.url) + '">' + esc(t.viewQuote) + '</a>' : '') +
-        (e.balance_status === 'due' && e.url
-          ? '<a class="cc-btn gold" href="' + esc(e.url) + '">' + esc(t.pay) + '</a>' : '') +
+        (e.payment_action === 'balance'
+          ? '<button type="button" class="cc-btn gold cc-pay">' + esc(t.pay) + ' · ' + money(e.balance_cents) + '</button>' : '') +
+        (e.payment_action === 'deposit' && e.url
+          ? '<a class="cc-btn gold" href="' + esc(e.url) + '">' + esc(t.payDeposit) + '</a>' : '') +
       '</div>' +
+      '<p class="cc-payment-msg" role="status"></p>' +
+      ((e.activity && e.activity.length) ? '<div class="cc-block"><h3>' + esc(t.activity) + '</h3><ul class="cc-payment-history">' + e.activity.map(function(a){
+        return '<li><span>' + esc(t[a.kind] || '') + (a.amount_cents != null ? ' · ' + money(a.amount_cents) : '') + '</span>' +
+          (a.at ? '<time>' + esc(shortDate(a.at, lang)) + '</time>' : '') + '</li>';
+      }).join('') + '</ul></div>' : '') +
 
       (isPast ? '' :
         '<div class="cc-block"><h3>' + esc(t.ask) + '</h3>' +
@@ -292,6 +308,29 @@
 
   function wire(section, e, t) {
     var lang = e.lang === 'es' ? 'es' : 'en';
+    var pay = section.querySelector('.cc-pay');
+    if (pay) pay.addEventListener('click', function () {
+      var out = section.querySelector('.cc-payment-msg');
+      var label = pay.textContent;
+      pay.disabled = true; pay.textContent = t.opening; out.textContent = '';
+      fetch('/api/client/catering-balance', {
+        method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({quote_id:e.id})
+      }).then(function(r){return r.json().then(function(d){return {ok:r.ok,status:r.status,data:d};});})
+        .then(function(r){
+          if (r.status === 409 && (r.data.settled || r.data.refresh_required)) {
+            out.textContent = r.data.error || t.paymentFailed;
+            if (window.AnejoCatering && window.AnejoCatering.onSent) window.AnejoCatering.onSent();
+            return; // Keep the stale payment button locked, even if the refresh is unavailable.
+          }
+          if (!r.ok || !r.data.ok || !r.data.url) throw new Error(r.data.error || t.paymentFailed);
+          var url = new URL(r.data.url);
+          if (url.protocol !== 'https:' || !/^(square\.link|squareup\.com|checkout\.square\.site)$/.test(url.hostname)) throw new Error(t.paymentFailed);
+          window.location.assign(url.href);
+        }).catch(function(error){
+          out.textContent = error.message || t.paymentFailed; out.className = 'cc-payment-msg bad';
+          pay.disabled = false; pay.textContent = label;
+        });
+    });
     var form = section.querySelector('.cc-form');
     if (!form) return;
 

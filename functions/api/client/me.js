@@ -2,8 +2,8 @@
 import { json as responseJson } from '../../_lib/util.js';
 const json = (body, status = 200) => responseJson(body, status, { 'Cache-Control': 'no-store, private' });
 import { currentUser } from '../../_lib/session.js';
-import { rewardsSummary } from '../../_lib/rewards.js';
 import { customerOrders } from '../../_lib/customer-orders.js';
+import { customerAccount, customerAccountRewards } from '../../_lib/customer-accounts.js';
 import { bowlImage } from '../../_lib/bowlspec.js';
 
 export const onRequestGet = async ({ request, env }) => {
@@ -11,8 +11,14 @@ export const onRequestGet = async ({ request, env }) => {
   if (!sess || sess.type !== 'client') return json({ authenticated: false }, 200);
   if (!env.DB) return json({ authenticated: true, email: sess.email }, 200);
 
-  const rewards = await rewardsSummary(env, sess.email);
   const orders = await customerOrders(env, sess.email);
+  const account = await customerAccount(env, sess.email);
+  let rewards = null, rewardsActivity = null;
+  try {
+    const recorded = await customerAccountRewards(env, sess.email);
+    rewards = recorded.summary;
+    rewardsActivity = recorded.activity;
+  } catch { /* Show unavailable, never manufacture a zero balance or an empty ledger. */ }
 
   // CATERING CUSTOMERS ARE CUSTOMERS.
   //
@@ -27,7 +33,10 @@ export const onRequestGet = async ({ request, env }) => {
   const cateringRows = await env.DB.prepare(
     `SELECT id, customer_name, event_date, serving_time, guests, total_cents, deposit_cents,
             balance_cents, deposit_status, balance_status, balance_due_date, final_count_due,
-            address, theme, colors, access_token, lang, quote_json
+            address, theme, colors, access_token, lang, quote_json,
+            deposit_paid_at, deposit_paid_cents, balance_paid_at,
+            (SELECT amount_cents FROM catering_balance_checkouts b WHERE b.quote_id=catering_quotes.id AND b.paid_at IS NOT NULL) AS balance_received_cents,
+            (SELECT MAX(sent_at) FROM catering_balance_reminders r WHERE r.quote_id=catering_quotes.id AND r.receipt_status='accepted') AS balance_email_accepted_at
        FROM catering_quotes
       WHERE LOWER(TRIM(customer_email)) = ? AND deposit_status != 'void'
       ORDER BY event_date DESC LIMIT 20`
@@ -43,6 +52,13 @@ export const onRequestGet = async ({ request, env }) => {
       balance_status: q.balance_status, balance_due_date: q.balance_due_date,
       final_count_due: q.final_count_due, address: q.address, theme: q.theme, colors: q.colors,
       lang: q.lang || 'en',
+      payment_action: q.balance_status === 'paid' || q.balance_status === 'waived' ? null : q.deposit_status === 'paid' && q.balance_status === 'due' && q.balance_cents > 0 ? 'balance' : q.deposit_status === 'unpaid' ? 'deposit' : null,
+      activity: [
+        q.deposit_status === 'paid' ? { kind: 'deposit_received', at: q.deposit_paid_at, amount_cents: q.deposit_paid_cents } : null,
+        q.balance_email_accepted_at ? { kind: 'balance_email_accepted', at: q.balance_email_accepted_at } : null,
+        q.balance_status === 'paid' ? { kind: 'balance_received', at: q.balance_paid_at, amount_cents: q.balance_received_cents } : null,
+        q.balance_status === 'waived' ? { kind: 'balance_waived', at: null } : null,
+      ].filter(Boolean),
       // Her own quote page: the menu, the terms, the payment state — and, where one was given and
       // the balance is settled, the gift. It already exists and is already hers; the account page
       // links to it rather than rebuilding any of it.
@@ -82,9 +98,9 @@ export const onRequestGet = async ({ request, env }) => {
   }
 
   const client = await env.DB
-    .prepare('SELECT id, name, email, phone, primary_goal, status FROM clients WHERE email = ? ORDER BY updated_at DESC LIMIT 1')
-    .bind(sess.email).first();
-  if (!client) return json({ authenticated: true, email: sess.email, client: null, rewards, catering, orders });
+    .prepare('SELECT id, name, email, phone, primary_goal, status FROM clients WHERE LOWER(TRIM(email)) = ? ORDER BY updated_at DESC LIMIT 1')
+    .bind(String(sess.email).trim().toLowerCase()).first();
+  if (!client) return json({ authenticated: true, email: sess.email, account, client: null, rewards, rewards_status: rewards ? 'available' : 'unavailable', rewards_activity: rewardsActivity, catering, orders });
 
   const plan = await env.DB
     .prepare('SELECT public_token, daily_calories, daily_protein_g, daily_carbs_g, daily_fat_g, meal_plan_tier, bowl_size_oz, per_bowl_price_cents, status FROM plans WHERE client_id = ? ORDER BY created_at DESC LIMIT 1')
@@ -139,5 +155,5 @@ export const onRequestGet = async ({ request, env }) => {
   } catch { prefill = null; }
 
   // catering rides along for a meal-plan client too — the same person can be both.
-  return json({ authenticated: true, email: sess.email, client, plan, subscription: sub || null, rewards, today_bowls: todayBowls, prefill, catering, orders });
+  return json({ authenticated: true, email: sess.email, account, client, plan, subscription: sub || null, rewards, rewards_status: rewards ? 'available' : 'unavailable', rewards_activity: rewardsActivity, today_bowls: todayBowls, prefill, catering, orders });
 };

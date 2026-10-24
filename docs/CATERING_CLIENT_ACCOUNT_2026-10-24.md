@@ -1,0 +1,15 @@
+# Catering customer account and final-payment access
+
+Implemented locally on `codex/catering-balance-collection`; release and live acceptance are tracked by the parent handoff.
+
+- Migration `0158_customer_accounts.sql` adds one canonical email-normalized contact/account across guest retail and catering; paid historical rows backfill without creating login sessions, marketing consent, meal plans, or rewards.
+- Existing magic-link verification remains the only customer identity gate. Successful client verification ensures the canonical account. No quote token can mint a customer session.
+- Payment integrations call `ensureCateringCustomerAccount(env,quoteId)` after the paid quote is durable, including replay. The helper derives identity from the saved paid quote. Retail uses `ensureCustomerAccount(env,{email,name,phone,source:'retail_payment'})` with the saved paid order's contact information. A transient account write failure must propagate for retry.
+- `/api/client/me` reads only the verified session email. It includes that customer's quote summary, recorded deposit/final-payment activity, provider-accepted reminder timestamp, and existing recorded rewards ledger. Internal provider IDs, other customers and arbitrary quote metadata are not returned.
+- `/api/client/catering-balance` is POST-only, authenticated, same-origin checked, and verifies quote ownership before reusing/creating the exact saved balance through the shared checkout helper. Caller email, amount and URL have no authority. Settled/waived/void/unpaid-deposit paths do not produce a final-payment link. Final state is re-read before returning an HTTPS Square URL.
+- `/client/dashboard` and `/client/` show a touch-sized Pay the balance button with amount, opening/error feedback, and payment history. No tiny raw link or manual copying is required. Rewards failures are shown as unavailable rather than zero/empty, and the perks read the existing configuration's actual free-delivery flag.
+- Catering does not automatically accrue points under this change. No new reward policy, retroactive points, discounts or gifts were invented. Existing recorded points/activity remain visible.
+
+Validation: `node --no-warnings --test test/auth/*.test.js test/money/catering-customer-account.test.js test/money/catering-kitchen-link.test.js test/money/catering-balance.test.js` and ESLint on touched backend/tests. Additional account-security tests use real SQLite with all migrations: verified identity, wrong-customer exclusion, no public email lookup, replay canonicalization, exact owned checkout reuse, settled state, recorded reward isolation and storage-failure disclosure. Provider calls in tests are blocked/stubbed; no customer messages or real payments were made.
+
+Release order: apply additive migrations 0157 (reminder receipts), then 0158 (accounts), before dependent app release. Existing account login and quote tokens are preserved. A UI rollback can leave the additive account table/data in place; do not drop historical account records.

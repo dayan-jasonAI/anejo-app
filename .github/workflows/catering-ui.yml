@@ -4,6 +4,12 @@ on:
     paths:
       - 'public/hub/owner/catering*'
       - 'public/hub/owner/assets/catering-service.js'
+      - 'public/hub/owner/assets/catering-balance.js'
+      - 'public/client/**'
+      - 'public/assets/js/client-catering.js'
+      - 'public/assets/css/client-catering.css'
+      - 'scripts/verify-catering-balance-ui.cjs'
+      - 'scripts/verify-catering-client-account.cjs'
       - 'scripts/verify-catering-ui.cjs'
       - 'scripts/verify-catering-workspace.cjs'
       - '.github/workflows/catering-ui.yml'
@@ -19,8 +25,12 @@ jobs:
       - run: npx playwright install --with-deps chromium
       - run: node scripts/verify-catering-ui.cjs
       - run: node scripts/verify-catering-workspace.cjs
+      - run: node scripts/verify-catering-balance-ui.cjs
+      - run: node scripts/verify-catering-client-account.cjs
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: catering-ui-synthetic-evidence
-          path: /tmp/catering-ui-evidence
+          path: |
+            /tmp/catering-ui-evidence
+            /tmp/catering-balance-ui-evidence
