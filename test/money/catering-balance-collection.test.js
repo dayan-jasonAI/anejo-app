@@ -1,8 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import {DatabaseSync} from 'node:sqlite';
+import {readFileSync} from 'node:fs';
 import {ownerEnv,OWNER_COOKIE} from '../helpers/sqlite-d1.js';
 import {getBalanceCollection,stageBalanceCollection,sendBalanceCollection,approveBalanceAutomation,balanceAutomationApproved} from '../../functions/_lib/catering_balance_collection.js';
 import {onRequestGet,onRequestPost} from '../../functions/api/hub/owner/catering-balance.js';
+import {runStagedBalanceReminders} from '../../functions/_lib/catering_balance_reminder.js';
 
 const TODAY='2026-10-24',QID='cq_collection_test',opts={today:TODAY,baseUrl:'https://anejocateringco.com',actor:'owner@test.example'};
 function fixture(){
@@ -100,3 +103,50 @@ test('last-moment payment after atomic claim suppresses send',async()=>provider(
  env.DB.batch=async statements=>{const out=await batch(statements);if(!changed){changed=true;env.DB.exec("UPDATE catering_quotes SET balance_status='paid'");}return out;};
  const out=await sendBalanceCollection(env,sendBody(s),opts);assert.equal(out.status,'suppressed');assert.equal(seen.length,1);assert.equal(env.DB.one('SELECT error FROM catering_balance_reminders').error,'quote_state_changed_before_send');
 }));
+test('scheduler stages exact payment email with defaultoff automation, no Resend sends, and repeat reusescheckout',async()=>provider(async seen=>{
+ const env=fixture(),first=await runStagedBalanceReminders(env,TODAY,opts),again=await runStagedBalanceReminders(env,TODAY,opts);
+ assert.equal(first.ok,true);assert.equal(first.staged.length,1);assert.equal(first.sent.length,0);assert.match(first.skipped[0].why,/approval/);assert.equal(again.staged.length,1);assert.equal(seen.length,1);assert.equal((await getBalanceCollection(env,QID,opts)).draft.status,'staged');
+}));
+test('scheduler sends approved template once and secondrun sharesownerclaimdedupe',async()=>provider(async seen=>{
+ const env=fixture(),s=await stageBalanceCollection(env,QID,opts);await approveBalanceAutomation(env,{...sendBody(s),enable:true},opts);
+ const result=await runStagedBalanceReminders(env,TODAY,opts);assert.equal(result.sent.length,1);assert.equal(result.sent[0].provider_accepted,true);assert.equal(result.sent[0].delivery_verified,false);
+ const again=await runStagedBalanceReminders(env,TODAY,opts);assert.equal(again.sent.length,0);assert.equal(seen.filter(x=>x.url.includes('resend.com')).length,1);assert.equal(env.DB.one('SELECT count(*) n FROM catering_balance_reminders').n,1);
+}));
+test('settled payment is excluded from scheduler, including aftertemplateapproval',async()=>provider(async seen=>{
+ const env=fixture(),s=await stageBalanceCollection(env,QID,opts);await approveBalanceAutomation(env,{...sendBody(s),enable:true},opts);env.DB.exec("UPDATE catering_quotes SET balance_status='paid'");
+ const result=await runStagedBalanceReminders(env,TODAY,opts);assert.equal(result.considered,0);assert.equal(result.sent.length,0);assert.equal(seen.length,1);
+}));
+test('scheduler dryrun performsno provider or draftwrites',async()=>provider(async seen=>{
+ const env=fixture(),result=await runStagedBalanceReminders(env,TODAY,{...opts,dryRun:true});assert.equal(result.staged[0].dry_run,true);assert.equal(seen.length,0);assert.equal(env.DB.one('SELECT count(*) n FROM catering_balance_collection_drafts').n,0);
+}));
+test('changed draft atclaimtime creates no phantom sending claim or provider call',async()=>provider(async seen=>{
+ const env=fixture(),s=await stageBalanceCollection(env,QID,opts),batch=env.DB.batch.bind(env.DB);
+ env.DB.batch=async statements=>{env.DB.exec("UPDATE catering_balance_collection_drafts SET review_hash='newer_review'");return batch(statements);};
+ assert.equal((await sendBalanceCollection(env,sendBody(s),opts)).ok,false);assert.equal(env.DB.one('SELECT count(*) n FROM catering_balance_reminders').n,0);assert.equal(seen.length,1);
+}));
+test('changed finalcheckout afterclaim blocks even if quote amount/status didnotchange',async()=>{
+ for(const mutation of ["payment_link_url='https://square.link/changed'","square_order_id='new_order'","paid_at=1","amount_cents=17000"]){await provider(async seen=>{
+  const env=fixture(),s=await stageBalanceCollection(env,QID,opts),batch=env.DB.batch.bind(env.DB);let changed=false;
+  env.DB.batch=async statements=>{const r=await batch(statements);if(!changed){changed=true;env.DB.exec(`UPDATE catering_balance_checkouts SET ${mutation}`);}return r;};
+  const r=await sendBalanceCollection(env,sendBody(s),opts);assert.equal(r.status,'suppressed');assert.equal(seen.length,1);
+ });}
+});
+test('settling balance between automationreview and policywrite cannot enable policy',async()=>provider(async seen=>{
+ const env=fixture(),s=await stageBalanceCollection(env,QID,opts),prepare=env.DB.prepare.bind(env.DB);
+ env.DB.prepare=sql=>{if(sql.startsWith('INSERT INTO catering_balance_collection_policy'))env.DB.exec("UPDATE catering_quotes SET balance_status='paid'");return prepare(sql);};
+ const r=await approveBalanceAutomation(env,{...sendBody(s),enable:true},opts);assert.equal(r.ok,false);assert.equal(await balanceAutomationApproved(env,'en'),false);assert.equal(seen.length,1);
+}));
+test('automation approval revoked afterclaim prevents scheduler-style send',async()=>provider(async seen=>{
+ const env=fixture(),s=await stageBalanceCollection(env,QID,opts);await approveBalanceAutomation(env,{...sendBody(s),enable:true},opts);const batch=env.DB.batch.bind(env.DB);let changed=false;
+ env.DB.batch=async statements=>{const r=await batch(statements);if(!changed){changed=true;env.DB.exec('UPDATE catering_balance_collection_policy SET enabled=0');}return r;};
+ const r=await sendBalanceCollection(env,sendBody(s),{...opts,actor:'system:approved-template'});assert.equal(r.status,'suppressed');assert.equal(seen.length,1);assert.equal(env.DB.one('SELECT error FROM catering_balance_reminders').error,'automation_approval_changed_before_send');
+}));
+test('migration carries actual legacy Resend receipts but never promotes timestamponly or corrupt evidence',()=>{
+ const db=new DatabaseSync(':memory:');db.exec('CREATE TABLE catering_quotes(id TEXT PRIMARY KEY);CREATE TABLE activity_log(id TEXT PRIMARY KEY,event TEXT,properties TEXT);');db.exec(readFileSync(new URL('../../migrations/0103_catering_balance_reminders.sql',import.meta.url),'utf8'));
+ const evidence=[['good',{quote_id:'good',kind:'due_soon',provider:'resend',receipt_id:'old-receipt'}],['wrong',{quote_id:'different',kind:'due_soon',provider:'resend',receipt_id:'other'}],['bad',null],['timestamp',null]];
+ for(const [qid,props]of evidence){db.prepare('INSERT INTO catering_quotes VALUES(?)').run(qid);db.prepare("INSERT INTO catering_balance_reminders(id,quote_id,kind,amount_cents,created_at,sent_at) VALUES(?,?,'due_soon',100,1,2)").run(qid,qid);if(qid!=='timestamp')db.prepare("INSERT INTO activity_log VALUES(?,'catering.balance_reminder.accepted',?)").run('balance_reminder_'+qid+'_due_soon',props?JSON.stringify(props):'invalid json');}
+ db.exec(readFileSync(new URL('../../migrations/0157_catering_balance_collection.sql',import.meta.url),'utf8'));
+ const good=db.prepare("SELECT receipt_id,receipt_status FROM catering_balance_reminders WHERE quote_id='good'").get();assert.equal(good.receipt_id,'old-receipt');assert.equal(good.receipt_status,'accepted');
+ for(const qid of ['wrong','bad','timestamp']){const row=db.prepare('SELECT receipt_id,receipt_status FROM catering_balance_reminders WHERE quote_id=?').get(qid);assert.equal(row.receipt_id,null);assert.equal(row.receipt_status,null);}
+ db.close();
+});

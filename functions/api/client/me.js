@@ -52,7 +52,7 @@ export const onRequestGet = async ({ request, env }) => {
       balance_status: q.balance_status, balance_due_date: q.balance_due_date,
       final_count_due: q.final_count_due, address: q.address, theme: q.theme, colors: q.colors,
       lang: q.lang || 'en',
-      payment_action: q.deposit_status === 'paid' && q.balance_status === 'due' && q.balance_cents > 0 ? 'balance' : q.deposit_status === 'unpaid' ? 'deposit' : null,
+      payment_action: q.balance_status === 'paid' || q.balance_status === 'waived' ? null : q.deposit_status === 'paid' && q.balance_status === 'due' && q.balance_cents > 0 ? 'balance' : q.deposit_status === 'unpaid' ? 'deposit' : null,
       activity: [
         q.deposit_status === 'paid' ? { kind: 'deposit_received', at: q.deposit_paid_at, amount_cents: q.deposit_paid_cents } : null,
         q.balance_email_accepted_at ? { kind: 'balance_email_accepted', at: q.balance_email_accepted_at } : null,
@@ -98,8 +98,8 @@ export const onRequestGet = async ({ request, env }) => {
   }
 
   const client = await env.DB
-    .prepare('SELECT id, name, email, phone, primary_goal, status FROM clients WHERE email = ? ORDER BY updated_at DESC LIMIT 1')
-    .bind(sess.email).first();
+    .prepare('SELECT id, name, email, phone, primary_goal, status FROM clients WHERE LOWER(TRIM(email)) = ? ORDER BY updated_at DESC LIMIT 1')
+    .bind(String(sess.email).trim().toLowerCase()).first();
   if (!client) return json({ authenticated: true, email: sess.email, account, client: null, rewards, rewards_status: rewards ? 'available' : 'unavailable', rewards_activity: rewardsActivity, catering, orders });
 
   const plan = await env.DB

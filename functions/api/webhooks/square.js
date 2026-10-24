@@ -262,7 +262,13 @@ export const onRequestPost = async ({ request, env }) => {
         }
 
         // Retry on a balance-storage failure; a received payment must not be silently lost.
-        try { await markBalancePaid(env, pay.order_id, pay.amount_money?.amount, pay.amount_money?.currency); }
+        try {
+          const balance=await markBalancePaid(env,pay.order_id,pay.amount_money?.amount,pay.amount_money?.currency);
+          if(balance?.reconciliation_required){
+            const alert=await raiseAlert(env,{alert_type:'catering_deposit_paid',severity:'critical',onceEver:true,dedupe_key:'catering_balance_reconciliation:'+pay.order_id,title:'Catering final payment needs reconciliation',body:'A completed capture could not settle the current quoted balance. Review the saved checkout and Square payment before further collection.',ref_type:'catering_quote',ref_id:balance.quote_id});
+            if(!alert.ok)return new Response('Balance reconciliation alert unavailable',{status:503});
+          }
+        }
         catch { return new Response('Balance reconciliation temporarily unavailable', { status:503 }); }
 
         // CATERING DEPOSIT: a paid deposit link → flip the quote to deposit-paid and leave the

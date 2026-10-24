@@ -46,21 +46,22 @@ export async function getBalanceCollection(env,quoteId,{today=balanceCollectionD
   const blocked=reason(q)||receiptBlock(rows,kind,today);
   return {ok:true,quote:q,history:rows,draft:publicDraft(draft),eligible:!blocked,reason:blocked,automation:await balanceCollectionAutomation(env,q?.lang)};
 }
-async function snapshot(q,{baseUrl,today,kind,payUrl}){
+async function snapshot(q,{baseUrl,today,kind,payUrl,checkoutOrderId}){
   const accountUrl=baseUrl+'/client/dashboard?catering=1';
   const email=balanceReminderEmail({kind:kind==='due_soon'?'due_soon':q.balance_due_date===today?'due_today':'balance_request',customerName:q.customer_name,eventDate:q.event_date,balanceCents:q.balance_cents,dueDate:q.balance_due_date,payUrl,accountUrl,lang:q.lang});
-  return {version:'balance-collection-v1',template_hash:await templateHash(q.lang==='es'?'es':'en'),quote_id:q.id,quote_updated_at:q.updated_at,kind,recipient:q.customer_email.trim().toLowerCase(),amount_cents:q.balance_cents,due_date:q.balance_due_date,event_date:q.event_date,lang:q.lang||'en',review_date:today,pay_url:payUrl,account_url:accountUrl,...email};
+  return {version:'balance-collection-v1',template_hash:await templateHash(q.lang==='es'?'es':'en'),quote_id:q.id,quote_updated_at:q.updated_at,kind,recipient:q.customer_email.trim().toLowerCase(),amount_cents:q.balance_cents,due_date:q.balance_due_date,event_date:q.event_date,lang:q.lang||'en',review_date:today,pay_url:payUrl,checkout_order_id:checkoutOrderId,account_url:accountUrl,...email};
 }
 export async function approveBalanceAutomation(env,body,{baseUrl=SITE,today=balanceCollectionDate(),actor='owner'}={}){
   if(body.reviewed!==true||!/^[a-f0-9]{64}$/.test(body.review_hash||'')||typeof body.enable!=='boolean')return fail('Review the payment email and explicitly choose whether to enable future reminders.');
   const draft=await env.DB.prepare('SELECT * FROM catering_balance_collection_drafts WHERE quote_id=? AND review_hash=?').bind(body.quote_id,body.review_hash).first();
   if(!draft)return fail('Stage and review the current email before changing reminder automation.');
-  const q=await loadQuote(env,body.quote_id),link=await env.DB.prepare('SELECT amount_cents,payment_link_url,paid_at FROM catering_balance_checkouts WHERE quote_id=?').bind(body.quote_id).first();
+  const q=await loadQuote(env,body.quote_id),link=await env.DB.prepare('SELECT amount_cents,payment_link_url,square_order_id,paid_at FROM catering_balance_checkouts WHERE quote_id=?').bind(body.quote_id).first();
   if(reason(q)||!link||link.paid_at||link.amount_cents!==q.balance_cents||!link.payment_link_url)return fail('Payment state changed. Review the current booking.');
-  const current=await snapshot(q,{baseUrl,today,kind:draft.kind,payUrl:link.payment_link_url});
+  const current=await snapshot(q,{baseUrl,today,kind:draft.kind,payUrl:link.payment_link_url,checkoutOrderId:link.square_order_id});
   if(await digest(current)!==body.review_hash)return fail('The preview changed. Review the current email before changing automation.');
   const lang=q.lang==='es'?'es':'en',hash=await templateHash(lang),now=Date.now();
-  await env.DB.prepare(`INSERT INTO catering_balance_collection_policy(lang,enabled,template_hash,approved_by,approved_at,source_quote_id,source_review_hash) VALUES(?,?,?,?,?,?,?) ON CONFLICT(lang) DO UPDATE SET enabled=excluded.enabled,template_hash=excluded.template_hash,approved_by=excluded.approved_by,approved_at=excluded.approved_at,source_quote_id=excluded.source_quote_id,source_review_hash=excluded.source_review_hash`).bind(lang,body.enable?1:0,hash,actor,now,q.id,body.review_hash).run();
+  const approved=await env.DB.prepare(`INSERT INTO catering_balance_collection_policy(lang,enabled,template_hash,approved_by,approved_at,source_quote_id,source_review_hash) SELECT ?,?,?,?,?,?,? WHERE EXISTS(SELECT 1 FROM catering_quotes q JOIN catering_balance_checkouts b ON b.quote_id=q.id WHERE q.id=? AND q.deposit_status='paid' AND q.balance_status='due' AND q.balance_cents=? AND q.updated_at=? AND b.paid_at IS NULL AND b.amount_cents=q.balance_cents AND b.payment_link_url=? AND b.square_order_id=?) ON CONFLICT(lang) DO UPDATE SET enabled=excluded.enabled,template_hash=excluded.template_hash,approved_by=excluded.approved_by,approved_at=excluded.approved_at,source_quote_id=excluded.source_quote_id,source_review_hash=excluded.source_review_hash`).bind(lang,body.enable?1:0,hash,actor,now,q.id,body.review_hash,q.id,q.balance_cents,q.updated_at,link.payment_link_url,link.square_order_id).run();
+  if(approved.meta?.changes!==1)return fail('Payment state changed while saving automation approval. Review the current booking.');
   return {ok:true,automation:await balanceCollectionAutomation(env,lang),sent:false};
 }
 export async function stageBalanceCollection(env,quoteId,{baseUrl=SITE,today=balanceCollectionDate(),kind:requestedKind,actor='system'}={}){
@@ -71,9 +72,9 @@ export async function stageBalanceCollection(env,quoteId,{baseUrl=SITE,today=bal
   const link=await createBalanceCheckout(env,quoteId,baseUrl);
   if(!link?.ok||!link.url)return fail(link?.error||'The final payment link could not be prepared.');
   q=await loadQuote(env,quoteId);if(reason(q))return fail('Payment status changed while preparing the reminder. Reload the booking.');
-  const saved=await env.DB.prepare('SELECT amount_cents,payment_link_url,paid_at FROM catering_balance_checkouts WHERE quote_id=?').bind(quoteId).first();
+  const saved=await env.DB.prepare('SELECT amount_cents,payment_link_url,square_order_id,paid_at FROM catering_balance_checkouts WHERE quote_id=?').bind(quoteId).first();
   if(!saved||saved.paid_at||saved.amount_cents!==q.balance_cents||saved.payment_link_url!==link.url)return fail('Payment details changed. Reload the booking.');
-  const data=await snapshot(q,{baseUrl,today,kind,payUrl:link.url}),hash=await digest(data),now=Date.now();
+  const data=await snapshot(q,{baseUrl,today,kind,payUrl:link.url,checkoutOrderId:saved.square_order_id}),hash=await digest(data),now=Date.now();
   await env.DB.prepare(`INSERT INTO catering_balance_collection_drafts(quote_id,kind,review_hash,snapshot_json,status,staged_by,staged_at,updated_at) VALUES(?,?,?,?,'staged',?,?,?) ON CONFLICT(quote_id,kind) DO UPDATE SET review_hash=excluded.review_hash,snapshot_json=excluded.snapshot_json,staged_by=excluded.staged_by,staged_at=excluded.staged_at,updated_at=excluded.updated_at WHERE catering_balance_collection_drafts.status='staged'`).bind(quoteId,kind,hash,JSON.stringify(data),actor,now,now).run();
   const out=await getBalanceCollection(env,quoteId,{today});
   if(out.draft?.review_hash!==hash||out.draft?.status!=='staged')return {...out,ok:false,error:'A previous collection attempt is locked for reconciliation.'};
@@ -88,14 +89,14 @@ export async function sendBalanceCollection(env,body,{baseUrl=SITE,today=balance
   if(old)return {ok:old.receipt_status==='accepted'&&Boolean(old.receipt_id),...publicReceipt(old),replayed:true,error:old.receipt_status==='accepted'?undefined:'An earlier attempt must be reconciled; no new email was sent.'};
   if(draft.status!=='staged')return {...fail('This collection attempt is locked. Check its saved receipt before retrying.'),status:draft.status};
   const q=await loadQuote(env,quoteId);if(reason(q))return fail('Payment or customer details changed. Reload the booking.');
-  const link=await env.DB.prepare('SELECT amount_cents,payment_link_url,paid_at FROM catering_balance_checkouts WHERE quote_id=?').bind(quoteId).first();
+  const link=await env.DB.prepare('SELECT amount_cents,payment_link_url,square_order_id,paid_at FROM catering_balance_checkouts WHERE quote_id=?').bind(quoteId).first();
   if(!link||link.paid_at||link.amount_cents!==q.balance_cents||!link.payment_link_url)return fail('The saved final payment checkout no longer matches this balance.');
-  const current=await snapshot(q,{baseUrl,today,kind:draft.kind,payUrl:link.payment_link_url});
+  const current=await snapshot(q,{baseUrl,today,kind:draft.kind,payUrl:link.payment_link_url,checkoutOrderId:link.square_order_id});
   if(await digest(current)!==body.review_hash)return fail('Quote, recipient, date or email content changed. Stage and review the current email.');
   const blocked=receiptBlock(await history(env,quoteId),draft.kind,today);if(blocked)return fail(blocked);
   const claimId=id('cbr'),now=Date.now();
   const claimed=await env.DB.batch([
-    env.DB.prepare(`INSERT OR IGNORE INTO catering_balance_reminders(id,quote_id,kind,amount_cents,channel,created_at,receipt_status,review_hash) VALUES(?,?,?,?,'email',?,'sending',?)`).bind(claimId,quoteId,draft.kind,q.balance_cents,now,body.review_hash),
+    env.DB.prepare(`INSERT OR IGNORE INTO catering_balance_reminders(id,quote_id,kind,amount_cents,channel,created_at,receipt_status,review_hash) SELECT ?,?,?,?,'email',?,'sending',? WHERE EXISTS(SELECT 1 FROM catering_balance_collection_drafts WHERE quote_id=? AND kind=? AND status='staged' AND review_hash=?)`).bind(claimId,quoteId,draft.kind,q.balance_cents,now,body.review_hash,quoteId,draft.kind,body.review_hash),
     env.DB.prepare(`UPDATE catering_balance_collection_drafts SET status='sending',approved_by=?,updated_at=? WHERE quote_id=? AND kind=? AND status='staged' AND review_hash=? AND EXISTS(SELECT 1 FROM catering_balance_reminders WHERE id=?)`).bind(actor,now,quoteId,draft.kind,body.review_hash,claimId)
   ]);
   if(claimed[0]?.meta?.changes!==1||claimed[1]?.meta?.changes!==1)return fail('Another collection attempt has already claimed this reminder. Reload its receipt.');
@@ -106,7 +107,9 @@ export async function sendBalanceCollection(env,body,{baseUrl=SITE,today=balance
   ]);
   try{
     const fresh=await loadQuote(env,quoteId);
-    if(reason(fresh)||await digest(await snapshot(fresh,{baseUrl,today,kind:draft.kind,payUrl:link.payment_link_url}))!==body.review_hash){await saveOutcome('suppressed','quote_state_changed_before_send');return {...fail('Payment or quote details changed. No email was sent.'),status:'suppressed'};}
+    const freshLink=await env.DB.prepare('SELECT amount_cents,payment_link_url,square_order_id,paid_at FROM catering_balance_checkouts WHERE quote_id=?').bind(quoteId).first();
+    if(reason(fresh)||!freshLink||freshLink.paid_at||freshLink.amount_cents!==fresh.balance_cents||freshLink.payment_link_url!==link.payment_link_url||freshLink.square_order_id!==link.square_order_id||await digest(await snapshot(fresh,{baseUrl,today,kind:draft.kind,payUrl:freshLink.payment_link_url,checkoutOrderId:freshLink.square_order_id}))!==body.review_hash){await saveOutcome('suppressed','quote_state_changed_before_send');return {...fail('Payment or quote details changed. No email was sent.'),status:'suppressed'};}
+    if(actor==='system:approved-template'&&!await balanceAutomationApproved(env,fresh.lang)){await saveOutcome('suppressed','automation_approval_changed_before_send');return {...fail('Automatic reminder approval changed. No email was sent.'),status:'suppressed'};}
     // Fail closed on suppression-storage errors; the shared claim blocks uncertain retries.
     const suppressed=await env.DB.prepare('SELECT reason FROM email_suppressions WHERE email=? LIMIT 1').bind(current.recipient).first();
     if(suppressed){await saveOutcome('suppressed','suppressed');return {...fail('The customer email is suppressed. No email was sent.'),status:'suppressed'};}

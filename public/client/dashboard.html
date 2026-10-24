@@ -119,7 +119,6 @@ function todayBowlCard(bowls){
     var img=b.image?'<img src="'+esc(b.image)+'" alt="'+esc(b.bowl)+'" loading="lazy" style="width:100%;height:150px;object-fit:cover;border-radius:10px;cursor:pointer" onclick="ajPop(ajRnd(\'pic\'))">':'';
     return '<div style="flex:1;min-width:150px">'+img+'<div style="margin-top:8px"><span class="badge active">'+w+'</span> <strong style="color:var(--green)">'+esc(b.bowl)+'</strong></div></div>';
   }).join('');
-  var history=activity===null?'<p class="muted">Rewards activity is temporarily unavailable.</p>':(activity&&activity.length?'<details style="margin-top:16px"><summary>Rewards activity</summary><ul>'+activity.map(function(a){return '<li>'+esc(a.delta>0?"+"+a.delta:a.delta)+' points · '+esc(a.reason==="earn"?"Purchase reward":a.reason==="redeem"?"Redeemed at checkout":"Balance adjustment")+' · '+esc(new Date(a.created_at).toLocaleDateString())+'</li>';}).join('')+'</ul></details>':'<p class="muted">No rewards activity recorded yet.</p>');
   return '<div class="card gold"><div class="k">Your bowl today</div><div style="display:flex;gap:14px;flex-wrap:wrap">'+cards+'</div>'+
     '<p style="font-size:12px;color:var(--muted);margin-top:10px">Cooked fresh and on the way during your delivery window. Tap a photo. \ud83d\ude0b</p></div>';
 }
@@ -167,7 +166,7 @@ function render(d,logs){
       const first=((c&&c.name)||(d.account&&d.account.name)||(cat[0]&&cat[0].name)||'there').split(' ')[0];
       const es=cat[0]&&cat[0].lang==='es';
       $('main').innerHTML='<h1>'+(es?'Hola, ':'Hi, ')+'<strong>'+esc(first)+'</strong>.</h1>'
-        +'<button class="btn" onclick="init()">Refresh order status</button>'+orderCards+rewardsCard(d.rewards,d.rewards_activity)+installHelp+'<div id="cc-mount"></div>';
+        +'<button class="btn" onclick="init()">Refresh order status</button><div id="cc-mount"></div>'+orderCards+rewardsCard(d.rewards,d.rewards_activity)+installHelp;
       window.AnejoCatering.render(cat,document.getElementById('cc-mount'));
       return;
     }
@@ -176,8 +175,8 @@ function render(d,logs){
     return;
   }
   let html='<h1>Hi, <strong>'+esc(c.name||'there')+'</strong>.</h1><div class="sub">Your orders, rewards & meal plan.</div>';
-  html+='<a class="btn" href="/order" style="display:inline-block;margin-bottom:18px">Order fresh bowls →</a>';
   if(cat.length)html+='<div id="cc-mount"></div>';
+  html+='<a class="btn" href="/order" style="display:inline-block;margin-bottom:18px">Order fresh bowls →</a>';
   html+=orderCards+installHelp;
   html+=rewardsCard(d.rewards,d.rewards_activity);
   if(d.today_bowls&&d.today_bowls.length)html+=todayBowlCard(d.today_bowls);
@@ -270,12 +269,13 @@ async function logWeight(btn){var v=parseFloat(($('wlb')||{}).value);if(!v){$('l
   try{const r=await fetch('/api/client/log',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({kind:'weight',weight_lb:v})});const d=await r.json();if(!r.ok||!d.ok)throw new Error(d.error||'err');$('wlb').value='';$('logMsg').textContent='Weight logged.';await refreshLogs();}
   catch(e){$('logMsg').textContent=e.message||'Could not save.';}finally{if(btn)btn.disabled=false;}}
 window.logWeight=logWeight;
+function cateringVisit(){return !!(window.location&&/(?:^|[?&])catering=1(?:&|$)/.test(window.location.search||''));}
 async function init(){let me;try{const response=await fetch('/api/client/me',{cache:'no-store'});if(!response.ok)throw new Error('Account unavailable');me=await response.json();}catch{$('main').innerHTML='<div class="empty">Could not reach the server.</div>';return;}
   if(!me.authenticated){gate();return;}
   let logs={meals:[],weights:[]};
-  if(me.client){try{logs=await(await fetch('/api/client/log')).json();}catch(_){}}
+  if(me.client&&!cateringVisit()){try{logs=await(await fetch('/api/client/log')).json();}catch(_){}}
   render(me,logs);
-  loadAddonOffers();}
+  if(!cateringVisit())loadAddonOffers();}
 async function loadAddonOffers(){
   try{
     var d=await(await fetch('/api/client/addons')).json();

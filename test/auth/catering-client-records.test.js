@@ -21,7 +21,7 @@ function quote(env,id='cq_mine',email='buyer@example.test',deposit='paid',balanc
 const request = (url='/api/client/me',options={}) => new Request('https://anejo.test'+url,{...options,headers:{Cookie:'anejo_sess=mine',...options.headers}});
 const paymentRequest = (body,headers={}) => request('/api/client/catering-balance',{method:'POST',headers:{'Content-Type':'application/json',...headers},body:JSON.stringify(body)});
 
-test('canonical account survives mixed case, repeated payments and a trainer-client row without creating permissions',async()=>{
+test('canonical account survives mixed case and repeated payments without creating trainer-client permissions',async()=>{
   const env=fixture();quote(env);
   const first=await ensureCateringCustomerAccount(env,'cq_mine');
   const second=await ensureCustomerAccount(env,{email:' BUYER@example.test ',name:'New name',source:'verified_signin'});
@@ -124,4 +124,28 @@ test('customer account backfill includes paid customers only and preserves canon
   assert.equal(env.DB.one("SELECT COUNT(*) n FROM customer_accounts WHERE email='unpaid@example.test'").n,0);
   env.DB.sqlite.exec(readFileSync('migrations/0158_customer_accounts.sql','utf8'));
   assert.equal(env.DB.one('SELECT COUNT(*) n FROM customer_accounts').n,1);
+});
+
+test('meal-plan account still renders current bowl and rewards after canonical account integration',()=>{
+  const elements={main:{innerHTML:''},signout:{style:{}}};
+  const context={window:{AnejoCatering:{render(){}}},document:{getElementById:id=>elements[id]||{}},fetch:()=>new Promise(()=>{})};
+  vm.runInNewContext(readFileSync('public/assets/js/customer-orders.js','utf8'),context);
+  const inline=[...readFileSync('public/client/dashboard.html','utf8').matchAll(/<script>([\s\S]*?)<\/script>/g)].map(m=>m[1]).join('\n');
+  vm.runInNewContext(inline,context);
+  context.render({authenticated:true,email:'buyer@example.test',client:{id:'client',name:'Guest'},plan:{status:'active',daily_calories:1500,daily_protein_g:100,daily_carbs_g:150,daily_fat_g:60},subscription:{id:'sub',status:'active',weekly_amount_cents:5000},today_bowls:[{window:'lunch',bowl:'RAIZ',image:'/assets/img/bowl.jpg'}],orders:[],catering:[],rewards:{tier:'vital',tier_name:'Vital',points:12,free_delivery:false},rewards_activity:[]},{});
+  assert.match(elements.main.innerHTML,/Your bowl today/);assert.match(elements.main.innerHTML,/RAIZ/);assert.match(elements.main.innerHTML,/points/);
+  assert.ok(!elements.main.innerHTML.includes('Free delivery'));
+});
+
+test('ownership or balance changes while checkout prepares cannot expose a stale payment URL',async t=>{
+  const previous=globalThis.fetch;t.after(()=>globalThis.fetch=previous);
+  for(const change of ["customer_email='different@example.test'",'balance_cents=99999',"balance_status='paid'"]){
+    const env=fixture();quote(env);
+    globalThis.fetch=async()=>{
+      env.DB.exec('UPDATE catering_quotes SET '+change+" WHERE id='cq_mine'");
+      return new Response(JSON.stringify({payment_link:{order_id:'synthetic_order',url:'https://square.link/owned'}}));
+    };
+    const response=await payBalance({request:paymentRequest({quote_id:'cq_mine'}),env});
+    assert.equal(response.status,409,change);const data=await response.json();assert.equal(data.url,undefined);assert.equal(data.refresh_required,true);
+  }
 });

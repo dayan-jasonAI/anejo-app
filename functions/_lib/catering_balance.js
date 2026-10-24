@@ -7,7 +7,12 @@ export async function createBalanceCheckout(env, quoteId, baseUrl) {
   await env.DB.prepare("INSERT OR IGNORE INTO catering_balance_checkouts (quote_id,amount_cents,created_at) SELECT id,balance_cents,? FROM catering_quotes WHERE id=? AND balance_status='due' AND deposit_status='paid'").bind(Date.now(),q.id).run();
   const saved=await env.DB.prepare('SELECT * FROM catering_balance_checkouts WHERE quote_id=?').bind(q.id).first();
   if (!saved || saved.amount_cents!==q.balance_cents || saved.paid_at) return {ok:false,error:'The balance changed or has already been paid. Review this quote.'};
-  if (saved.payment_link_url) return {ok:true,url:saved.payment_link_url};
+  if (saved.payment_link_url) {
+    const fresh=await env.DB.prepare('SELECT id, balance_cents, balance_status, deposit_status, access_token FROM catering_quotes WHERE id=?').bind(q.id).first();
+    const receipt=await env.DB.prepare('SELECT * FROM catering_balance_checkouts WHERE quote_id=?').bind(q.id).first();
+    if(!fresh||fresh.deposit_status!=='paid'||fresh.balance_status!=='due'||fresh.balance_cents!==saved.amount_cents||!receipt||receipt.paid_at||receipt.amount_cents!==fresh.balance_cents||receipt.payment_link_url!==saved.payment_link_url)return {ok:false,error:'Payment status changed. Reload the booking.'};
+    return {ok:true,url:saved.payment_link_url};
+  }
   const result=await square(env,'/v2/online-checkout/payment-links',{method:'POST',body:{
     idempotency_key:'catering-balance-'+q.id,
     order:{location_id:env.SQUARE_LOCATION_ID,reference_id:'catering-balance',line_items:[{name:'Añejo catering — final balance',quantity:'1',base_price_money:{amount:saved.amount_cents,currency:'USD'}}]},
@@ -38,8 +43,8 @@ export async function markBalancePaid(env, squareOrderId, amount, currency) {
   const now=Date.now();
   // D1 batch is transactional: both the quote and payment receipt advance together.
   const results=await env.DB.batch([
-    env.DB.prepare("UPDATE catering_quotes SET balance_status='paid',balance_paid_at=?,updated_at=? WHERE id=? AND balance_status='due'").bind(now,now,row.quote_id),
-    env.DB.prepare('UPDATE catering_balance_checkouts SET paid_at=? WHERE quote_id=? AND paid_at IS NULL').bind(now,row.quote_id)
+    env.DB.prepare("UPDATE catering_quotes SET balance_status='paid',balance_paid_at=?,updated_at=? WHERE id=? AND balance_status='due' AND deposit_status='paid' AND balance_cents=?").bind(now,now,row.quote_id,row.amount_cents),
+    env.DB.prepare("UPDATE catering_balance_checkouts SET paid_at=? WHERE quote_id=? AND paid_at IS NULL AND EXISTS(SELECT 1 FROM catering_quotes q WHERE q.id=catering_balance_checkouts.quote_id AND q.deposit_status='paid' AND q.balance_status='paid' AND q.balance_cents=catering_balance_checkouts.amount_cents AND q.balance_paid_at=?)").bind(now,row.quote_id,now)
   ]);
-  return results[1]?.meta?.changes===1?row.quote_id:null;
+  return results[0]?.meta?.changes===1&&results[1]?.meta?.changes===1?row.quote_id:{reconciliation_required:true,quote_id:row.quote_id,reason:'balance_state_changed'};
 }

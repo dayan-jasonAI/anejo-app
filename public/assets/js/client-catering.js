@@ -315,8 +315,13 @@
       pay.disabled = true; pay.textContent = t.opening; out.textContent = '';
       fetch('/api/client/catering-balance', {
         method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({quote_id:e.id})
-      }).then(function(r){return r.json().then(function(d){return {ok:r.ok,data:d};});})
+      }).then(function(r){return r.json().then(function(d){return {ok:r.ok,status:r.status,data:d};});})
         .then(function(r){
+          if (r.status === 409 && (r.data.settled || r.data.refresh_required)) {
+            out.textContent = r.data.error || t.paymentFailed;
+            if (window.AnejoCatering && window.AnejoCatering.onSent) window.AnejoCatering.onSent();
+            return; // Keep the stale payment button locked, even if the refresh is unavailable.
+          }
           if (!r.ok || !r.data.ok || !r.data.url) throw new Error(r.data.error || t.paymentFailed);
           var url = new URL(r.data.url);
           if (url.protocol !== 'https:' || !/^(square\.link|squareup\.com|checkout\.square\.site)$/.test(url.hostname)) throw new Error(t.paymentFailed);
