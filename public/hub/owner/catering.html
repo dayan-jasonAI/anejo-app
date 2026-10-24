@@ -58,6 +58,8 @@
 <script src="/hub/assets/hub.js"></script>
 <script src="/hub/owner/assets/owner.js"></script>
 <script src="/hub/owner/assets/catering-balance.js?v=20261024-collection1"></script>
+<link rel="stylesheet" href="/hub/owner/assets/catering-lifecycle.css?v=20261024">
+<script src="/hub/owner/assets/catering-lifecycle.js?v=20261024"></script>
 <script>
 (function () {
   Hub.boot();
@@ -192,6 +194,7 @@
     var fee = quoteDeliveryFee(q);
     var paid = q.deposit_status === 'paid';
     var balPaid = q.balance_status === 'paid';
+    var balWaived = q.balance_status === 'waived';
     var summary = {};
     try { summary = JSON.parse(q.quote_json || '{}'); } catch (e) { /* historical bare total */ }
     return '<div class="qcard" id="quote-' + esc(q.id) + '">' +
@@ -216,23 +219,24 @@
       // creation and stored, so they always sum to the total on screen exactly as they do in D1.
       '<div class="split">' +
         '<div class="s"><div class="v">' + money(q.deposit_cents) + '</div><div class="l">Deposit ' + pct(q) + '</div></div>' +
-        '<div class="s"><div class="v">' + money(q.balance_cents) + '</div><div class="l">Balance</div></div>' +
+        '<div class="s"><div class="v">' + money(q.balance_cents) + '</div><div class="l">'+(balPaid?'Final payment received':balWaived?'Final payment waived':'Final payment')+'</div></div>' +
         '<div class="s"><div class="v">' + money(q.total_cents) + '</div><div class="l">Total</div></div>' +
       '</div>' +
 
       '<div class="meta">' +
         '<span class="pill ' + (paid ? 'green' : 'crit') + '">Deposit ' + esc(q.deposit_status || 'unpaid') +
           (paid && q.deposit_paid_at ? ' · ' + day(q.deposit_paid_at) : '') + '</span>' +
-        '<span class="pill ' + (balPaid ? 'green' : 'gold') + '">Balance ' + esc(q.balance_status || 'due') +
-          (q.balance_due_date ? ' · due ' + esc(q.balance_due_date) : '') + '</span>' +
+        '<span class="pill ' + (balPaid || balWaived ? 'green' : 'gold') + '">'+(balPaid?'Paid in full':balWaived?'Final payment waived':'Final payment '+esc(q.balance_status || 'due'))+
+          (q.balance_status==='due'&&q.balance_due_date ? ' · due ' + esc(q.balance_due_date) : '') + '</span>' +
         (q.final_count_due ? '<span class="pill">Final count by ' + esc(q.final_count_due) + '</span>' : '') +
       '</div>' +
 
 
-      (paid && !balPaid && Number(q.balance_cents)>0 ? '<button type="button" class="btn gold block" data-collect-balance="'+esc(q.id)+'">Collect '+money(q.balance_cents)+' final balance</button><p class="row-sub">Open the branded email preview, payment link and client account. Nothing sends until you approve.</p>' : '') +
+      (paid && q.balance_status==='due' && Number(q.balance_cents)>0 ? '<button type="button" class="btn gold block" data-collect-balance="'+esc(q.id)+'">Collect '+money(q.balance_cents)+' final balance</button><p class="row-sub">Open the branded email preview, payment link and client account. Nothing sends until you approve.</p>' : '') +
+      (paid ? '<button type="button" class="btn ghost block" data-catering-experience="'+esc(q.id)+'">Service check-in &amp; after-delivery feedback</button><p class="row-sub">Review both branded emails, approve their timing and see feedback saved with this event.</p>' : '') +
       '<div class="q-payment-links">'+
       (q.payment_link_url && q.deposit_status !== 'void' && !paid ? '<a class="btn ghost" href="'+esc(q.payment_link_url)+'" target="_blank" rel="noopener">Open deposit checkout</a>' : '')+
-      (q.balance_payment_link_url && paid && !balPaid ? '<a class="btn ghost" href="'+esc(q.balance_payment_link_url)+'" target="_blank" rel="noopener">Open final-payment checkout</a>' : '')+'</div>'+
+      (q.balance_payment_link_url && paid && q.balance_status==='due' ? '<a class="btn ghost" href="'+esc(q.balance_payment_link_url)+'" target="_blank" rel="noopener">Open final-payment checkout</a>' : '')+'</div>'+
       (q.deposit_status === 'unpaid'?'<button type="button" class="btn gold block" data-review-saved="'+esc(q.id)+'">Review / send this quote</button>':'')+
       (q.deposit_status === 'unpaid' || q.deposit_status === 'void' ? '<button class="btn ghost block" data-revise="' + esc(JSON.stringify(q)) + '">' + (q.deposit_status === 'void' ? 'View / recover replacement' : 'Edit quote · save changes') + '</button>' : '') +
       (q.deposit_status==='unpaid'&&duplicateAlternatives(q).length?'<button type="button" class="btn ghost block" data-retire-duplicate="'+esc(q.id)+'">Retire duplicate checkout</button>':'')+
@@ -343,13 +347,14 @@
         (r.company ? ' · ' + esc(r.company) : '') +
         (r.created_at ? ' · ' + C.label('received') + ' ' + day(r.created_at) : '') + '</div>' +
       (contact ? '<div class="row-sub">' + esc(contact) + '</div>' : '') +
-      (currentBooking?'<div class="rbody"><b>Current saved '+(currentBooking.deposit_status==='paid'?'booking':'quote')+'</b><br>'+esc(currentBooking.event_date||'Date not recorded')+' · '+esc(currentBooking.guests||'—')+' guests<br><b>'+money(currentBooking.total_cents)+'</b> · deposit '+esc(currentBooking.deposit_status||'unpaid')+'<br><a href="#quote-'+esc(currentBooking.id)+'">View saved booking details</a></div>':'')+
+      (currentBooking?'<div class="rbody"><b>Current saved '+(currentBooking.deposit_status==='paid'?'booking':'quote')+'</b><br>'+esc(currentBooking.event_date||'Date not recorded')+' · '+esc(currentBooking.guests||'—')+' guests<br><b>'+money(currentBooking.total_cents)+'</b> · '+(currentBooking.balance_status==='paid'?'Paid in full':currentBooking.balance_status==='waived'?'Final payment waived':'deposit '+esc(currentBooking.deposit_status||'unpaid'))+'<br><a href="#quote-'+esc(currentBooking.id)+'">View saved booking details</a></div>':'')+
       '<div class="rbody"><b>Original request · '+esc(msgField(r.message,'Event type')||'Event')+'</b><br>'+esc(msgField(r.message,'Event date'))+' · '+esc(msgField(r.message,'Serving time'))+'<br>'+esc(msgField(r.message,'Guest count'))+' guests · '+esc(msgField(r.message,'Location'))+'</div>'+
       '<details class="rbody"><summary>' + C.label('Original request (as submitted)') + '</summary>' + (r.message ? esc(r.message) : C.label('No event details provided.')) + '</details>' +
       (r.cajita_configuration || r.cajita_summary ? '<details class="rbody"><summary>' + C.label('Exact Cajita configuration') + '</summary>' + C.summaryHtml(r.cajita_configuration,r.cajita_summary) + '</details>' : '') +
       (files ? '<div class="rfiles"><b>' + C.label('Private design files · owner only') + '</b>' + files + '</div>' : '') +
       (linkedQuotes.length?'<details class="terms"><summary>Original request menu suggestion · not the agreed quote</summary>'+suggestionHtml(r.suggested)+'</details>':suggestionHtml(r.suggested)) +
       (dueQuotes.length ? dueQuotes.map(function(q){return '<div class="q-balance-note"><b>Booked · deposit received</b><br>Final balance '+money(q.balance_cents)+(q.balance_due_date?' · due '+esc(q.balance_due_date):' · due date not recorded')+'<button type="button" class="btn gold block" data-collect-balance="'+esc(q.id)+'">Collect final balance · '+money(q.balance_cents)+'</button></div>';}).join('') : '') +
+      linkedQuotes.filter(function(q){return q.deposit_status==='paid';}).map(function(q){return '<button type="button" class="btn ghost block" data-catering-experience="'+esc(q.id)+'">Service check-in &amp; after-delivery feedback</button>';}).join('')+
       '<div class="ractions">' +
         '<a class="btn ghost" href="/hub/owner/catering-service.html?lead='+encodeURIComponent(r.id)+'">Messages &amp; follow-up</a>'+
         '<button class="btn ghost" type="button" data-prefill="' + esc(JSON.stringify(payload)) + '">' + (payload.existing_quote_ids.length ? (payload.existing_quote_ids.length === 1 ? 'Edit existing quote' : 'Choose existing quote') : C.label('Start a quote')) + '</button>' +
@@ -904,6 +909,7 @@
       document.getElementById('show-balances-due').onclick=openBalances;
       root.querySelectorAll('[data-collect-balance]').forEach(function(button){button.onclick=function(){window.CateringBalance.open(button.getAttribute('data-collect-balance'));};});
       root.querySelectorAll('[data-email-lead]').forEach(function(button){button.onclick=function(){window.CateringBalance.compose(button.getAttribute('data-email-lead'));};});
+      root.querySelectorAll('[data-catering-experience]').forEach(function(button){button.onclick=function(){window.CateringLifecycle.open(button.getAttribute('data-catering-experience'));};});
       if(window.location.hash==='#balances-due')openBalances();
       root.querySelectorAll('[data-review-saved]').forEach(function(button){button.addEventListener('click',function(){reviewSavedQuote(button.getAttribute('data-review-saved'));});});
       wireRevisionEditor(root);
