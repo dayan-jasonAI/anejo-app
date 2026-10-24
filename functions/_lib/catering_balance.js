@@ -26,14 +26,15 @@ export async function createBalanceCheckout(env, quoteId, baseUrl) {
   }});
   const link=result.data?.payment_link, url=link?.long_url||link?.url;
   if(!result.ok||!url||!link.order_id)return {ok:false,error:'Square could not create the balance link. Please retry.'};
-  await env.DB.prepare('UPDATE catering_balance_checkouts SET square_order_id=?,payment_link_url=? WHERE quote_id=? AND amount_cents=?').bind(link.order_id,url,q.id,saved.amount_cents).run();
+  const persisted=await env.DB.prepare("UPDATE catering_balance_checkouts SET square_order_id=?,payment_link_url=? WHERE quote_id=? AND amount_cents=? AND paid_at IS NULL AND EXISTS (SELECT 1 FROM catering_quotes q WHERE q.id=catering_balance_checkouts.quote_id AND q.deposit_status='paid' AND q.balance_status='due' AND q.balance_cents=catering_balance_checkouts.amount_cents)").bind(link.order_id,url,q.id,saved.amount_cents).run();
+  if(persisted.meta?.changes!==1)return {ok:false,error:'Payment details changed while preparing checkout. Reload the booking.'};
   return {ok:true,url};
 }
 
 export async function markBalancePaid(env, squareOrderId, amount, currency) {
   if(!env.DB||!squareOrderId)return null;
   const row=await env.DB.prepare('SELECT quote_id,amount_cents,paid_at FROM catering_balance_checkouts WHERE square_order_id=?').bind(squareOrderId).first();
-  if(!row||row.paid_at||currency!=='USD'||Number(amount)!==row.amount_cents)return null;
+  if(!row||row.paid_at||currency!=='USD'||!Number.isSafeInteger(amount)||amount!==row.amount_cents)return null;
   const now=Date.now();
   // D1 batch is transactional: both the quote and payment receipt advance together.
   const results=await env.DB.batch([

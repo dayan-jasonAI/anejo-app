@@ -2,6 +2,7 @@
 // sign-in, sets a session cookie, and redirects into the app.
 import { id, now, affiliateCode, appBaseUrl } from '../../_lib/util.js';
 import { createSession, sessionCookie, isSecureRequest } from '../../_lib/session.js';
+import { ensureCustomerAccount } from '../../_lib/customer-accounts.js';
 
 const redirect = (url, headers = {}) =>
   new Response(null, { status: 302, headers: { Location: url, ...headers } });
@@ -85,6 +86,7 @@ export const onRequestGet = async ({ request, env }) => {
   }
 
   // client flow (full member auth lands with the client dashboard)
+  await ensureCustomerAccount(env, { email: row.user_email });
   const sess = await createSession(env, { type: 'client', email: row.user_email });
   return redirect(`${base}/client/dashboard`, { 'Set-Cookie': sessionCookie(sess, undefined, secure) });
 };

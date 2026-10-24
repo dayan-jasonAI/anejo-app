@@ -11,6 +11,7 @@ import { sendSms } from '../../_lib/twilio.js';
 import { awardOrderPoints, redeemOrderPoints, rewardsSummary } from '../../_lib/rewards.js';
 import { creditAffiliateForOrder } from '../../_lib/promo.js';
 import { raiseAlert } from '../../_lib/alerts.js';
+import { ensureCustomerAccount, ensureCateringCustomerAccount } from '../../_lib/customer-accounts.js';
 import { markBalancePaid } from '../../_lib/catering_balance.js';
 import { markDepositPaid } from '../../_lib/catering_deposit.js';
 import { markContractInvoicePaidBySquareOrder } from '../../_lib/contract.js';
@@ -289,6 +290,15 @@ export const onRequestPost = async ({ request, env }) => {
             if (!alert.ok) return new Response('Deposit paid alert temporarily unavailable', { status:503 });
           }
         } catch { return new Response('Deposit reconciliation temporarily unavailable', { status:503 }); }
+
+        // Repair identity linkage on replay too. Account records never authenticate a buyer;
+        // verified email sign-in remains required. A transient write failure asks Square to retry.
+        try {
+          const paidCustomer = await env.DB.prepare("SELECT customer_email,customer_name,customer_phone FROM orders WHERE square_order_id=? AND status IN ('paid','prep','ready','fulfilled') LIMIT 1").bind(pay.order_id).first();
+          if(paidCustomer?.customer_email)await ensureCustomerAccount(env,{email:paidCustomer.customer_email,name:paidCustomer.customer_name,phone:paidCustomer.customer_phone,source:'retail_payment'});
+          const booking = await env.DB.prepare(`SELECT q.id FROM catering_quotes q LEFT JOIN catering_balance_checkouts b ON b.quote_id=q.id WHERE q.deposit_status='paid' AND (q.square_order_id=? OR b.square_order_id=?) LIMIT 1`).bind(pay.order_id,pay.order_id).first();
+          if(booking)await ensureCateringCustomerAccount(env,booking.id);
+        }catch{return new Response('Customer account linkage temporarily unavailable',{status:503});}
 
         // CONTRACT INVOICE: a paid Square payment link on a B2B contract invoice → mark it paid
         // automatically, same idempotent pattern as the catering deposit above (guarded on

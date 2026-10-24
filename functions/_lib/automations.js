@@ -8,7 +8,7 @@ import { renderCampaignDirection } from './campaign_direction.js';
 // degrade to deterministic fallbacks without env.ANTHROPIC_API_KEY.
 // Files under functions/_lib are NOT routed.
 import { id, now, today, toJson, parseJson, etMidnightMs, addEtDays, etDateOf } from './hub.js';
-import { runBalanceReminders } from './catering_balance_reminder.js';
+import { runStagedBalanceReminders } from './catering_balance_reminder.js';
 import { runHolidayNotices } from './holiday_notices.js';
 import { randToken } from './util.js';
 import { loadMenu, isAvailable, isOrderable } from './menu.js';
@@ -1183,10 +1183,10 @@ async function socialPlan(env, date) {
 // each one ONCE — the guarantee is a UNIQUE(quote_id, kind) row, not this scheduler's discipline,
 // because a scheduler can be retried and a database constraint cannot be talked out of it.
 const balanceReminder = async (env, date) => {
-  const r = await runBalanceReminders(env, date, { baseUrl: env.APP_BASE_URL || undefined });
+  const r = await runStagedBalanceReminders(env, date, { baseUrl: env.APP_BASE_URL || undefined });
   return {
     outcome: r.ok ? 'success' : 'failed',
-    summary: `${r.sent.length} reminder(s) sent, ${r.skipped.length} skipped, ${r.failed.length} failed`,
+    summary: `${r.staged.length} staged, ${r.sent.length} provider-accepted, ${r.skipped.length} skipped, ${r.failed.length} failed`,
     detail: r,
   };
 };

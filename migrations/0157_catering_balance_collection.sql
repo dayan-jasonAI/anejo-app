@@ -15,3 +15,14 @@ CREATE TABLE IF NOT EXISTS catering_balance_collection_drafts (
   updated_at INTEGER NOT NULL,
   PRIMARY KEY(quote_id,kind)
 );
+
+-- Per-language opt-in: a rendered English approval cannot authorize unseen Spanish copy.
+CREATE TABLE IF NOT EXISTS catering_balance_collection_policy (
+  lang TEXT PRIMARY KEY CHECK(lang IN ('en','es')),
+  enabled INTEGER NOT NULL DEFAULT 0 CHECK(enabled IN (0,1)),
+  template_hash TEXT NOT NULL,
+  approved_by TEXT NOT NULL,
+  approved_at INTEGER NOT NULL,
+  source_quote_id TEXT NOT NULL,
+  source_review_hash TEXT NOT NULL
+);

@@ -29,6 +29,14 @@
   background:transparent;color:var(--green);text-decoration:none;font:inherit;font-size:14px;cursor:pointer}
 .cc-btn.gold{background:var(--gold);border-color:var(--gold);color:var(--black);font-weight:600}
 .cc-btn:disabled{opacity:.55;cursor:default}
+.cc-btn{min-height:44px;box-sizing:border-box}
+.cc-btn:focus-visible{outline:3px solid var(--gold-dark);outline-offset:3px}
+.cc-payment-msg{font-size:14px;line-height:1.5;margin:10px 0 0}
+.cc-payment-msg:empty{display:none}
+.cc-payment-msg.bad{color:#8f2020}
+.cc-payment-history{list-style:none;margin:0;padding:0}
+.cc-payment-history li{display:flex;justify-content:space-between;gap:14px;border-bottom:1px solid var(--line);padding:9px 0;font-size:14px;line-height:1.5}
+.cc-payment-history time{flex-shrink:0;color:var(--muted)}
 .cc-actions{display:grid;gap:8px}
 .cc-act{display:flex;gap:12px;align-items:flex-start;text-align:left;width:100%;
   padding:13px 14px;border:1px solid var(--line);border-radius:11px;background:#fff;cursor:pointer;font:inherit}

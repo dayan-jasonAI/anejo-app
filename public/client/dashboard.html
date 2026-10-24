@@ -43,8 +43,8 @@ h1{font-weight:300;font-size:30px;margin-bottom:4px}h1 strong{color:var(--green)
 .aj-flame{display:inline-block;animation:ajFlame 1.1s ease-in-out infinite;transform-origin:center bottom}
 .aj-streak-num{display:inline-block;animation:ajPopIn .5s ease}
 </style>
-<link rel="stylesheet" href="/assets/css/client-catering.css">
-<script src="/assets/js/client-catering.js"></script>
+<link rel="stylesheet" href="/assets/css/client-catering.css?v=20261024-balance">
+<script src="/assets/js/client-catering.js?v=20261024-balance"></script>
 </head>
 <body>
 <a href="#main" class="skip-link">Skip to content</a>
@@ -68,8 +68,8 @@ window.requestLink=requestLink;
 function gate(){$('main').innerHTML='<div class="gate"><h2>Your Añejo account</h2><p>Enter your email for a one-time sign-in link to view your orders, rewards, and any meal plan.</p>'+
   '<form onsubmit="return requestLink(event)"><input id="gemail" type="email" placeholder="you@email.com" required><button class="btn" type="submit" style="width:100%">Send sign-in link</button></form></div>';}
 function money(c){return '$'+((c||0)/100).toFixed(2);}
-function rewardsCard(r){
-  if(!r)return '';
+function rewardsCard(r,activity){
+  if(!r)return '<div class="card"><h2>Añejo Rewards</h2><p class="muted">Your rewards balance is temporarily unavailable. Your event and payment access are still available below.</p></div>';
   var prog;
   if(r.next_tier&&r.next_tier_at_cents){
     var pct=Math.min(100,Math.round((r.lifetime_spend_cents/r.next_tier_at_cents)*100));
@@ -78,10 +78,11 @@ function rewardsCard(r){
   }else{
     prog='<div style="font-size:12px;color:var(--muted);margin-top:8px">You\u2019ve reached <strong>Immortal</strong> \u2014 our top tier. Thank you.</div>';
   }
+  var history=activity===null?'<p class="muted">Rewards activity is temporarily unavailable.</p>':(activity&&activity.length?'<details style="margin-top:16px"><summary>Rewards activity</summary><ul>'+activity.map(function(a){return '<li>'+esc(a.delta>0?"+"+a.delta:a.delta)+' points · '+esc(a.reason==="earn"?"Purchase reward":a.reason==="redeem"?"Redeemed at checkout":"Balance adjustment")+' · '+esc(new Date(a.created_at).toLocaleDateString())+'</li>';}).join('')+'</ul></details>':'<p class="muted">No rewards activity recorded yet.</p>');
   return '<div class="card gold"><div class="k">A\u00f1ejo Rewards \u00b7 '+esc(r.tier_name)+' tier</div>'+
     '<div style="display:flex;align-items:baseline;gap:8px"><span style="font-size:30px;font-weight:300;color:var(--green)">'+(r.points||0).toLocaleString()+'</span><span style="font-size:13px;color:var(--muted)">points</span>'+
     (r.multiplier>1?'<span class="badge active" style="margin-left:auto">'+r.multiplier+'\u00d7 earning</span>':'')+'</div>'+
-    ((r.tier&&r.tier!=='vital')?'<div style="font-size:12.5px;color:#8B6B3E;margin-top:8px;font-weight:600">\ud83d\ude9a Free delivery \u2014 '+esc(r.tier_name)+' perk</div>':'')+prog+'</div>';
+    (r.free_delivery?'<div style="font-size:12.5px;color:#8B6B3E;margin-top:8px;font-weight:600">\ud83d\ude9a Free delivery \u2014 '+esc(r.tier_name)+' perk</div>':'')+prog+history+'<p class="muted">Points shown are recorded rewards. Catering payments are listed separately and do not automatically award additional points.</p></div>';
 }
 var AJ_MSG={
   ate:['Beast mode. \ud83d\udcaa','That\u2019s how legends are built.','Your future self says thank you. \ud83d\ude4c','Consistency is your superpower.','Fuel in, goals up. \ud83d\udd25','Cuban flavor, championship habits.'],
@@ -118,6 +119,7 @@ function todayBowlCard(bowls){
     var img=b.image?'<img src="'+esc(b.image)+'" alt="'+esc(b.bowl)+'" loading="lazy" style="width:100%;height:150px;object-fit:cover;border-radius:10px;cursor:pointer" onclick="ajPop(ajRnd(\'pic\'))">':'';
     return '<div style="flex:1;min-width:150px">'+img+'<div style="margin-top:8px"><span class="badge active">'+w+'</span> <strong style="color:var(--green)">'+esc(b.bowl)+'</strong></div></div>';
   }).join('');
+  var history=activity===null?'<p class="muted">Rewards activity is temporarily unavailable.</p>':(activity&&activity.length?'<details style="margin-top:16px"><summary>Rewards activity</summary><ul>'+activity.map(function(a){return '<li>'+esc(a.delta>0?"+"+a.delta:a.delta)+' points · '+esc(a.reason==="earn"?"Purchase reward":a.reason==="redeem"?"Redeemed at checkout":"Balance adjustment")+' · '+esc(new Date(a.created_at).toLocaleDateString())+'</li>';}).join('')+'</ul></details>':'<p class="muted">No rewards activity recorded yet.</p>');
   return '<div class="card gold"><div class="k">Your bowl today</div><div style="display:flex;gap:14px;flex-wrap:wrap">'+cards+'</div>'+
     '<p style="font-size:12px;color:var(--muted);margin-top:10px">Cooked fresh and on the way during your delivery window. Tap a photo. \ud83d\ude0b</p></div>';
 }
@@ -162,10 +164,10 @@ function render(d,logs){
   // could say — so her events ARE the page when that is what she has.
   if(!c || (!p && !s && orderCards)){
     if(cat.length || orderCards){
-      const first=((c&&c.name)||(cat[0]&&cat[0].name)||'there').split(' ')[0];
+      const first=((c&&c.name)||(d.account&&d.account.name)||(cat[0]&&cat[0].name)||'there').split(' ')[0];
       const es=cat[0]&&cat[0].lang==='es';
       $('main').innerHTML='<h1>'+(es?'Hola, ':'Hi, ')+'<strong>'+esc(first)+'</strong>.</h1>'
-        +'<button class="btn" onclick="init()">Refresh order status</button>'+orderCards+rewardsCard(d.rewards)+installHelp+'<div id="cc-mount"></div>';
+        +'<button class="btn" onclick="init()">Refresh order status</button>'+orderCards+rewardsCard(d.rewards,d.rewards_activity)+installHelp+'<div id="cc-mount"></div>';
       window.AnejoCatering.render(cat,document.getElementById('cc-mount'));
       return;
     }
@@ -177,7 +179,7 @@ function render(d,logs){
   html+='<a class="btn" href="/order" style="display:inline-block;margin-bottom:18px">Order fresh bowls →</a>';
   if(cat.length)html+='<div id="cc-mount"></div>';
   html+=orderCards+installHelp;
-  if(d.rewards)html+=rewardsCard(d.rewards);
+  html+=rewardsCard(d.rewards,d.rewards_activity);
   if(d.today_bowls&&d.today_bowls.length)html+=todayBowlCard(d.today_bowls);
   if(p){html+='<div class="card gold"><div class="k">Your daily targets</div><div class="macros">'+
     '<div class="macro"><div class="v">'+(p.daily_calories||'—')+'</div><div class="l">kcal</div></div>'+
