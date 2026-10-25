@@ -691,6 +691,7 @@
   }
 
   function orderCard(o, stage) {
+    if (o.is_catering) return cateringCard(o, stage);
     var actions = '';
     if (stage === 'pending') actions = '<div class="order-actions"><button class="btn gold" data-prep="' + esc(o.id) + '">Start prep</button></div>';
     else if (stage === 'prep') {
@@ -718,6 +719,19 @@
       '<div class="order-badges">' + contract + rush + sub + dt + win + '</div>' +
       (stage === 'pending' || stage === 'prep' ? timingLine(o) : '') + allerg + rotWarn +
       body + actions + '</div>';
+  }
+
+  function cateringCard(o, stage) {
+    var url = '/hub/kitchen/event.html?id=' + encodeURIComponent(o.id);
+    var lines = (o.items || []).map(function(item) {
+      return '<li><span>' + esc(item.name) + (item.detail ? '<small style="display:block;color:var(--muted)">' + esc(item.detail) + '</small>' : '') + '</span><strong class="q">' + esc(item.qty == null ? 'Confirm count' : item.qty) + '</strong></li>';
+    }).join('');
+    var action = stage === 'pending'
+      ? '<button class="btn gold" data-prep="' + esc(o.id) + '" data-execution-version="' + esc(o.execution_version) + '">Start prep · PIN</button>'
+      : '<a class="btn gold" href="' + url + '">' + (stage === 'prep' ? 'Continue prep & packing' : 'Driver handoff') + '</a>';
+    return '<article class="card order-card" data-catering-order="' + esc(o.id) + '"><div class="row-title">' + esc(o.customer_name || 'Catering') + '</div>' +
+      '<div class="order-badges"><span class="badge">Catering</span><span class="badge ok">' + esc(o.delivery_date || 'Confirm date') + ' · ' + esc(o.serving_time || 'Confirm serving time') + '</span></div>' +
+      '<ul class="order-items">' + lines + '</ul><div class="order-actions">' + action + (stage === 'pending' ? '<a class="btn ghost" href="' + url + '">Event details</a>' : '') + '</div></article>';
   }
 
   // ---- Shared-tablet PIN prompt ----
@@ -756,7 +770,7 @@
     Array.prototype.forEach.call(document.querySelectorAll('[data-prep]'), function (b) {
       b.addEventListener('click', function () {
         askPin('PIN to start prep', function (pin, h) {
-          K.post('/api/hub/kitchen/orders', { id: b.getAttribute('data-prep'), action: 'prep_start', pin: pin })
+          K.post('/api/hub/kitchen/orders', { id: b.getAttribute('data-prep'), action: 'prep_start', pin: pin, ...(b.hasAttribute('data-execution-version') ? {expected_execution_version:Number(b.getAttribute('data-execution-version')),idempotency_key:'kitchen-prep-'+crypto.randomUUID()} : {}) })
             .then(function (d) { if (d && d.ok) { h.done(); Hub.toast('Prep started' + (d.by ? ' · ' + d.by : '')); loadBoard(); } else { h.fail(d && d.error); } });
         });
       });
@@ -879,6 +893,8 @@
   function loadBoard() {
     K.get('/api/hub/kitchen/orders?surface=1').then(function (d) {
       var b = (d && d.board) || { pending: [], prep: [], ready: [] };
+      var catering = (d && d.catering_board) || {};
+      ['pending','prep','ready'].forEach(function(stage){ b[stage] = (b[stage] || []).concat(catering[stage] || []); });
       var inc = (d && d.incoming) || [];
       lastCleared = (d && d.cleared_today) || [];
       // Sound alert when a NEW confirmed order arrives.
