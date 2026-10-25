@@ -25,9 +25,9 @@ test('the gate lives in the SHARED boot path, so it covers every role page and n
 test('the kitchen board is covered by it — the page the cook actually lands on', () => {
   // kitchen/index.html loads hub.js, and Kitchen.boot() runs Hub.boot() — both halves of the path the
   // gate rides on. Neither is obvious from hub.js alone, and losing either silently un-gates her.
-  assert.match(KITCHEN, /<script src="\/hub\/assets\/hub\.js"><\/script>/);
+  assert.match(KITCHEN, /<script src="\/hub\/assets\/hub\.js(?:\?v=[a-f0-9]{12})?"><\/script>/);
   assert.match(KITCHEN_JS, /Hub\.boot\(/);
-  assert.match(KITCHEN, /<script src="\/hub\/kitchen\/kitchen\.js"><\/script>/);
+  assert.match(KITCHEN, /<script src="\/hub\/kitchen\/kitchen\.js(?:\?v=[a-f0-9]{12})?"><\/script>/);
 });
 
 test('the gate cannot be dismissed past, and its one control goes to the training', () => {
