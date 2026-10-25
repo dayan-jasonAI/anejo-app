@@ -93,6 +93,5 @@ export async function mutateCateringKitchenStatus(env,b,actor,{at=Date.now()}={}
  let operationsRevision=null;if(target==='ready'){const ops=await readCateringOperations(env,q);if(!ops.ready)return fail(ops.ready_requirements.join(' '));operationsRevision=ops.revision;}
  const result=await mutateExecution(env,{op:'transition',quote_id:q.id,target_status:target,expected_version:b.expected_execution_version,idempotency_key:b.idempotency_key,packing_confirmed:target==='ready',operations_revision:operationsRevision}, {role:staff.role,email:null,distinct_id:staff.id,pin_verified:true},{at});
  if(!result.ok)return result;
- if(target==='preparing')await env.DB.prepare('INSERT INTO catering_operations_activation(quote_id,quote_snapshot,revision,activated_by,activated_at) VALUES(?,?,1,?,?) ON CONFLICT(quote_id) DO NOTHING').bind(q.id,executionQuoteSnapshot(q),staff.id,at).run();
  return {...result,id:q.id,is_catering:true,status:target==='preparing'?'prep':'ready',by:staff.name};
 }

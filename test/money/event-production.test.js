@@ -751,3 +751,14 @@ test('pickup plan schedules handover without fictitious owner departure or arriv
   assert.equal(plan.tasks.find(t=>t.key==='pickup').at,etWallClockMs('2026-10-01T19:00'));
   assert.ok(!plan.tasks.some(t=>['depart','arrive','serve'].includes(t.key)));
 });
+
+test('unknown quoted units do not manufacture packaging counts from guests',()=>{
+ const pack=packagingList([{name:'Roast pork',portions:null,ordered_qty:'2 trays'}],200);
+ assert.equal(pack.find(p=>p.item==='Packaging for Roast pork').qty,'Confirm');
+ assert.match(pack.find(p=>p.item==='Packaging for Roast pork').why,/2 trays/);
+ assert.equal(pack.some(p=>/aluminium pans/.test(p.item)),false);
+});
+test('logistics projects actual packing evidence without claiming automatic safety clearance',()=>{
+ const load=logistics({event:{address:'Test'},production:[{name:'Synthetic dish',handling:{packing:{mode:'hot',temperature_f:145,carrier:'Measured carrier',stale:false}}}]}).load[0];
+ assert.equal(load.handling_status,'recorded');assert.match(load.how,/145°F.*Measured carrier/);assert.match(load.how,/not an automatic/);assert.doesNotMatch(load.how,/not recorded/);
+});

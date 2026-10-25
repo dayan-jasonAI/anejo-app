@@ -95,6 +95,9 @@ export async function mutateExecution(env, b, ctx, {at = Date.now()} = {}) {
       .bind(target,config.delivery_mode,config.travel_minutes,config.setup_minutes,config.handling_confirmed ? 1:0,config.packing_confirmed ? 1:0,config.quote_snapshot,actor,at,q.id,e.version,q.id,q.quote_json || '',q.event_date || '',q.serving_time || '',q.address || '',q.guests,q.dietary_notes,q.balance_status,q.balance_cents,config.delivery_mode,q.id,operationsRevision!==null?1:0,q.id,operationsRevision??-1,snapshot(q),identifiedProduction?1:0,ctx.distinct_id||null,ctx.role),
     env.DB.prepare(`INSERT INTO catering_execution_transitions (id,quote_id,idempotency_key,request_json,from_status,to_status,version,actor,note,recorded_at) SELECT ?,?,?,?,?,?,?,?,?,? WHERE changes()=1`)
       .bind(id('cex'),q.id,b.idempotency_key,requestJson,e.status,target,e.version+1,actor,String(b.note || '').slice(0,1000) || null,at),
+    ...(identifiedProduction && target==='preparing' ? [env.DB.prepare(`INSERT INTO catering_operations_activation(quote_id,quote_snapshot,revision,activated_by,activated_at)
+      SELECT ?,?,1,?,? WHERE EXISTS(SELECT 1 FROM catering_execution_transitions WHERE quote_id=? AND idempotency_key=? AND request_json=?)
+      ON CONFLICT(quote_id) DO NOTHING`).bind(q.id,snapshot(q),ctx.distinct_id,at,q.id,b.idempotency_key,requestJson)] : []),
   ]);
   if (result[1]?.meta?.changes !== 1) {
     // Another identical request may have won after our initial replay lookup.

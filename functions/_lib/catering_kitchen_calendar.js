@@ -1,5 +1,6 @@
 import {callbackEventId} from './catering_callback_delivery.js';
 const fail=error=>({ok:false,error});
+function resultRows(result){if(result?.success!==true||!Array.isArray(result.results))throw Error('Kitchen reservation query unavailable.');return result.results;}
 export async function kitchenCalendarView(env,qid){
  const settings=await env.DB.prepare('SELECT * FROM catering_kitchen_calendar_settings WHERE id=1').first();
  const reservation=await env.DB.prepare('SELECT * FROM catering_kitchen_reservations WHERE quote_id=?').bind(qid).first();
@@ -38,7 +39,7 @@ export function kitchenCalendarAdapter(env,{fetcher=fetch}={}){
 const matches=(e,p)=>e?.id===p.provider_event_id&&e.status==='confirmed'&&Date.parse(e.start?.dateTime)===p.start_at&&Date.parse(e.end?.dateTime)===p.end_at&&e.extendedProperties?.private?.anejo_kitchen_quote===p.quote_id&&e.extendedProperties?.private?.anejo_reservation_version===String(p.version);
 export async function runKitchenReservations(env,{at=Date.now(),adapter=kitchenCalendarAdapter(env)}={}){
  const out={ok:true,confirmed:0,needs_review:0};
- const rows=(await env.DB.prepare("SELECT * FROM catering_kitchen_reservations WHERE status IN ('approved','booking') ORDER BY start_at LIMIT 20").all()).results||[];
+ const rows=resultRows(await env.DB.prepare("SELECT * FROM catering_kitchen_reservations WHERE status IN ('approved','booking') ORDER BY start_at LIMIT 20").all());
  for(const row of rows){
   const view=await kitchenCalendarView(env,row.quote_id);if(!view.ready)continue;
   const holder=crypto.randomUUID();await env.DB.prepare('INSERT INTO catering_kitchen_calendar_locks VALUES(?,?,?) ON CONFLICT(calendar_id) DO UPDATE SET holder=excluded.holder,lease_until=excluded.lease_until WHERE catering_kitchen_calendar_locks.lease_until<?').bind(row.calendar_id,holder,at+120000,at).run();
@@ -58,7 +59,9 @@ export async function runKitchenReservations(env,{at=Date.now(),adapter=kitchenC
     await adapter.create(p);e=await adapter.get(p);
    }
    if(!matches(e,p))throw Error('Calendar readback does not match approved hours.');
-   await env.DB.prepare("UPDATE catering_kitchen_reservations SET status='confirmed',provider_event_id=?,provider_verified_at=?,error=NULL,updated_at=? WHERE quote_id=? AND version=? AND status IN ('approved','booking')").bind(p.provider_event_id,at,at,row.quote_id,row.version).run();out.confirmed++;
+   const authority=await env.DB.prepare('SELECT q.updated_at,q.deposit_status,s.calendar_id FROM catering_quotes q JOIN catering_kitchen_calendar_settings s ON s.id=1 WHERE q.id=?').bind(row.quote_id).first();
+   if(!authority||authority.updated_at!==row.quote_updated_at||authority.deposit_status!=='paid'||authority.calendar_id!==row.calendar_id)throw Error('Calendar event exists but booking authority changed. Review existing reservation.');
+   const confirmed=await env.DB.prepare("UPDATE catering_kitchen_reservations SET status='confirmed',provider_event_id=?,provider_verified_at=?,error=NULL,updated_at=? WHERE quote_id=? AND version=? AND status IN ('approved','booking') AND EXISTS(SELECT 1 FROM catering_quotes q JOIN catering_kitchen_calendar_settings s ON s.id=1 WHERE q.id=catering_kitchen_reservations.quote_id AND q.updated_at=catering_kitchen_reservations.quote_updated_at AND q.deposit_status='paid' AND s.calendar_id=catering_kitchen_reservations.calendar_id)").bind(p.provider_event_id,at,at,row.quote_id,row.version).run();if(confirmed.meta?.changes!==1)throw Error('Reservation changed after provider readback.');out.confirmed++;
   }catch(error){out.ok=false;out.needs_review++;await env.DB.prepare("UPDATE catering_kitchen_reservations SET status='needs_review',error=?,updated_at=? WHERE quote_id=? AND version=?").bind(error.message,at,row.quote_id,row.version).run();}
   finally{await env.DB.prepare('DELETE FROM catering_kitchen_calendar_locks WHERE calendar_id=? AND holder=?').bind(row.calendar_id,holder).run();}
  }

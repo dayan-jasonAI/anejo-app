@@ -170,27 +170,29 @@ export function shoppingList(production, inventory = []) {
 
 const isPlatter = (name) => /croqueta|skewer|pincho|tray|bandeja|empanada/i.test(String(name || ''));
 
-/**
- * What the food travels and serves in. A half pan holds about 25 portions of a hot item, so the
- * count comes from the order rather than from a guess.
- */
-export function packagingList(production, guests) {
+/** Provisional packaging allowances, never an owner-approved capacity or included equipment. */
+export function packagingList(production, _guests) {
   const out = [];
   let pans = 0; let platters = 0;
   for (const p of production) {
-    const n = p.portions || guests || 0;
+    const n = typeof p.portions === 'number' && Number.isFinite(p.portions) && p.portions > 0 ? p.portions : null;
+    if (n === null) {
+      out.push({item: `Packaging for ${p.name}`, qty: 'Confirm', needs_confirmation: true,
+        why: `Ordered quantity: ${p.ordered_qty ?? p.qty ?? 'not specified'}. Confirm sale units and container capacity; guest count was not substituted.`});
+      continue;
+    }
     if (isPlatter(p.name)) platters += Math.max(1, Math.ceil(n / 30));
     else pans += Math.max(1, Math.ceil(n / 25));
   }
   if (pans) {
-    out.push({ item: 'Half-size aluminium pans with lids', qty: pans, why: 'One pan per 25 portions of each hot dish' });
-    out.push({ item: 'Chafing racks with fuel', qty: Math.min(pans, 6), why: 'Hot food has to hold at 135°F or above right through service' });
+    out.push({ item: 'Half-size aluminium pans with lids', qty: pans, estimated: true, why: 'Planning allowance: 25 portions per pan; confirm actual dish capacity and handling' });
+    out.push({ item: 'Chafing racks with fuel', qty: Math.min(pans, 6), estimated: true, why: 'Provisional equipment allowance; confirm contracted equipment, quantity and handling plan' });
   }
-  if (platters) out.push({ item: 'Catering platters with dome lids', qty: platters, why: 'Croquetas and skewers travel and serve on platters' });
-  out.push({ item: 'Serving tongs and spoons', qty: production.length + 2, why: 'One per dish, plus spares' });
-  out.push({ item: 'Labels', qty: pans + platters, why: 'Every container gets the dish name, the allergens and the date' });
-  out.push({ item: 'Food-safe gloves', qty: 1, why: 'A box for packing and a box for service' });
-  out.push({ item: 'Foil, film and sheet liners', qty: 1, why: 'Covering everything for the drive' });
+  if (platters) out.push({ item: 'Catering platters with dome lids', qty: platters, estimated: true, why: 'Planning allowance: 30 portions per platter; confirm presentation and actual capacity' });
+  out.push({ item: 'Serving tongs and spoons', qty: production.length + 2, estimated: true, why: 'Planning allowance: one per dish plus two spares; confirm service requirements' });
+  out.push({ item: 'Labels', qty: pans + platters, estimated: true, why: 'Provisional count from container allowances; confirm actual containers and approved allergen facts' });
+  out.push({ item: 'Food-safe gloves', qty: 1, estimated: true, why: 'Provisional supply allowance; confirm actual stock and use' });
+  out.push({ item: 'Foil, film and sheet liners', qty: 1, estimated: true, why: 'Provisional supply allowance; confirm actual containers and coverage' });
   return out;
 }
 
@@ -295,9 +297,15 @@ export function logistics(plan) {
     timing_source: plan.execution_timing ? 'owner-confirmed execution plan' : 'planning allowance — travel and setup times have not been confirmed',
     load: [
       // Dish names and tray shapes are not authoritative food-handling instructions.
-      ...plan.production.map((p) => ({ what: p.name, handling_status: plan.execution_timing?.handling_confirmed ? 'owner_attested' : 'unconfirmed',
-        how: plan.execution_timing?.handling_confirmed ? 'Owner confirmed handling; individual temperatures and carriers are not recorded here' : 'Handling unconfirmed — the kitchen must confirm holding temperature and carrier before packing' })),
-      { what: 'Chafers, fuel, serving utensils, labels', how: 'Loaded last, out first' },
+      ...plan.production.map((p) => {
+        const reading = p.handling?.packing;
+        const measured = reading && !reading.stale;
+        return {what:p.name,handling_status:measured?'recorded':plan.execution_timing?.handling_confirmed?'owner_attested':'unconfirmed',
+          how:measured?`Packing record: ${reading.mode}${reading.temperature_f == null ? '' : ' · '+reading.temperature_f+'°F'} · ${reading.carrier}. This record is not an automatic food-safety clearance.`
+            :plan.execution_timing?.handling_confirmed?'Owner attested the handling plan; record the actual packing temperature and carrier for this dish.'
+              :'Handling unconfirmed — the kitchen must confirm holding temperature and carrier before packing'};
+      }),
+      { what: 'Serving equipment and labels', how: 'Confirm contracted equipment, loading order and actual container labels; equipment is not assumed included.' },
     ],
     checks: [
       'Take and write down the temperature of every pan as it is packed.',

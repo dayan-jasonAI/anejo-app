@@ -15,6 +15,7 @@ export const onRequestGet=async({request,env})=>{
 export const onRequestPost=async({request,env})=>{
  const ctx=await requireRole(request,env,['owner','kitchen']);if(ctx instanceof Response)return ctx;
  let b;try{b=await request.json();}catch{return bad('Invalid JSON.');}
+ if(!b||typeof b!=='object'||Array.isArray(b))return bad('Invalid recipe action.');
  if(b.op==='approve'&&ctx.role!=='owner')return bad('Only Dayan may approve a recipe.',403);
  try{
   if(b.op==='photo'){
