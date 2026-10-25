@@ -37,7 +37,7 @@ NODE_PATH=/Users/aiagent/.cache/codex-runtimes/codex-primary-runtime/dependencie
 
 - 37 existing execution/task/assignment regressions passed.
 - Event workbench acceptance passed with production CSP at 390 and 1440 pixels: prep PIN, two dishes’ actual progress, packing readings, ready PIN, owner pickup readings, purchase edit/add, uncertain save retry using the same identity, no stored PIN, canonical timeline links, ambiguous units, and a 110-character unbroken dish name without horizontal overflow. All APIs are intercepted synthetic fixtures in this script.
-- Joined-board acceptance uses the real kitchen orders GET/POST handlers with every migration applied to isolated SQLite. An upcoming catering booking and an existing retail ticket render together. A real synthetic cook PIN starts preparation. The server mutation succeeds before a simulated lost acknowledgement; retry reuses the same key/version and produces exactly one execution transition. The retail record and displayed content remain unchanged. No fabricated retail catering row is created. No external provider calls occur.
+- Joined-board acceptance uses the real kitchen orders GET/POST handlers with every migration applied to isolated SQLite. An upcoming catering booking and an existing retail ticket render together. A real synthetic cook PIN starts preparation. The server mutation succeeds before a simulated lost acknowledgement; retry reuses the same key/version and produces exactly one execution transition. Denied recovery storage and pending requests belonging to a different operator stop before any mutation. Enter while saving does not create another request. The retail record and displayed content remain unchanged. No fabricated retail catering row is created. No external provider calls occur.
 - Both browser scripts reported no page errors.
 
 Screenshots:
@@ -49,6 +49,6 @@ Screenshots:
 
 ## Review handoff and limits
 
-The parent owns final joined-board recovery hardening, full CI, branch integration, hosted preview, migration/release ordering, and live readback. Root service review findings were sent to the parent: saved-vs-visible kitchen hours, exact unique preview loads, label preview loading, renderer fingerprint binding, and image-decode/print-layout proof. Recipe UI draft-loss/in-flight edits/image-readiness findings were sent to that file owner.
+Final joined-board hardening was rerun successfully: denied recovery storage sends no mutation; a prior operator’s saved request is rejected and preserved; repeated Enter while saving sends no second request. The parent owns full CI, branch integration, hosted preview, migration/release ordering, and live readback. Root service review findings were sent to the parent: saved-vs-visible kitchen hours, exact unique preview loads, label preview loading, renderer fingerprint binding, and image-decode/print-layout proof. Recipe UI draft-loss/in-flight edits/image-readiness findings were sent to that file owner.
 
 No real customer data, payments, email/SMS, calendar bookings, production databases, credentials, or live deployment were mutated by these checks. Printed Avery alignment still needs an actual-size physical test sheet. The presence of configured controls does not establish that an external provider action ran.

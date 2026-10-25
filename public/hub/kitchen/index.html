@@ -737,10 +737,10 @@
   // ---- Shared-tablet PIN prompt ----
   // askPin(title, submit): submit(pin, helpers) runs the action; helpers.fail(msg) keeps the
   // modal open with an error (wrong PIN → retry); helpers.done() closes it.
-  var _pinSubmit = null, pinBusy = false;
+  var _pinSubmit = null, pinBusy = false, boardActor = null;
   var prepRequests = {};
   try { prepRequests = JSON.parse(sessionStorage.getItem('anejo:catering-board-start:v1') || '{}'); } catch(ignore) {}
-  function persistPrepRequests() { try { sessionStorage.setItem('anejo:catering-board-start:v1', JSON.stringify(prepRequests)); } catch(ignore) {} }
+  function persistPrepRequests() { try { var saved=JSON.stringify(prepRequests);sessionStorage.setItem('anejo:catering-board-start:v1',saved);return sessionStorage.getItem('anejo:catering-board-start:v1')===saved; } catch(ignore) { return false; } }
   function askPin(title, submit) {
     _pinSubmit = submit;
     document.getElementById('pin-title').textContent = title || 'Enter your PIN';
@@ -753,6 +753,7 @@
   (function wirePin() {
     var ok = document.getElementById('pin-ok'), inp = document.getElementById('pin-input'), err = document.getElementById('pin-err');
     function go() {
+      if(pinBusy)return;
       var pin = (inp.value || '').trim();
       if (!/^\d{4,8}$/.test(pin)) { err.textContent = 'Enter your 4–8 digit PIN.'; return; }
       var fn = _pinSubmit; if (!fn) return;
@@ -773,7 +774,8 @@
     Array.prototype.forEach.call(document.querySelectorAll('[data-prep]'), function (b) {
       b.addEventListener('click', function () {
         var orderId=b.getAttribute('data-prep'), catering=b.hasAttribute('data-execution-version');
-        if(catering&&!prepRequests[orderId]){prepRequests[orderId]={id:orderId,action:'prep_start',expected_execution_version:Number(b.getAttribute('data-execution-version')),idempotency_key:'kitchen-prep-'+crypto.randomUUID()};persistPrepRequests();}
+        if(catering&&(!boardActor||prepRequests[orderId]&&prepRequests[orderId].session_actor!==boardActor)){Hub.toast('A saved prep request belongs to another signed-in operator. Reconcile it before starting again.');return;}
+        if(catering&&!prepRequests[orderId]){prepRequests[orderId]={session_actor:boardActor,id:orderId,action:'prep_start',expected_execution_version:Number(b.getAttribute('data-execution-version')),idempotency_key:'kitchen-prep-'+crypto.randomUUID()};if(!persistPrepRequests()){delete prepRequests[orderId];Hub.toast('Recovery storage unavailable. No preparation change was sent.');return;}}
         askPin('PIN to start prep', function (pin, h) {
           K.post('/api/hub/kitchen/orders', {...(catering?prepRequests[orderId]:{id:orderId,action:'prep_start'}),pin:pin})
             .then(function(d){if(d&&d.ok){if(catering){delete prepRequests[orderId];persistPrepRequests();}h.done();Hub.toast('Prep started'+(d.by?' · '+d.by:''));loadBoard();}else{h.fail(d&&d.error);}})
@@ -938,7 +940,8 @@
   var dismiss = document.getElementById('install-dismiss');
   if (dismiss) dismiss.addEventListener('click', Hub.dismissInstall);
 
-  K.boot('board', function () {
+  K.boot('board', function (me) {
+    boardActor=me&&me.staff&&me.staff.id||null;
     setupSound();
     loadClock(); loadReminders(); loadEvents(); loadBoard(); btLoad();
     setInterval(loadBoard, 15000); // poll the board (15s → snappier order alerts)

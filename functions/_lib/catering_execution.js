@@ -1,6 +1,6 @@
 // Deterministic owner-operated fulfillment. No provider, checkout, or notification calls.
 import { id, etDateOf, parseJson } from './hub.js';
-const notifications = { enabled: false, sent: false };
+
 const failure = (error, status = 409) => ({ ok: false, error, status });
 export const executionQuoteSnapshot = q => JSON.stringify([q.quote_json, q.event_date, q.serving_time, q.address, q.guests, q.dietary_notes]);
 const snapshot = executionQuoteSnapshot;
@@ -36,6 +36,9 @@ export async function readExecution(env, quoteId, {at = Date.now()} = {}) {
     if(active){const {readCateringOperations,cateringHandlingRequirements}=await import('./catering_operations.js');if(row.status==='preparing'){const ops=await readCateringOperations(env,q);blockers.push(...ops.ready_requirements);}else{const handling=await cateringHandlingRequirements(env,q,row.status==='ready'?'pickup':'delivery');blockers.push(...handling.missing);}}
   }
   if (next(execution).includes('completed') && !(q.balance_status === 'paid' || q.balance_status === 'waived' || q.balance_cents === 0)) blockers.push('The recorded balance must be paid or waived before completion.');
+  const settings=await env.DB.prepare('SELECT enabled,template_version FROM catering_service_settings WHERE id=1').first();
+  const {SERVICE_TEMPLATE_VERSION}=await import('./catering_service_messages.js');
+  const notifications={enabled:Boolean(settings?.enabled&&settings.template_version===SERVICE_TEMPLATE_VERSION),sent:false};
   return {ok:true, configurable, read_only, can_reopen, execution, transitions:history.results || [], available_actions:blockers.length ? [] : next(execution).filter(action => execution.delivery_mode !== 'staff_driver' || !['en_route','arrived','completed'].includes(action)), blockers, notifications};
 }
 export async function mutateExecution(env, b, ctx, {at = Date.now()} = {}) {

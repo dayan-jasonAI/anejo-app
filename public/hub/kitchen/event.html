@@ -261,7 +261,7 @@
   "Arrived": "Llegó",
   "Completed": "Completado",
   "Event progress": "Progreso del evento",
-  "Owner delivery, staff driver or customer pickup. This flow records progress; no notifications are sent.": "Entrega del propietario, chofer del equipo o recogida del cliente. Este proceso registra el progreso; no se envían avisos.",
+  "Driver actions update this event. Owner-reviewed delivery messages follow real departure and delivery records; see Client communication for saved outcomes.": "Las acciones del chofer actualizan este evento. Los avisos aprobados siguen la salida y entrega reales; consulte Comunicación con el cliente.",
   "Reload progress": "Recargar progreso",
   "Owner delivery": "Entrega del propietario",
   "Customer pickup": "Recogida del cliente",
@@ -354,7 +354,7 @@
       html += (d.transitions || []).length ? '<ol>' + d.transitions.map(function (t) {
         return '<li>' + esc(dayName(t.recorded_at) + ' ' + clock(t.recorded_at)) + ' ET · ' + esc(t.from_status === t.to_status ? executionLabel("Plan confirmed") : executionText(t.to_status)) + ' · ' + esc(t.actor) + (t.note ? '<br>' + esc(t.note) : '') + '</li>';
       }).join('') + '</ol>' : '<p class="row-sub">' + esc(executionLabel("No execution steps recorded.")) + '</p>';
-      el.innerHTML = html + '</details><details class="ev-progress-details"><summary>'+esc(lang==='es'?'Sobre los avisos y este progreso':'About notifications and progress')+'</summary><p class="ev-help">'+esc(executionLabel('Owner delivery, staff driver or customer pickup. This flow records progress; no notifications are sent.'))+'</p></details>';
+      el.innerHTML = html + '</details><details class="ev-progress-details"><summary>'+esc(lang==='es'?'Sobre los avisos y este progreso':'About notifications and progress')+'</summary><p class="ev-help">'+esc(executionLabel('Driver actions update this event. Owner-reviewed delivery messages follow real departure and delivery records; see Client communication for saved outcomes.'))+'</p></details>';
     }
     var refresh = document.getElementById('execution-refresh');
     if (refresh) { refresh.disabled = executionBusy; refresh.onclick = loadExecution; }

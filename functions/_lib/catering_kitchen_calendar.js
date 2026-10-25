@@ -37,10 +37,11 @@ export function kitchenCalendarAdapter(env,{fetcher=fetch}={}){
  return {get:p=>call(base(p)+'/'+p.provider_event_id),busy:async p=>{const r=await call('https://www.googleapis.com/calendar/v3/freeBusy',{method:'POST',body:JSON.stringify({timeMin:new Date(p.start_at).toISOString(),timeMax:new Date(p.end_at).toISOString(),items:[{id:p.calendar_id}]})});const c=r.calendars?.[p.calendar_id];if(!c||c.errors?.length||!Array.isArray(c.busy))throw Error('Calendar availability unverified.');if(c.busy.some(w=>!Number.isFinite(Date.parse(w.start))||!Number.isFinite(Date.parse(w.end))||Date.parse(w.end)<=Date.parse(w.start)))throw Error('Calendar availability unverified.');return c.busy.some(w=>Date.parse(w.start)<p.end_at&&Date.parse(w.end)>p.start_at);},create:p=>call(base(p)+'?sendUpdates=none',{method:'POST',body:JSON.stringify({id:p.provider_event_id,summary:'Añejo · Catering kitchen preparation',description:'Internal kitchen reservation '+p.quote_id,start:{dateTime:new Date(p.start_at).toISOString(),timeZone:'America/New_York'},end:{dateTime:new Date(p.end_at).toISOString(),timeZone:'America/New_York'},extendedProperties:{private:{anejo_kitchen_quote:p.quote_id,anejo_reservation_version:String(p.version)}}})})};
 }
 const matches=(e,p)=>e?.id===p.provider_event_id&&e.status==='confirmed'&&Date.parse(e.start?.dateTime)===p.start_at&&Date.parse(e.end?.dateTime)===p.end_at&&e.extendedProperties?.private?.anejo_kitchen_quote===p.quote_id&&e.extendedProperties?.private?.anejo_reservation_version===String(p.version);
-export async function runKitchenReservations(env,{at=Date.now(),adapter=kitchenCalendarAdapter(env)}={}){
- const out={ok:true,confirmed:0,needs_review:0};
+export async function runKitchenReservations(env,{at:startedAt=Date.now(),adapter=kitchenCalendarAdapter(env),clock=Date.now}={}){
+ const out={ok:true,confirmed:0,needs_review:0},startedClock=clock();
  const rows=resultRows(await env.DB.prepare("SELECT * FROM catering_kitchen_reservations WHERE status IN ('approved','booking') ORDER BY start_at LIMIT 20").all());
  for(const row of rows){
+  const at=startedAt+clock()-startedClock;
   const view=await kitchenCalendarView(env,row.quote_id);if(!view.ready)continue;
   const holder=crypto.randomUUID();await env.DB.prepare('INSERT INTO catering_kitchen_calendar_locks VALUES(?,?,?) ON CONFLICT(calendar_id) DO UPDATE SET holder=excluded.holder,lease_until=excluded.lease_until WHERE catering_kitchen_calendar_locks.lease_until<?').bind(row.calendar_id,holder,at+120000,at).run();
   if((await env.DB.prepare('SELECT holder FROM catering_kitchen_calendar_locks WHERE calendar_id=?').bind(row.calendar_id).first())?.holder!==holder)continue;
@@ -55,7 +56,9 @@ export async function runKitchenReservations(env,{at=Date.now(),adapter=kitchenC
     if(overlap||await adapter.busy(p))throw Error('Kitchen hours overlap an existing reservation.');
     const fresh=await env.DB.prepare('SELECT r.status,r.version,q.updated_at,q.deposit_status,s.calendar_id FROM catering_kitchen_reservations r JOIN catering_quotes q ON q.id=r.quote_id JOIN catering_kitchen_calendar_settings s ON s.id=1 WHERE r.quote_id=?').bind(row.quote_id).first();
     if(!fresh||fresh.version!==row.version||!['approved','booking'].includes(fresh.status)||fresh.updated_at!==row.quote_updated_at||fresh.deposit_status!=='paid'||fresh.calendar_id!==row.calendar_id)throw Error('Reservation changed before booking.');
-    const claim=await env.DB.prepare("UPDATE catering_kitchen_reservations SET status='booking',provider_event_id=?,updated_at=? WHERE quote_id=? AND version=? AND status IN ('approved','booking')").bind(p.provider_event_id,at,row.quote_id,row.version).run();if(claim.meta?.changes!==1)continue;
+    const claim=await env.DB.prepare("UPDATE catering_kitchen_reservations SET status='booking',provider_event_id=?,updated_at=? WHERE quote_id=? AND version=? AND status IN ('approved','booking') AND EXISTS(SELECT 1 FROM catering_quotes q JOIN catering_kitchen_calendar_settings s ON s.id=1 WHERE q.id=catering_kitchen_reservations.quote_id AND q.updated_at=catering_kitchen_reservations.quote_updated_at AND q.deposit_status='paid' AND s.calendar_id=catering_kitchen_reservations.calendar_id)").bind(p.provider_event_id,at,row.quote_id,row.version).run();if(claim.meta?.changes!==1)continue;
+    const lease=await env.DB.prepare('SELECT holder,lease_until FROM catering_kitchen_calendar_locks WHERE calendar_id=?').bind(row.calendar_id).first();
+    if(lease?.holder!==holder||lease.lease_until<=startedAt+clock()-startedClock)throw Error('Calendar reservation lease elapsed; reconcile before retrying.');
     await adapter.create(p);e=await adapter.get(p);
    }
    if(!matches(e,p))throw Error('Calendar readback does not match approved hours.');
