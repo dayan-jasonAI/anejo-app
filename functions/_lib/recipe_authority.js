@@ -50,6 +50,8 @@ export async function saveRecipeRevision(env,b,ctx){
 export async function submitRecipeRevision(env,revisionId,ctx){
  const row=await env.DB.prepare('SELECT * FROM recipe_revisions WHERE id=?').bind(revisionId).first();if(!row)throw Error('Revision not found.');
  if(ctx.role!=='owner'&&row.created_by!==ctx.distinct_id)throw Error('Only the author or owner may submit this draft.');
+ if(!['draft','submitted'].includes(row.status))throw Error('Only a draft can be submitted.');
+ const latest=await latestRecipeRevision(env,row.recipe_id);if(latest?.id!==row.id)throw Error('A newer revision exists. Reload it before submitting.');
  await env.DB.prepare("UPDATE recipe_revisions SET status='submitted',submitted_at=? WHERE id=? AND status='draft'").bind(Date.now(),row.id).run();
  return env.DB.prepare('SELECT * FROM recipe_revisions WHERE id=?').bind(row.id).first();
 }
@@ -58,7 +60,7 @@ export async function approveRecipeRevision(env,b,ctx){
  const row=await env.DB.prepare('SELECT * FROM recipe_revisions WHERE id=?').bind(b.revision_id).first();
  if(!row||row.status!=='submitted'||row.content_hash!==b.content_hash)throw Error('Open the current submitted version before approving.');
  const latest=await latestRecipeRevision(env,row.recipe_id);if(latest?.id!==row.id)throw Error('A newer version exists. Review that version first.');
- const s=normalizeRecipeSpec(parse(row.payload_json,{})),gaps=recipeApprovalGaps(s);if(gaps.length)throw Error('Needs Dayan confirmation: '+gaps.join(', '));
+ const s=normalizeRecipeSpec(parse(row.payload_json,{}));if(await digest(s)!==row.content_hash)throw Error('Saved recipe integrity could not be verified.');const gaps=recipeApprovalGaps(s);if(gaps.length)throw Error('Needs Dayan confirmation: '+gaps.join(', '));
  for(const link of s.menu_links)if(!await env.DB.prepare('SELECT id FROM menu_items WHERE id=?').bind(link.menu_item_id).first())throw Error('Catalog item no longer exists: '+link.menu_item_id);
  for(const ingredient of s.ingredients)if(ingredient.inventory_id&&!await env.DB.prepare('SELECT id FROM inventory_items WHERE id=? AND active=1').bind(ingredient.inventory_id).first())throw Error('Linked inventory item is missing or inactive.');
  const at=Date.now(),actor=ctx.distinct_id||ctx.email,docId='doc_authority_'+row.recipe_id;
@@ -67,7 +69,7 @@ export async function approveRecipeRevision(env,b,ctx){
  const approved="EXISTS(SELECT 1 FROM recipe_revisions v WHERE v.id=? AND v.status='approved' AND v.approved_at=? AND v.approved_by=?)";
  const receipt=[row.id,at,actor];
  const commands=[
-  env.DB.prepare(`UPDATE recipe_revisions SET status='approved',approved_by=?,approved_at=? WHERE id=? AND ${guard}`).bind(actor,at,row.id,...args),
+  env.DB.prepare(`UPDATE recipe_revisions SET status='approved',approved_by=?,approved_at=?,source_verified=1 WHERE id=? AND ${guard}`).bind(actor,at,row.id,...args),
   env.DB.prepare(`UPDATE recipes SET name=?,name_es=?,summary=?,ingredients=?,steps=?,portion=?,cook_minutes=?,hero_photo=?,status='published',published_at=?,updated_at=? WHERE id=? AND ${approved}`).bind(s.name,s.name_es||null,s.summary||null,JSON.stringify(s.ingredients.map(i=>({item:i.item,qty:i.quantity+' '+i.unit,basis:i.basis,inventory_id:i.inventory_id}))),JSON.stringify(s.steps.map(step=>step.text)),s.portion,s.cook_minutes,s.photos[0],at,at,row.recipe_id,...receipt),
   env.DB.prepare(`INSERT INTO recipe_authority(recipe_id,version_id,recipe_updated_at,approved_by,approved_at) SELECT ?,?,?,?,? WHERE ${approved} ON CONFLICT(recipe_id) DO UPDATE SET version_id=excluded.version_id,recipe_updated_at=excluded.recipe_updated_at,approved_by=excluded.approved_by,approved_at=excluded.approved_at`).bind(row.recipe_id,row.id,at,actor,at,...receipt),
   env.DB.prepare(`INSERT INTO docs(id,doc_type,title,body,recipe_id,role_scope,version,active,created_by,created_at,updated_at) SELECT ?,'recipe',?,?,?,'["kitchen","owner"]',?,1,?,?,? WHERE ${approved} ON CONFLICT(id) DO UPDATE SET title=excluded.title,body=excluded.body,version=excluded.version,active=1,updated_at=excluded.updated_at`).bind(docId,s.name,'Owner-approved recipe version '+row.version+'. '+(s.summary||''),row.recipe_id,row.version,actor,at,at,...receipt),
@@ -77,8 +79,40 @@ export async function approveRecipeRevision(env,b,ctx){
  return {recipe_id:row.recipe_id,version_id:row.id,version:row.version,approved_by:actor,approved_at:at};
 }
 export async function getApprovedRecipeAuthority(env,{menuItemId,recipeId}={}){
- const row=menuItemId?await env.DB.prepare(`SELECT a.*,v.version,v.payload_json,v.content_hash,m.portions_per_sale_unit FROM menu_recipe_authority m JOIN recipe_authority a ON a.recipe_id=m.recipe_id AND a.version_id=m.version_id JOIN recipe_revisions v ON v.id=a.version_id JOIN recipes r ON r.id=a.recipe_id WHERE m.menu_item_id=? AND v.status='approved' AND v.approved_by IS NOT NULL AND r.updated_at=a.recipe_updated_at AND r.status='published'`).bind(menuItemId).first():recipeId?await env.DB.prepare(`SELECT a.*,v.version,v.payload_json,v.content_hash FROM recipe_authority a JOIN recipe_revisions v ON v.id=a.version_id JOIN recipes r ON r.id=a.recipe_id WHERE a.recipe_id=? AND v.status='approved' AND v.approved_by IS NOT NULL AND r.updated_at=a.recipe_updated_at AND r.status='published'`).bind(recipeId).first():null;
+ const row=menuItemId?await env.DB.prepare(`SELECT a.*,v.version,v.payload_json,v.content_hash,m.portions_per_sale_unit FROM menu_recipe_authority m JOIN recipe_authority a ON a.recipe_id=m.recipe_id AND a.version_id=m.version_id JOIN recipe_revisions v ON v.id=a.version_id JOIN recipes r ON r.id=a.recipe_id WHERE m.menu_item_id=? AND v.status='approved' AND v.source_verified=1 AND v.approved_by IS NOT NULL AND r.updated_at=a.recipe_updated_at AND r.status='published'`).bind(menuItemId).first():recipeId?await env.DB.prepare(`SELECT a.*,v.version,v.payload_json,v.content_hash FROM recipe_authority a JOIN recipe_revisions v ON v.id=a.version_id JOIN recipes r ON r.id=a.recipe_id WHERE a.recipe_id=? AND v.status='approved' AND v.source_verified=1 AND v.approved_by IS NOT NULL AND r.updated_at=a.recipe_updated_at AND r.status='published'`).bind(recipeId).first():null;
  if(!row)return null;const spec=normalizeRecipeSpec(parse(row.payload_json,{}));if(recipeApprovalGaps(spec).length||await digest(spec)!==row.content_hash)return null;
  return {recipe_id:row.recipe_id,version_id:row.version_id,version:row.version,approved_by:row.approved_by,approved_at:row.approved_at,recipe_updated_at:row.recipe_updated_at,portions_per_sale_unit:row.portions_per_sale_unit??null,recipe:spec,...spec};
 }
 export async function getApprovedRecipeAuthorities(env,menuIds){const map={};for(const menuItemId of [...new Set(menuIds)])map[menuItemId]=await getApprovedRecipeAuthority(env,{menuItemId});return map;}
+
+const words=value=>text(value,200).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();
+export function recipeReferenceCandidates(item,recipes){
+ const known=[[/^(?:traditional_congri|catering_congri-)/,'rcp_cat_congri'],[/^(?:traditional_fria|catering_fria-)/,'rcp_cat_macaroni'],[/^(?:traditional_lechon$|catering_lechon-)/,'rcp_cat_lechon'],[/^(?:traditional_tamal(?:-full)?$|catering_tamal-)/,'rcp_cat_tamales'],[/^(?:traditional_yuca|catering_yuca-)/,'rcp_cat_yuca'],[/^(?:traditional_skewer|catering_skewer-)/,'rcp_cat_skewers'],[/^(?:traditional_croq-sausage|catering_(?:croq|platter)-sausage-)/,'rcp_cat_croq_sausage']];
+ const target=known.find(([pattern])=>pattern.test(item.id))?.[1];
+ const names=[item.name,item.name_es].filter(Boolean).map(value=>words(value.split(/\s[—–]\s/)[0]));
+ return recipes.filter(r=>r.id===target||[r.name,r.name_es].filter(Boolean).some(value=>names.includes(words(value.split(/\s[—–]\s/)[0])))||(['coco','vida'].includes(item.id)&&words(r.name).split(' ').includes(item.id))).map(r=>({id:r.id,name:text(r.name,140),status:r.status,program:!!r.program_key,reference_only:true}));
+}
+export function recipeMatrixFromRecords(menu,recipes,authorities={}){
+ return menu.map(item=>{const authority=authorities[item.id],candidates=recipeReferenceCandidates(item,recipes);return {menu_item_id:item.id,name:item.name,name_es:item.name_es,kind:item.kind,active:!!item.active,state:authority?'exists_confirmed':candidates.length?'exists_unconfirmed':'missing',authority:authority?{recipe_id:authority.recipe_id,version_id:authority.version_id,version:authority.version,approved_by:authority.approved_by,approved_at:authority.approved_at}:null,candidates,needs_confirmation:!authority,meaning:authority?'Exact catalog link to a current owner-approved recipe version.':candidates.length?'Reference exists. Name matching is not recipe, portion, ingredient or owner-approval evidence.':'No recipe reference matched this SKU. A complete assembly or component recipe must be supplied.'};});
+}
+export async function recipeAuthorityMatrix(env){
+ const menu=await requiredRows(env,'SELECT id,name,name_es,kind,active,updated_at FROM menu_items ORDER BY kind,name');
+ const recipes=await requiredRows(env,'SELECT id,name,name_es,status,program_key,updated_at FROM recipes ORDER BY name');
+ const links=await requiredRows(env,'SELECT menu_item_id FROM menu_recipe_authority');
+ const authorities=await getApprovedRecipeAuthorities(env,links.map(l=>l.menu_item_id));
+ return {observed_at:Date.now(),items:recipeMatrixFromRecords(menu,recipes,authorities),recipes:recipes.map(r=>({...r,name:text(r.name,140)}))};
+}
+
+async function requiredRows(env,sql){const result=await env.DB.prepare(sql).all();if(result.success===false||!Array.isArray(result.results))throw Error('Recipe records could not be loaded.');return result.results;}
+export async function recipeRevisionView(env,recipeId){
+ const recipe=await env.DB.prepare('SELECT * FROM recipes WHERE id=?').bind(recipeId).first();if(!recipe)return null;
+ const revision=await latestRecipeRevision(env,recipeId),spec=revision?normalizeRecipeSpec(parse(revision.payload_json,{})):specFromLegacy(recipe);
+ const authority=await getApprovedRecipeAuthority(env,{recipeId});
+ return {recipe:{id:recipe.id,name:recipe.name,status:recipe.status,updated_at:recipe.updated_at},revision,spec,gaps:recipeApprovalGaps(spec),authority};
+}
+export async function createRecipeIdentity(env,spec,ctx){
+ const s=normalizeRecipeSpec(spec);if(!s.name)throw Error('Recipe name is required.');
+ const recipeId=id('rcp'),at=Date.now();
+ await env.DB.prepare("INSERT INTO recipes(id,name,name_es,summary,ingredients,steps,status,created_by,created_at,updated_at) VALUES(?,?,?,?,?,?,'draft',?,?,?)").bind(recipeId,s.name,s.name_es||null,s.summary||null,'[]','[]',ctx.distinct_id,at,at).run();
+ return recipeId;
+}

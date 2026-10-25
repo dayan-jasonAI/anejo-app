@@ -4,7 +4,7 @@ CREATE TABLE recipe_revisions (
  based_on_updated_at INTEGER NOT NULL, payload_json TEXT NOT NULL, content_hash TEXT NOT NULL,
  status TEXT NOT NULL CHECK(status IN('draft','submitted','approved','rejected')),
  created_by TEXT NOT NULL, created_at INTEGER NOT NULL, submitted_at INTEGER,
- approved_by TEXT, approved_at INTEGER, review_note TEXT,
+ approved_by TEXT, approved_at INTEGER, review_note TEXT, source_verified INTEGER NOT NULL DEFAULT 0 CHECK(source_verified IN(0,1)),
  UNIQUE(recipe_id,version)
 );
 CREATE TABLE recipe_authority (

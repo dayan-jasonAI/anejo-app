@@ -26,6 +26,8 @@
 import { id, now, parseJson, etDateOf, etMidnightMs, etWallClockMs, addEtDays } from './hub.js';
 
 import { executionQuoteSnapshot } from './catering_execution.js';
+import {readCateringOperations,mergeCateringPurchases,cateringLineQuantity} from './catering_operations.js';
+import {getApprovedRecipeAuthorities} from './recipe_authority.js';
 
 const DAY = 86400000;
 const MIN = 60000;
@@ -138,6 +140,10 @@ export function shoppingList(production, inventory = []) {
   const onHand = new Map(inventory.map((i) => [norm(i.name), i]));
   const lines = new Map();
   for (const p of production) {
+    if(p.needs_recipe||p.recipe_confirmed===false){
+      lines.set('dish:'+p.key,{key:'dish:'+p.key,item:p.name,quantities:[],for:[p.name],needs_confirmation:true,note:'Ordered item: '+String(p.ordered_qty??p.qty??'quantity not confirmed')+'. Confirm ingredients and purchase quantity; no approved recipe quantity was inferred.'});
+      continue;
+    }
     for (const ing of p.ingredients) {
       const key = norm(ing.item);
       const cur = lines.get(key) || { item: ing.item, quantities: [], for: [] };
@@ -341,45 +347,53 @@ export async function eventPlan(env, quoteId, { atMs = Date.now() } = {}) {
 
   const doneRes = await env.DB.prepare('SELECT task_key, done_at, done_by, note, minutes FROM event_tasks WHERE quote_id = ?').bind(quoteId).all();
   const done = new Map(((doneRes && doneRes.results) || []).map((r) => [r.task_key, r]));
+  const operations=await readCateringOperations(env,quote);
+  let authorities={};let authorityUnavailable=false;
+  try{authorities=await getApprovedRecipeAuthorities(env,lines.map(l=>l.product_id||l.sku).filter(Boolean));}catch{authorityUnavailable=true;}
 
   const production = lines.map((l, i) => {
-    const recipe = matchRecipe(l, recipes);
-    const portions = qtyOf(l) || guests;
+    const sku=l.product_id||l.sku||null,authority=sku?authorities[sku]:null;
+    const reference=matchRecipe(l,recipes);
+    const recipe=authority?{...authority.recipe,id:authority.recipe_id,name:authority.name,status:'published'}:reference;
+    const quotedUnits=cateringLineQuantity(l);
+    const portions=authority&&quotedUnits!==null?quotedUnits*authority.portions_per_sale_unit:quotedUnits;
     const words = [...dishWords(l.name), ...dishWords(l.name_es)];
     const mi = menuItems.find((m) => overlap(dishWords(m.name), words) >= 0.6);
     // Three sources, in order of who knows best: what the cook set on THIS event, what the kitchen
     // measured last time it made this dish, and — only when neither exists — a plain allowance
     // that is labelled a guess, because the HUB has never timed this dish and should not pretend.
     const override = done.get(`cook:l${i}`)?.minutes || null;
-    const learned = mi ? Math.max(15, Math.round(mi.cook_minutes * Math.max(1, portions / 25))) : null;
+    const learned = mi&&portions!==null ? Math.max(15, Math.round(mi.cook_minutes * Math.max(1, portions / 25))) : null;
     // A recipe that says how long it takes is better than a guess and worse than a measurement:
     // an 8-hour pernil scheduled at the fallback allowance is a plan that cannot be worked.
-    const written = recipe && recipe.cook_minutes
-      ? Math.max(15, Math.round(recipe.cook_minutes * Math.max(0.5, portions / 45))) : null;
-    const minutes = override || learned || written || Math.max(30, Math.round(portions * 1.5));
+    const written = authority&&authority.cook_minutes&&authority.yield_count>0&&portions!==null
+      ? Math.round(authority.cook_minutes*Math.ceil(portions/authority.yield_count)) : null;
+    const minutes = override || learned || written || Math.max(30, Math.round((portions||0) * 1.5));
     const minutesSource = override
       ? 'set by the kitchen for this event'
       : learned ? `the kitchen's own time for “${mi.name}” — ${mi.cook_minutes} min per 25`
-        : written ? `from the recipe — ${recipe.cook_minutes} min for ${45} portions`
+        : written ? `from owner-approved recipe version ${authority.version} — ${authority.cook_minutes} min per ${authority.yield_count} ${authority.yield_unit}`
           : 'a guess — nobody has timed this dish yet. Set the real time.';
     return {
       key: `l${i}`,
       name: l.name, name_es: l.name_es || null, detail: l.detail || null,
-      qty: l.qty, portions, cents: l.cents || 0,
+      qty:l.qty,ordered_qty:l.qty,required_qty:quotedUnits,product_id:sku,portions,cents:l.cents||0,
+      recipe_confirmed:Boolean(authority),recipe_version_id:authority?.version_id||null,
+      progress:operations.lines[i]?.progress,handling:operations.lines[i]?.handling,
       recipe: recipe ? {
         id: recipe.id, name: recipe.name, status: recipe.status,
-        draft: recipe.status !== 'published',
+        draft: !authority,confirmed:Boolean(authority),reference_only:!authority,
         // The adult day care cycle's recipes live in the same table. They are written to a
         // dietitian-approved portion for that contract, which is not a catering portion, so a
         // match against one is surfaced rather than used quietly.
         program: !!recipe.program_key, portion: recipe.portion || null,
       } : null,
-      ingredients: recipe ? (recipe.ing || []).map((x) => ({ item: x.item, qty: scaleQty(x.qty, portions), basis: x.qty })) : [],
+      ingredients:authority&&portions!==null&&authority.yield_count>0?(authority.ingredients||[]).map(x=>({item:x.item,qty:typeof x.quantity==='number'?formatQty(x.quantity*portions/authority.yield_count,x.unit):'Quantity needs confirmation',basis:x.basis,source_version:authority.version_id})):[],
       minutes, minutes_source: minutesSource, minutes_is_guess: !override && !learned && !written,
       lead_minutes: (recipe && recipe.prep_lead_minutes) || null,
       lead_label: recipe ? (recipe.prep_lead_label || null) : null,
       lead_label_es: recipe ? (recipe.prep_lead_label_es || null) : null,
-      needs_recipe: !recipe,
+      needs_recipe:!authority,
     };
   });
 
@@ -410,13 +424,16 @@ export async function eventPlan(env, quoteId, { atMs = Date.now() } = {}) {
     event,
     production,
     execution_timing: executionTiming ? { travel_minutes: executionTiming.travel_minutes, setup_minutes: executionTiming.setup_minutes, delivery_mode: executionTiming.delivery_mode, handling_confirmed: !!executionTiming.handling_confirmed } : null,
-    shopping: shoppingList(production, inventory),
+    operations,
+    shopping:mergeCateringPurchases(shoppingList(production,inventory),operations),
     packaging: packagingList(production, guests),
     // done_at, not the existence of a row: a row also exists when the cook has only set a time,
     // and knowing how long a dish takes is not the same as having made it.
     tasks: tasks.map((t) => {
       const r = done.get(t.key);
-      return { ...t, done: !!(r && r.done_at), done_at: (r && r.done_at) || null, done_by: (r && r.done_by) || null, note: (r && r.note) || null };
+      const actual=t.key.startsWith('cook:')?operations.lines.find(l=>'cook:'+l.key===t.key)?.progress:null;
+      const actualDone=actual?['cooked','packed'].includes(actual.state):t.key==='pack'?['ready','en_route','arrived','completed'].includes(execution?.status):null;
+      return {...t,done:actualDone===null?!!r?.done_at:actualDone,planning_done:!!r?.done_at,done_at:actual?.at||(actualDone?r?.done_at:null)||null,done_by:actual?.by||(actualDone?r?.done_by:null)||null,note:r?.note||null,operational:actualDone!==null};
     }),
     labor: laborEstimate(tasks),
     design: designBrief(event, production),
@@ -426,8 +443,9 @@ export async function eventPlan(env, quoteId, { atMs = Date.now() } = {}) {
     ...(quote.serving_time ? [] : ['No serving time on this event — the whole schedule below assumes 7:00 p.m. Set the real time.']),
     ...(quote.address || executionTiming?.delivery_mode === 'pickup' ? [] : ['No delivery address on this event.']),
     ...(executionTiming ? [] : ['Travel and setup each use an unconfirmed 30-minute planning allowance. Confirm the actual route and setup needs.']),
-    ...(executionTiming?.handling_confirmed ? ['Owner confirmed food handling. Individual temperature readings and carrier details are not recorded in this plan.'] : ['Food holding temperatures and carriers are unconfirmed. The kitchen must confirm each dish before packing.']),
-    ...production.filter((p) => p.needs_recipe).map((p) => `No recipe on file for “${p.name}” — its ingredients are missing from the purchase list.`),
+    ...(operations.ready?[]:operations.ready_requirements),
+    ...(authorityUnavailable?['Recipe approval evidence is unavailable; no ingredient quantities were inferred.']:[]),
+    ...production.filter((p) => p.needs_recipe).map((p) => `No owner-approved recipe mapping for “${p.name}”. The ordered dish remains on the purchase list with quantity confirmation required.`),
     ...production.filter((p) => p.recipe && p.recipe.draft).map((p) => `The recipe for “${p.name}” is still a draft nobody has confirmed.`),
     ...production.filter((p) => p.recipe && p.recipe.program).map((p) => `“${p.name}” matched the adult day care program recipe${p.recipe.portion ? ` (${p.recipe.portion})` : ''} — that portion is the one the dietitian signed for the contract, not a catering portion. Check the amounts before cooking.`),
     ...(String(quote.balance_status) === 'due' ? [`The balance of $${((quote.balance_cents || 0) / 100).toFixed(2)} has not been collected.`] : []),

@@ -104,8 +104,8 @@
     baseNote: 'You are editing the MASTER recipe, written for its own batch size. The amounts in the purchase list above are this recipe scaled to THIS event — change those amounts here only if the master itself is wrong.',
     ingHint: 'One per line:  3 cups — garlic, mashed',
     stepHint: 'One step per line.',
-    saveRecipe: 'Save changes', confirmRecipe: 'Confirm this recipe', confirming: 'Confirming…',
-    confirmed: 'Confirmed — the kitchen can cook from this.', loadingRecipe: 'Opening…'
+    saveRecipe: 'Save draft', confirmRecipe: 'Submit to Dayan', confirming: 'Submitting…',
+    confirmed: 'Submitted for Dayan’s review; not yet approved.', loadingRecipe: 'Opening…'
   };
   var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]; }); };
   var money = function (c) { return '$' + ((c || 0) / 100).toFixed(2); };
@@ -144,15 +144,16 @@
     html += '<nav class="ev-work-nav" role="tablist" aria-label="'+esc(lang==='es'?'Trabajo del evento':'Event workspace')+'">'+[['production',lang==='es'?'Cocina':'Production'],['purchases',lang==='es'?'Compras':'Purchases'],['delivery',lang==='es'?'Empaque / entrega':'Pack / delivery'],['details',lang==='es'?'Detalles':'Details']].map(function(stage){return '<button type="button" role="tab" id="ev-tab-'+stage[0]+'" aria-controls="ev-stage-'+stage[0]+'" aria-selected="'+(activeWorkStage===stage[0]?'true':'false')+'" data-work-stage="'+stage[0]+'">'+esc(stage[1])+'</button>';}).join('')+'</nav>';
     html += '<section class="ev-view" role="tabpanel" aria-labelledby="ev-tab-production" id="ev-stage-production"'+(activeWorkStage==='production'?'':' hidden')+'>'+productionHtml(d)+'<details class="ev-subsection"><summary>'+esc(lang==='es'?'Cronograma y lista de tareas':'Schedule and task checklist')+'</summary>'+timelineHtml(d)+'</details></section>';
     html += '<section class="ev-view" role="tabpanel" aria-labelledby="ev-tab-purchases" id="ev-stage-purchases"'+(activeWorkStage==='purchases'?'':' hidden')+'>'+shoppingHtml(d)+'</section>';
-    html += '<section class="ev-view" role="tabpanel" aria-labelledby="ev-tab-delivery" id="ev-stage-delivery"'+(activeWorkStage==='delivery'?'':' hidden')+'>'+packagingHtml(d)+'<div id="driver-assignment-panel" class="sect" hidden></div><details class="ev-subsection"><summary>'+esc(T.logistics)+'</summary>'+logisticsHtml(d)+'</details></section>';
+    html += '<section class="ev-view" role="tabpanel" aria-labelledby="ev-tab-delivery" id="ev-stage-delivery"'+(activeWorkStage==='delivery'?'':' hidden')+'>'+packagingHtml(d)+'<div id="delivery-handling-panel"></div><div id="driver-assignment-panel" class="sect" hidden></div><details class="ev-subsection"><summary>'+esc(T.logistics)+'</summary>'+logisticsHtml(d)+'</details></section>';
     html += '<section class="ev-view" role="tabpanel" aria-labelledby="ev-tab-details" id="ev-stage-details"'+(activeWorkStage==='details'?'':' hidden')+'>'+detailsHtml(e)+briefHtml(d)+'<details class="ev-subsection"><summary>'+esc(lang==='es'?'Horas de cocina estimadas':'Estimated kitchen hours')+'</summary>'+hoursHtml(d)+'</details>'+designHtml(d)+(d.gaps.length?'<details class="ev-subsection ev-warning-summary"><summary>'+esc(lang==='es'?'Revisar '+d.gaps.length+' notas del plan':'Review '+d.gaps.length+' planning notes')+'</summary>'+d.gaps.map(function(g){return '<p class="gap">'+esc(g)+'</p>';}).join('')+'</details>':'')+'</section>';
     html+='<section id="event-services" hidden></section>';
     out.innerHTML = html;
     if(window.EventOperations)window.EventOperations.mount(plan,executionData,load);
     if(window.EventServices)window.EventServices.load({quoteId:quoteId,role:d.can_configure?'owner':'kitchen'});
     wire();
-    if (keepExecution) renderExecution(); else loadExecution();
+    var executionReady;if(keepExecution){renderExecution();executionReady=Promise.resolve();}else executionReady=loadExecution();
     if (Hub && Hub.i18nRefresh) Hub.i18nRefresh();
+    return executionReady;
   }
 
   function briefHtml(d) {
@@ -200,12 +201,12 @@
     return '<div class="ev-section-title"><div><h3>'+esc(lang==='es'?'En la cocina':'At the kitchen')+'</h3><p>'+esc(lang==='es'?'Cantidades del pedido. Cada plato conserva su progreso guardado.':'Ordered quantities. Each dish keeps its own saved progress.')+'</p></div><span class="pill">'+complete+' / '+d.production.length+'</span></div><div class="ev-item-grid">'+d.production.map(function(p){
       var rec=p.recipe,progress=p.progress||{},state=progress.state||'pending',labels={pending:lang==='es'?'Pendiente':'Not started',preparing:lang==='es'?'En preparación':'Preparing',cooked:lang==='es'?'Cocinado':'Cooked',packed:lang==='es'?'Empacado':'Packed'};
       var buttons=(rec?'<button type="button" class="rx-open" data-rx="'+esc(rec.id)+'" data-rxname="'+esc(rec.name)+'">'+esc(lang==='es'?'Ver / editar receta maestra':'Open / edit master recipe')+'</button>':'')+'<button type="button" data-focus-minutes="'+esc(p.key)+'">'+esc(lang==='es'?'Ajustar tiempo de cocción':'Adjust cooking duration')+'</button>';
-      return '<article class="ev-item" id="production-'+esc(p.key)+'"><div class="ev-item-top"><div><h4>'+esc(p.name)+'</h4><div class="ev-item-quantity">'+esc(p.ordered_qty||p.qty||p.portions)+' '+esc(lang==='es'?'en el pedido':'ordered')+'</div></div>'+itemMenu(p.name,buttons)+'</div>'+(p.detail?'<p class="ev-item-detail">'+esc(p.detail)+'</p>':'')+'<span class="pill '+(state==='pending'?'warn':'')+'">'+esc(labels[state]||state)+'</span>'+(p.needs_recipe?' <span class="pill warn">'+esc(T.noRecipe)+'</span>':'')+(rec&&rec.draft?' <span class="pill warn">'+esc(T.draftPill||'Draft recipe')+'</span>':'')+'<div class="ev-item-metrics"><div><b>'+esc(p.portions)+'</b><small>'+esc(lang==='es'?'Porciones previstas':'Planned servings')+'</small></div><div><label for="minutes-'+esc(p.key)+'"><small>'+esc(lang==='es'?'Cocción · minutos':'Cook time · minutes')+'</small></label><input id="minutes-'+esc(p.key)+'" class="mins" type="number" inputmode="numeric" min="1" max="1440" value="'+esc(p.minutes)+'" data-key="cook:'+esc(p.key)+'" aria-label="'+esc(p.name)+' '+esc(T.mins)+'"></div></div><details><summary>'+esc(lang==='es'?'Origen del tiempo y cantidades':'Time and quantity basis')+'</summary><p class="ev-item-detail">'+esc(p.minutes_source)+'</p>'+(rec&&rec.portion?'<p class="ev-item-detail">'+esc(rec.portion)+'</p>':'')+'</details>'+(progress.version!=null?'<div class="ev-item-progress">'+[['preparing',lang==='es'?'Iniciar':'Start'],['cooked',lang==='es'?'Cocinado':'Cooked'],['packed',lang==='es'?'Empacado':'Packed']].map(function(step){return '<button type="button" class="btn '+(state===step[0]?'is-recorded':'ghost')+'" data-line-progress="'+esc(p.key)+'" data-target="'+step[0]+'" data-version="'+esc(progress.version)+'"'+(state===step[0]||!(progress.available_targets||[]).includes(step[0])?' disabled':'')+'>'+esc(step[1])+'</button>';}).join('')+'</div>':'')+(progress.actual_qty!=null?'<p class="ev-item-detail">'+esc(lang==='es'?'Cantidad registrada: ':'Recorded quantity: ')+esc(progress.actual_qty)+'</p>':'')+'<button type="button" class="btn ghost" data-temperature="'+esc(p.key)+'">'+esc(lang==='es'?'Temperatura y transporte':'Temperature and carrier')+'</button><p class="ev-action-status" id="line-status-'+esc(p.key)+'" role="status"></p>'+(rec?'<div class="rx-panel" id="rx-'+esc(rec.id)+'" hidden></div>':'')+'</article>';
+      return '<article class="ev-item" id="production-'+esc(p.key)+'"><div class="ev-item-top"><div><h4>'+esc(p.name)+'</h4><div class="ev-item-quantity">'+esc(p.ordered_qty||p.qty||p.portions)+' '+esc(lang==='es'?'en el pedido':'ordered')+'</div></div>'+itemMenu(p.name,buttons)+'</div>'+(p.detail?'<p class="ev-item-detail">'+esc(p.detail)+'</p>':'')+'<span class="pill '+(state==='pending'?'warn':'')+'">'+esc(labels[state]||state)+'</span>'+(progress.stale?' <span class="pill warn">'+esc(lang==='es'?'Reconfirmar cambio de menú':'Reconfirm changed menu')+'</span>':'')+(p.needs_recipe?' <span class="pill warn">'+esc(T.noRecipe)+'</span>':'')+(rec&&rec.draft?' <span class="pill warn">'+esc(T.draftPill||'Draft recipe')+'</span>':'')+'<div class="ev-item-metrics"><div><b>'+esc(p.required_qty??p.portions)+'</b><small>'+esc(p.required_qty!=null?(lang==='es'?'Unidades del pedido':'Ordered units'):(lang==='es'?'Base de receta · verificar unidad':'Recipe scaling basis · verify units'))+'</small></div><div><label for="minutes-'+esc(p.key)+'"><small>'+esc(lang==='es'?'Cocción · minutos':'Cook time · minutes')+'</small></label><input id="minutes-'+esc(p.key)+'" class="mins" type="number" inputmode="numeric" min="1" max="1440" value="'+esc(p.minutes)+'" data-key="cook:'+esc(p.key)+'" aria-label="'+esc(p.name)+' '+esc(T.mins)+'"></div></div><details><summary>'+esc(lang==='es'?'Origen del tiempo y cantidades':'Time and quantity basis')+'</summary><p class="ev-item-detail">'+esc(p.minutes_source)+'</p>'+(rec&&rec.portion?'<p class="ev-item-detail">'+esc(rec.portion)+'</p>':'')+'</details>'+(progress.version!=null?'<div class="ev-item-progress">'+[['preparing',lang==='es'?'Iniciar':'Start'],['cooked',lang==='es'?'Cocinado':'Cooked'],['packed',lang==='es'?'Empacado':'Packed']].map(function(step){return '<button type="button" class="btn '+(state===step[0]?'is-recorded':'ghost')+'" data-line-progress="'+esc(p.key)+'" data-target="'+step[0]+'" data-version="'+esc(progress.version)+'"'+(state===step[0]||!(progress.available_targets||[]).includes(step[0])?' disabled':'')+'>'+esc(step[1])+'</button>';}).join('')+'</div>':'')+(progress.actual_qty!=null?'<p class="ev-item-detail">'+esc(lang==='es'?'Cantidad registrada: ':'Recorded quantity: ')+esc(progress.actual_qty)+'</p>':'')+'<button type="button" class="btn ghost" data-temperature="'+esc(p.key)+'">'+esc(lang==='es'?'Temperatura y transporte':'Temperature and carrier')+'</button>'+(p.handling&&p.handling.packing?'<p class="ev-help">'+esc(lang==='es'?'Registro de empaque: ':'Packing record: ')+esc(p.handling.packing.mode)+' · '+esc(p.handling.packing.temperature_f!=null?p.handling.packing.temperature_f+' °F':'')+' · '+esc(p.handling.packing.carrier||'')+(p.handling.packing.stale?' · '+esc(lang==='es'?'requiere nueva medición':'new reading needed'):'')+'</p>':'')+'<p class="ev-action-status" id="line-status-'+esc(p.key)+'" role="status"></p>'+(rec?'<div class="rx-panel" id="rx-'+esc(rec.id)+'" hidden></div>':'')+'</article>';
     }).join('')+'</div>';
   }
   function shoppingHtml(d) {
-    if(!d.shopping.length)return '<p class="ev-muted">'+esc(lang==='es'?'No hay ingredientes calculados. Confirme las recetas para crear la lista.':'No ingredients calculated. Confirm recipes to build the purchase list.')+'</p>';
-    return '<div class="ev-section-title"><div><h3>'+esc(T.shopping)+'</h3><p>'+esc(lang==='es'?'Cantidades para este evento. Los cambios no alteran la receta maestra.':'Quantities for this event. Edits do not change the master recipe.')+'</p></div><button type="button" class="btn ghost" data-add-purchase>'+esc(lang==='es'?'Agregar artículo':'Add item')+'</button></div><div class="ev-item-grid">'+d.shopping.map(function(item,index){var key=item.key||String(index),quantity=item.qty||item.quantities.join(' + ');return '<article class="ev-item"><div class="ev-item-top"><div><h4>'+esc(item.item)+'</h4><div class="ev-item-quantity">'+esc(quantity)+'</div></div>'+itemMenu(item.item,item.key?'<button type="button" data-edit-purchase="'+esc(key)+'">'+esc(lang==='es'?'Editar cantidad / nota':'Edit event quantity / note')+'</button>':'<span class="ev-muted">'+esc(lang==='es'?'Fuente: recetas del evento':'Source: event recipes')+'</span>')+'</div><p class="ev-item-detail">'+esc(T.forDish)+' '+esc(item.for.join(', '))+'</p>'+(item.on_hand?'<p class="ev-item-detail">'+esc(item.on_hand.amount+' '+(item.on_hand.unit||''))+' '+esc(T.onHand)+'</p>':'')+(item.note?'<p class="ev-item-detail ev-purchase-note">'+esc(item.note)+'</p>':'')+(item.override?'<span class="pill">'+esc(lang==='es'?'Ajustado para este evento':'Event-specific adjustment')+'</span>':'')+'</article>';}).join('')+'</div>';
+    if(!d.shopping.length)return '<div class="ev-section-title"><h3>'+esc(T.shopping)+'</h3><button type="button" class="btn ghost" data-add-purchase>'+esc(lang==='es'?'Agregar artículo':'Add item')+'</button></div><p class="ev-muted">'+esc(lang==='es'?'No hay ingredientes calculados. Confirme las recetas o agregue artículos para este evento.':'No ingredients calculated. Confirm recipes or add items for this event.')+'</p>';
+    return '<div class="ev-section-title"><div><h3>'+esc(T.shopping)+'</h3><p>'+esc(lang==='es'?'Cantidades para este evento. Los cambios no alteran la receta maestra.':'Quantities for this event. Edits do not change the master recipe.')+'</p></div><button type="button" class="btn ghost" data-add-purchase>'+esc(lang==='es'?'Agregar artículo':'Add item')+'</button></div><div class="ev-item-grid">'+d.shopping.map(function(item,index){var key=item.key||String(index),quantity=item.qty||(item.quantities||[]).join(' + ');return '<article class="ev-item"><div class="ev-item-top"><div><h4>'+esc(item.item)+'</h4><div class="ev-item-quantity">'+esc(quantity)+'</div></div>'+itemMenu(item.item,item.key?'<button type="button" data-edit-purchase="'+esc(key)+'">'+esc(lang==='es'?'Editar cantidad / nota':'Edit event quantity / note')+'</button><button type="button" data-edit-purchase="'+esc(key)+'" data-purchase-status="purchased">'+esc(lang==='es'?'Marcar comprado':'Mark purchased')+'</button><button type="button" data-edit-purchase="'+esc(key)+'" data-purchase-status="removed">'+esc(lang==='es'?'Quitar de compras pendientes':'Remove from needed purchases')+'</button>':'<span class="ev-muted">'+esc(lang==='es'?'Fuente: recetas del evento':'Source: event recipes')+'</span>')+'</div><p class="ev-item-detail">'+esc(T.forDish)+' '+esc((item.for||[]).join(', '))+'</p>'+(item.on_hand?'<p class="ev-item-detail">'+esc(item.on_hand.amount+' '+(item.on_hand.unit||''))+' '+esc(T.onHand)+'</p>':'')+(item.note?'<p class="ev-item-detail ev-purchase-note">'+esc(item.note)+'</p>':'')+(item.status==='purchased'?'<span class="pill">'+esc(lang==='es'?'Comprado':'Purchased')+'</span>':item.status==='removed'?'<span class="pill warn">'+esc(lang==='es'?'No se necesita':'Not needed')+'</span>':'')+(item.override?'<span class="pill">'+esc(lang==='es'?'Ajustado para este evento':'Event-specific adjustment')+'</span>':'')+'</article>';}).join('')+'</div>';
   }
 
   function packagingHtml(d) {
@@ -387,10 +388,11 @@
       if (!d || !d.ok || !d.execution) throw new Error('unavailable');
       executionData = d; executionMessage = ''; renderExecution();
       if(window.EventOperations)window.EventOperations.mount(plan,d,load);
-      return window.CateringAssignment.load(quoteId, plan&&typeof plan.can_assign==='boolean'?plan.can_assign:d.can_write, loadExecution);
+      return window.CateringAssignment.load(quoteId, typeof plan!=='undefined'&&plan&&typeof plan.can_assign==='boolean'?plan.can_assign:d.can_write, loadExecution);
     }).catch(function () { window.CateringAssignment.load(quoteId, false); executionData = null; executionMessage = executionLabel("Could not verify saved event progress. Reload to try again."); renderExecution(); });
   }
   function saveExecution(action) {
+    if(window.EventOperations&&window.EventOperations.hasUnresolved()){Hub.toast(lang==='es'?'Resuelve el guardado pendiente de cocina primero.':'Resolve the pending kitchen operation first.');return Promise.resolve();}
     if (executionBusy || !executionData || !executionData.can_write) return Promise.resolve();
     if (!executionPending) {
       if (!action || executionData.read_only) return Promise.resolve();
@@ -410,11 +412,12 @@
         executionPending = null; storeExecutionPending(); executionMessage = executionLabel(r.error) || executionLabel("Save rejected. Refresh progress before continuing.");
       } else { executionMessage = executionLabel("Save outcome is unconfirmed. Resolve the previous save before continuing."); }
     }).catch(function () { executionMessage = executionLabel("Connection interrupted. Save outcome is unconfirmed; retry the same request."); })
-      .finally(function () { executionBusy = false; renderExecution(); window.CateringAssignment.load(quoteId, !!(plan&&typeof plan.can_assign==='boolean'?plan.can_assign:executionData&&executionData.can_write), loadExecution); });
+      .finally(function () { executionBusy = false; renderExecution(); window.CateringAssignment.load(quoteId, !!(typeof plan!=='undefined'&&plan&&typeof plan.can_assign==='boolean'?plan.can_assign:executionData&&executionData.can_write), loadExecution); });
   }
 
   // ---- wiring ---------------------------------------------------------------------------------
   function post(body, after) {
+    if(window.EventOperations&&window.EventOperations.hasUnresolved()){Hub.toast(lang==='es'?'Resuelve el guardado pendiente de cocina primero.':'Resolve the pending kitchen operation first.');return Promise.resolve({ok:false});}
     return K.post('/api/hub/kitchen/event', body).then(function (r) {
       if (r && r.ok) { if (after) after(); } else { Hub.toast((r && r.error) || 'Error'); }
       return r;
@@ -427,7 +430,7 @@
   // was no screen anywhere that could finish them. This is that screen, and it is deliberately on
   // the production plan rather than in the library: the person who knows the recipe is wrong is
   // the one cooking from it, standing at the bench, today.
-  function rxRender(el, r) {
+  function rxRender(el, r, revision) {
     var ing = (r.ingredients || []).map(function (x) {
       return (x.qty ? x.qty + ' — ' : '') + x.item;
     }).join('\n');
@@ -441,12 +444,14 @@
       + '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">'
       + '<button type="button" class="btn rx-save">' + esc(T.saveRecipe) + '</button>'
       + (r.draft ? '<button type="button" class="btn gold rx-confirm">✓ ' + esc(T.confirmRecipe) + '</button>' : '')
+      + '<a class="btn ghost" href="/hub/kitchen/recipes.html?recipe_id=' + encodeURIComponent(r.id) + '">Full recipe standard / Receta completa</a>'
       + '<button type="button" class="btn ghost rx-close">' + esc(T.closeRecipe) + '</button></div>';
 
     el.querySelector('.rx-save').addEventListener('click', function () {
       var btn = this; btn.disabled = true;
       K.post('/api/hub/kitchen/recipe/draft', {
         id: r.id,
+        expected_revision_id: revision ? revision.id : null,
         ingredients: el.querySelector('.rx-ing').value,
         steps: el.querySelector('.rx-steps').value
       }).then(function (res) {
@@ -457,11 +462,12 @@
 
     var conf = el.querySelector('.rx-confirm');
     // Save first, then confirm: confirming a recipe whose edits are still in the textarea would
-    // publish the version the cook has just corrected away from.
+    // submit an older version instead of the cook’s current draft.
     if (conf) conf.addEventListener('click', function () {
       conf.disabled = true; conf.textContent = T.confirming;
       K.post('/api/hub/kitchen/recipe/draft', {
         id: r.id,
+        expected_revision_id: revision ? revision.id : null,
         ingredients: el.querySelector('.rx-ing').value,
         steps: el.querySelector('.rx-steps').value
       }).then(function (saved) {
@@ -485,7 +491,7 @@
         el.hidden = false;
         el.innerHTML = '<p class="rx-hint">' + esc(T.loadingRecipe) + '</p>';
         K.get('/api/hub/kitchen/recipe/draft?id=' + encodeURIComponent(btn.dataset.rx)).then(function (d) {
-          if (d && d.ok) rxRender(el, d.recipe);
+          if (d && d.ok) rxRender(el, d.recipe, d.revision);
           else { el.innerHTML = '<p class="rx-hint">' + esc((d && d.error) || 'Could not open this recipe.') + '</p>'; }
         }, function () { el.innerHTML = '<p class="rx-hint">Could not open this recipe.</p>'; });
       });
@@ -549,7 +555,7 @@
     var url = '/api/hub/kitchen/event' + (quoteId ? '?id=' + encodeURIComponent(quoteId) : '');
     return K.get(url).then(function (d) {
       if (!d || !d.ok) { out.innerHTML = '<div class="gap">' + esc((d && d.error) || 'Could not load.') + '</div>'; return; }
-      if (quoteId) render(d); else renderList(d);
+      if (quoteId) return render(d); else renderList(d);
     }).catch(function () { out.innerHTML = '<div class="gap">Could not load.</div>'; });
   }
   load();

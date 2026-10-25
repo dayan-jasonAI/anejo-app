@@ -3,6 +3,7 @@
 import { json, bad } from '../../../../_lib/util.js';
 import { requireRole } from '../../../../_lib/roles.js';
 import { capture } from '../../../../_lib/track.js';
+import {getApprovedRecipeAuthority} from '../../../../_lib/recipe_authority.js';
 import { parseJson } from '../../../../_lib/hub.js';
 
 function visibleTo(doc, role) {
@@ -28,7 +29,9 @@ export const onRequestGet = async ({ request, env }) => {
   if (doc.recipe_id) {
     const r = await env.DB.prepare('SELECT * FROM recipes WHERE id = ?').bind(doc.recipe_id).first();
     if (r) {
+      let authority;try{authority=await getApprovedRecipeAuthority(env,{recipeId:r.id});}catch{return bad('Recipe authority unavailable. Do not infer approval.',503);}
       recipe = {
+        authority,authority_status:authority?'exists_confirmed':'exists_unconfirmed',standard:authority?.recipe||null,
         ...r,
         ingredients: parseJson(r.ingredients, []),
         steps: parseJson(r.steps, []),

@@ -165,7 +165,7 @@ export async function createRecipe(sessionId: string, draft: RecipeDraft): Promi
   });
 }
 
-// Publish a saved recipe to the kitchen library.
+// Submit a saved recipe for owner review. Publication requires a separate exact-version owner receipt.
 export async function publishRecipe(recipeId: string): Promise<boolean> {
   const d = await postJson('/api/hub/kitchen/recipe/publish', { id: recipeId });
   return !!(d && d.ok);

@@ -8,16 +8,13 @@
 // those two points it could not be changed by anybody — so seven catering recipes sat at status
 // 'draft' with nobody able to finish them, on the morning they were being cooked.
 //
-// WHAT IS EDITED HERE IS THE BASE RECIPE, not the scaled copy the event plan shows. The catering
-// recipes are written for 45 portions and the plan scales them to whatever the event sold; if this
-// saved the scaled amounts the base would be silently rewritten to one event's guest count and
-// every later event would be wrong. The screen says so, and this file is where it is true.
+// Edits create an immutable draft revision; only an exact owner approval replaces the base recipe. Never save event-scaled quantities as a recipe batch definition.
 import { json, bad } from '../../../../_lib/util.js';
-import { requireRole, currentStaff } from '../../../../_lib/roles.js';
+import { requireRole } from '../../../../_lib/roles.js';
 import { capture } from '../../../../_lib/track.js';
-import { now, toJson } from '../../../../_lib/hub.js';
+import {recipeRevisionView,saveRecipeRevision} from '../../../../_lib/recipe_authority.js';
 
-const parse = (s, fallback) => { try { const v = JSON.parse(s); return v == null ? fallback : v; } catch { return fallback; } };
+
 
 /** Lines in, array out. Blank lines are dropped; everything else is kept verbatim. */
 export function lines(value, max) {
@@ -52,70 +49,26 @@ export const onRequestGet = async ({ request, env }) => {
 
   const id = (new URL(request.url).searchParams.get('id') || '').trim();
   if (!id) return bad('Missing recipe id.');
-  const r = await env.DB.prepare(
-    `SELECT id, name, name_es, summary, portion, status, ingredients, steps,
-            cook_minutes, prep_lead_minutes, prep_lead_label, updated_at
-       FROM recipes WHERE id = ?`
-  ).bind(id).first();
-  if (!r) return bad('Recipe not found.', 404);
-
-  return json({
-    ok: true,
-    recipe: {
-      ...r,
-      draft: r.status !== 'published',
-      ingredients: parse(r.ingredients, []),
-      steps: parse(r.steps, []),
-    },
-  });
+  try {
+    const view=await recipeRevisionView(env,id);if(!view)return bad('Recipe not found.',404);
+    return json({ok:true,recipe:{...view.recipe,draft:true,...view.spec,ingredients:view.spec.ingredients,steps:view.spec.steps.map(s=>s.text)},revision:view.revision,authority:view.authority,spec:view.spec,gaps:view.gaps});
+  }catch{return bad('Recipe versions unavailable.',503);}
 };
 
 export const onRequestPost = async ({ request, env }) => {
   if (!env.DB) return bad('Database not configured.', 500);
   const ctx = await requireRole(request, env, ['kitchen', 'owner']);
   if (ctx instanceof Response) return ctx;
-  const staff = await currentStaff(env, request);
-
-  let b;
-  try { b = await request.json(); } catch { return bad('Invalid JSON body.'); }
-  const id = ((b && b.id) || '').toString().trim();
-  if (!id) return bad('Missing recipe id.');
-
-  const before = await env.DB.prepare('SELECT id, name, status FROM recipes WHERE id = ?').bind(id).first();
-  if (!before) return bad('Recipe not found.', 404);
-
-  // Only the fields actually sent are touched. A screen that edits the steps must not be able to
-  // blank the ingredients just by not knowing about them.
-  const sets = [], args = [];
-  if (b.ingredients !== undefined) {
-    const ing = ingredientsFrom(b.ingredients);
-    if (!ing.length) return bad('A recipe with no ingredients cannot be saved — the purchase list is built from them.');
-    sets.push('ingredients = ?'); args.push(toJson(ing));
-  }
-  if (b.steps !== undefined) {
-    const st = lines(b.steps, 60);
-    if (!st.length) return bad('A recipe with no method cannot be saved.');
-    sets.push('steps = ?'); args.push(toJson(st));
-  }
-  if (b.summary !== undefined) { sets.push('summary = ?'); args.push(String(b.summary || '').slice(0, 2000) || null); }
-  if (!sets.length) return bad('Nothing to save.');
-
-  const ts = now();
-  sets.push('updated_at = ?'); args.push(ts);
-  args.push(id);
-  await env.DB.prepare(`UPDATE recipes SET ${sets.join(', ')} WHERE id = ?`).bind(...args).run();
-
-  await capture(env, {
-    event: 'recipe.edited',
-    distinct_id: ctx.distinct_id, role: ctx.role, team: ctx.team,
-    properties: { recipe_id: id, fields: sets.length - 1, by: staff ? staff.id : null },
-  });
-
-  const after = await env.DB.prepare(
-    'SELECT id, name, status, ingredients, steps, summary, updated_at FROM recipes WHERE id = ?'
-  ).bind(id).first();
-  return json({
-    ok: true,
-    recipe: { ...after, draft: after.status !== 'published', ingredients: parse(after.ingredients, []), steps: parse(after.steps, []) },
-  });
+  let b;try{b=await request.json();}catch{return bad('Invalid JSON body.');}
+  const id=String(b.id||'').trim();if(!id)return bad('Missing recipe id.');
+  try{
+    const view=await recipeRevisionView(env,id);if(!view)return bad('Recipe not found.',404);
+    const spec={...view.spec};
+    if(b.ingredients!==undefined)spec.ingredients=ingredientsFrom(b.ingredients);
+    if(b.steps!==undefined)spec.steps=lines(b.steps,80);
+    if(b.summary!==undefined)spec.summary=String(b.summary||'');
+    const revision=await saveRecipeRevision(env,{recipe_id:id,spec,expected_revision_id:b.expected_revision_id},ctx);
+    await capture(env,{event:'recipe.draft_saved',distinct_id:ctx.distinct_id,role:ctx.role,properties:{recipe_id:id,revision_id:revision.id}});
+    return json({ok:true,recipe:{...view.recipe,draft:true,...spec},revision,requires_owner_review:true});
+  }catch(error){return bad(String(error.message||'Draft could not be saved.'),409);}
 };
