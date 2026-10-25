@@ -17,3 +17,6 @@ CREATE TABLE menu_recipe_authority (
  approved_by TEXT NOT NULL, approved_at INTEGER NOT NULL
 );
 CREATE INDEX recipe_revisions_state ON recipe_revisions(status,created_at);
+-- Existing policies/tasks remain visible but cannot claim current recipe authority until reviewed.
+ALTER TABLE inventory_production_policies ADD COLUMN recipe_version_id TEXT REFERENCES recipe_revisions(id);
+ALTER TABLE inventory_production_tasks ADD COLUMN recipe_version_id TEXT REFERENCES recipe_revisions(id);

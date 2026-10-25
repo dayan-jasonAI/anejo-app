@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { ownerEnv, OWNER_COOKIE } from '../helpers/sqlite-d1.js';
 import { onRequestGet, onRequestPost } from '../../functions/api/hub/kitchen/inventory-production.js';
+import {approveSyntheticRecipe} from '../helpers/approved-recipe.js';
 import { etDateOf } from '../../functions/_lib/hub.js';
 
 const KITCHEN_COOKIE = 'anejo_sess=tok-kitchen';
@@ -31,6 +32,7 @@ function policy(menu_item_id = 'vida', extra = {}) {
   return { action: 'policy', reviewed: true, menu_item_id, recipe_id: 'rcp_test', requirements, target_count: 10, min_batch: 1, max_batch: 5, stock_max_age_hours: 24, assigned_staff_id: 'stf_k', enabled: true, auto_relist: false, ...extra };
 }
 async function configure(env, body = policy(), cookie = OWNER_COOKIE) {
+  await approveSyntheticRecipe(env,body.recipe_id,body.menu_item_id);
   const result = await post(env, body, cookie);
   assert.equal(result.response.status, 200, JSON.stringify(result.body));
   return result.body;
@@ -199,4 +201,14 @@ test('recipe changed after start blocks completion and does not mint finished st
   assert.equal(response.response.status, 409);
   assert.equal(db.one("SELECT stock_count FROM menu_items WHERE id='vida'").stock_count, 0);
   assert.equal(db.one("SELECT COUNT(*) n FROM inventory_changes WHERE action LIKE 'batch_%'").n, 0);
+});
+
+test('published legacy recipes without exact version receipts cannot enable a production plan',async()=>{
+ const {env,db}=await setup();const result=await post(env,policy('vida',{enabled:false}));assert.equal(result.response.status,409);assert.match(result.body.error,/exact recipe version/);assert.equal(db.one('SELECT count(*) n FROM inventory_production_policies').n,0);
+});
+test('a legacy reviewed policy remains visible but has no authoritative suggested quantity',async()=>{
+ const {env,db,now}=await setup();await db.prepare("INSERT INTO inventory_production_policies(menu_item_id,recipe_id,recipe_updated_at,requirements_json,target_count,min_batch,max_batch,stock_max_age_hours,reviewed_by,reviewed_at) VALUES('vida','rcp_test',?,?,10,1,5,24,'stf_owner',?)").bind(now,JSON.stringify(requirements),now).run();const result=await onRequestGet({env,request:getReq()});const body=await result.json();assert.equal(body.opportunities[0].eligible,false);assert.equal(body.opportunities[0].qty,0);assert.equal(body.opportunities[0].recipe_authority_confirmed,false);assert.match(body.opportunities[0].reasons.join(' '),/exact recipe version/);
+});
+test('recipe authority invalidated at admission cannot queue reservations despite a prior eligible read',async()=>{
+ const {env,db}=await setup();await configure(env,policy('vida',{enabled:false}));const originalBatch=db.batch.bind(db);db.batch=async statements=>{db.exec("DELETE FROM recipe_authority WHERE recipe_id='rcp_test'");return originalBatch(statements);};const result=await post(env,{action:'queue',menu_item_id:'vida'});assert.equal(result.response.status,409);assert.equal(db.one('SELECT count(*) n FROM inventory_production_tasks').n,0);
 });

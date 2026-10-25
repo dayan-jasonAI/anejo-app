@@ -128,6 +128,7 @@ export function scaleQty(qty, portions, basis = 45) {
  * and guessing the conversion is how a list becomes wrong.
  */
 function combineQuantities(quantities) {
+  if(!quantities.length)return [];
   const parts = quantities.map(splitQty);
   if (parts.some((p) => !p)) return quantities;
   const rest = parts[0].rest.trim().toLowerCase();
@@ -140,7 +141,7 @@ export function shoppingList(production, inventory = []) {
   const onHand = new Map(inventory.map((i) => [norm(i.name), i]));
   const lines = new Map();
   for (const p of production) {
-    if(p.needs_recipe||p.recipe_confirmed===false){
+    if(p.needs_recipe||p.recipe_confirmed===false||p.needs_quantity){
       lines.set('dish:'+p.key,{key:'dish:'+p.key,item:p.name,quantities:[],for:[p.name],needs_confirmation:true,note:'Ordered item: '+String(p.ordered_qty??p.qty??'quantity not confirmed')+'. Confirm ingredients and purchase quantity; no approved recipe quantity was inferred.'});
       continue;
     }
@@ -160,7 +161,7 @@ export function shoppingList(production, inventory = []) {
       // Inventory counts in its own units ("case", "lb") while a recipe speaks in cups and pounds.
       // Saying what is on hand beats subtracting units that do not match.
       on_hand: inv ? { amount: inv.on_hand, unit: inv.unit || null } : null,
-      note: inv ? `Inventory shows ${inv.on_hand} ${inv.unit || ''}`.trim() + ' on hand — check it before buying.' : null,
+      note:l.note||(inv ? `Inventory shows ${inv.on_hand} ${inv.unit || ''}`.trim() + ' on hand — check it before buying.' : null),
     };
   });
 }
@@ -368,12 +369,13 @@ export async function eventPlan(env, quoteId, { atMs = Date.now() } = {}) {
     // an 8-hour pernil scheduled at the fallback allowance is a plan that cannot be worked.
     const written = authority&&authority.cook_minutes&&authority.yield_count>0&&portions!==null
       ? Math.round(authority.cook_minutes*Math.ceil(portions/authority.yield_count)) : null;
-    const minutes = override || learned || written || Math.max(30, Math.round((portions||0) * 1.5));
+    const referenceMinutes=!authority&&recipe?.cook_minutes>0?recipe.cook_minutes:null;
+    const minutes = override || learned || written || referenceMinutes || Math.max(30, Math.round((portions||0) * 1.5));
     const minutesSource = override
       ? 'set by the kitchen for this event'
       : learned ? `the kitchen's own time for “${mi.name}” — ${mi.cook_minutes} min per 25`
         : written ? `from owner-approved recipe version ${authority.version} — ${authority.cook_minutes} min per ${authority.yield_count} ${authority.yield_unit}`
-          : 'a guess — nobody has timed this dish yet. Set the real time.';
+          : referenceMinutes?`unconfirmed recipe reference — ${referenceMinutes} minutes, without guessed yield scaling; owner confirmation required`:'a guess — nobody has timed this dish yet. Set the real time.';
     return {
       key: `l${i}`,
       name: l.name, name_es: l.name_es || null, detail: l.detail || null,
@@ -393,7 +395,7 @@ export async function eventPlan(env, quoteId, { atMs = Date.now() } = {}) {
       lead_minutes: (recipe && recipe.prep_lead_minutes) || null,
       lead_label: recipe ? (recipe.prep_lead_label || null) : null,
       lead_label_es: recipe ? (recipe.prep_lead_label_es || null) : null,
-      needs_recipe:!authority,
+      needs_recipe:!authority,needs_quantity:portions===null,
     };
   });
 
@@ -433,7 +435,7 @@ export async function eventPlan(env, quoteId, { atMs = Date.now() } = {}) {
       const r = done.get(t.key);
       const actual=t.key.startsWith('cook:')?operations.lines.find(l=>'cook:'+l.key===t.key)?.progress:null;
       const actualDone=actual?['cooked','packed'].includes(actual.state):t.key==='pack'?['ready','en_route','arrived','completed'].includes(execution?.status):null;
-      return {...t,done:actualDone===null?!!r?.done_at:actualDone,planning_done:!!r?.done_at,done_at:actual?.at||(actualDone?r?.done_at:null)||null,done_by:actual?.by||(actualDone?r?.done_by:null)||null,note:r?.note||null,operational:actualDone!==null};
+      return {...t,done:actualDone===null?!!r?.done_at:actualDone,planning_done:!!r?.done_at,planning_done_at:r?.done_at||null,planning_done_by:r?.done_by||null,done_at:actualDone===null?r?.done_at||null:actualDone?actual?.at||execution?.updated_at||null:null,done_by:actualDone===null?r?.done_by||null:actualDone?actual?.by||execution?.updated_by||null:null,note:r?.note||null,operational:actualDone!==null};
     }),
     labor: laborEstimate(tasks),
     design: designBrief(event, production),

@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { ownerEnv } from '../helpers/sqlite-d1.js';
 import { readStudioInventory, buildStudioInventoryContext } from '../../functions/_lib/studio_inventory.js';
+import {approveSyntheticRecipe} from '../helpers/approved-recipe.js';
 import { buildStudioSystem } from '../../functions/_lib/studio_context.js';
 
 const requirements = [
@@ -15,7 +16,8 @@ async function setup() {
   db.exec("UPDATE inventory_items SET count_quantity=6 WHERE id='inv_pack'");
   await db.prepare("INSERT INTO recipes(id,name,status,created_at,updated_at) VALUES ('rcp_test','Reviewed tuna recipe','published',?,?)").bind(at, at).run();
   await db.prepare("UPDATE menu_items SET stock_count=2,stock_counted_at=?,active=1 WHERE id='vida'").bind(at).run();
-  await db.prepare("INSERT INTO inventory_production_policies(menu_item_id,recipe_id,recipe_updated_at,requirements_json,target_count,min_batch,max_batch,stock_max_age_hours,reviewed_by,reviewed_at) VALUES ('vida','rcp_test',?,?,10,1,5,24,'stf_owner',?)").bind(at, JSON.stringify(requirements), at).run();
+  const authority=await approveSyntheticRecipe(env,'rcp_test','vida');
+  await db.prepare("INSERT INTO inventory_production_policies(menu_item_id,recipe_id,recipe_updated_at,requirements_json,target_count,min_batch,max_batch,stock_max_age_hours,reviewed_by,reviewed_at,recipe_version_id) VALUES ('vida','rcp_test',?,?,10,1,5,24,'stf_owner',?,?)").bind(authority.recipe_updated_at, JSON.stringify(requirements), at,authority.version_id).run();
   return { env, db, at };
 }
 
@@ -33,7 +35,7 @@ test('Studio reads saved stock and deterministic reviewed batch suggestions with
   assert.equal(snapshot.production_suggestions[0].suggested_qty, 5);
   assert.equal(snapshot.production_suggestions[0].plan_enabled, false);
   assert.equal(snapshot.finished_items.find(item => item.id === 'vida').remaining_from_recorded_count, 2);
-  assert.ok(db.calls.every(call => call.kind === 'all' && /^SELECT/.test(call.sql)));
+  assert.ok(db.calls.every(call => ['all','first'].includes(call.kind) && /^SELECT/.test(call.sql)));
   assert.equal(db.one('SELECT COUNT(*) n FROM inventory_production_tasks').n, 0);
 });
 

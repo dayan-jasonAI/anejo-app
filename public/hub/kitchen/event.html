@@ -88,7 +88,9 @@
     time: 'Hora de servicio (24 h)', addr: 'Dirección', theme: 'Tema', colors: 'Colores', diet: 'Alergias / dieta',
     link: 'Usar esta solicitud', brief: 'Solicitud de diseño que coincide', noRecipe: 'sin receta',
     onHand: 'en inventario', total: 'Total', forDish: 'para', estimate: 'estimado',
-    mins: 'min', setTime: '¿Cuánto tarda de verdad? Ponlo en minutos y el plan se reordena solo.'
+    mins: 'min', setTime: '¿Cuánto tarda de verdad? Ponlo en minutos y el plan se reordena solo.',
+    draftPill:'BORRADOR — sin confirmar',okPill:'versión aprobada',openRecipe:'Receta',closeRecipe:'Cerrar',ingHead:'Ingredientes',stepHead:'Método',
+    baseNote:'Guardas una propuesta de receta base, no cantidades escaladas para este evento. Solo la revisión exacta de Dayan cambia la receta operativa.',ingHint:'Un ingrediente por línea: 3 tazas — ajo',stepHint:'Un paso por línea.',saveRecipe:'Guardar borrador',confirmRecipe:'Enviar a Dayan',confirming:'Enviando…',confirmed:'Enviado a Dayan para revisión; aún sin aprobar.',loadingRecipe:'Abriendo…'
   } : {
     none: 'No booked events in the next three weeks.', guests: 'guests', days: 'days',
     today: 'TODAY', tomorrow: 'TOMORROW', deposit: 'Deposit', balance: 'Balance', paid: 'paid', due: 'due',
@@ -101,7 +103,7 @@
     mins: 'min', setTime: 'How long does it really take? Put the minutes in and the plan reorders itself.',
     draftPill: 'DRAFT — not confirmed', okPill: 'confirmed', openRecipe: 'Recipe',
     closeRecipe: 'Close', ingHead: 'Ingredients', stepHead: 'Method',
-    baseNote: 'You are editing the MASTER recipe, written for its own batch size. The amounts in the purchase list above are this recipe scaled to THIS event — change those amounts here only if the master itself is wrong.',
+    baseNote: 'You are proposing a MASTER recipe draft at its own batch size, not quantities scaled to this event. Only Dayan’s exact-version review can replace the kitchen standard.',
     ingHint: 'One per line:  3 cups — garlic, mashed',
     stepHint: 'One step per line.',
     saveRecipe: 'Save draft', confirmRecipe: 'Submit to Dayan', confirming: 'Submitting…',
@@ -183,17 +185,16 @@
 
   function timelineHtml(d) {
     var lastDay = null;
-    var rows = d.tasks.map(function (t) {
-      var head = '';
-      var k = dayKey(t.at);
-      if (k !== lastDay) { lastDay = k; head = '<div class="daybar">' + esc(dayName(t.at)) + '</div>'; }
-      return head + '<div class="task' + (t.done ? ' done' : '') + '">'
-        + '<input type="checkbox" class="tick" data-key="' + esc(t.key) + '"' + (t.done ? ' checked' : '') + ' aria-label="' + esc(t.label) + '">'
-        + '<div style="flex:1"><label>' + esc(t.label) + '</label>'
-        + '<div class="when">' + esc(clock(t.at)) + (t.minutes ? ' · ' + t.minutes + ' min' : '') + '</div></div>'
-        + '<span class="kind">' + esc(t.kind) + '</span></div>';
+    var rows = d.tasks.map(function (task) {
+      var head = '', k = dayKey(task.at), operational=task.operational||task.key.indexOf('cook:')===0||task.key==='pack',purchase=task.kind==='shop';
+      if (k !== lastDay) { lastDay = k; head = '<div class="daybar">' + esc(dayName(task.at)) + '</div>'; }
+      var status=operational?'<span class="pill '+(task.done?'':'warn')+'">'+esc(task.done?(lang==='es'?'Registrado':'Recorded'):(lang==='es'?'Pendiente':'Pending'))+'</span>':purchase?'<span class="pill">'+esc((d.shopping||[]).filter(function(item){return item.status==='purchased';}).length)+' / '+esc((d.shopping||[]).filter(function(item){return item.status!=='removed';}).length)+'</span>':'<input type="checkbox" class="tick" data-key="' + esc(task.key) + '"' + (task.done ? ' checked' : '') + ' aria-label="' + esc(task.label) + '">';
+      var action=operational||purchase?'<button type="button" class="btn ghost" data-task-operation="'+esc(task.key)+'">'+esc(lang==='es'?'Ver acción':'View action')+'</button>':'';
+      return head + '<div class="task' + (task.done ? ' done' : '') + '">'+status
+        + '<div style="flex:1"><label>' + esc(task.label) + '</label>'
+        + '<div class="when">' + esc(clock(task.at)) + (task.minutes ? ' · ' + task.minutes + ' min' : '') + '</div></div>'+action+'</div>';
     }).join('');
-    return '<div class="sect"><h3>' + esc(T.timeline) + '</h3><p class="row-sub">' + esc(lang === 'es' ? 'Lista de planificación · Hora del Este. Marcar una tarea no cambia el progreso de entrega ni envía notificaciones.' : 'Planning checklist · Eastern time. Checking a task does not change delivery progress or send notifications.') + '</p>' + rows + '</div>';
+    return '<div class="sect"><h3>' + esc(T.timeline) + '</h3><p class="row-sub">' + esc(lang === 'es' ? 'Hora del Este. Cocina y empaque reflejan las acciones guardadas arriba. Las compras se registran por artículo. Las demás casillas son recordatorios de planificación.' : 'Eastern time. Cooking and packing reflect the saved actions above. Purchases are recorded per item. Other checkboxes are planning reminders.') + '</p>' + rows + '</div>';
   }
 
   function productionHtml(d) {
@@ -516,6 +517,7 @@
   function wire() {
     wireRecipes();
     document.querySelectorAll('[data-work-stage]').forEach(function(button){button.onclick=function(){selectWorkStage(button.dataset.workStage);};});
+    document.querySelectorAll('[data-task-operation]').forEach(function(button){button.onclick=function(){var key=button.dataset.taskOperation,target;if(key.indexOf('cook:')===0){selectWorkStage('production');target=document.getElementById('production-'+key.slice(5));}else if(key==='pack'){target=document.getElementById('execution-panel');}else{selectWorkStage('purchases');target=document.getElementById('ev-stage-purchases');}if(target){target.scrollIntoView({block:'start',behavior:'auto'});var action=target.querySelector('[data-line-progress]:not([disabled])')||target.querySelector('.execution-action:not([disabled])')||target.querySelector('button:not([disabled])');if(action)action.focus({preventScroll:true});}};});
     document.querySelectorAll('[data-focus-minutes]').forEach(function(button){button.onclick=function(){var input=document.getElementById('minutes-'+button.dataset.focusMinutes);button.closest('details').open=false;if(input){input.focus();input.select();}};});
     Array.prototype.forEach.call(document.querySelectorAll('.tick'), function (box) {
       box.addEventListener('change', function () { saveTask(box); });

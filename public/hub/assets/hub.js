@@ -195,6 +195,7 @@
       // here so the bar stays 6 slots wide — adding a 7th made the last item invisible at 375px.
       { key: 'program', ico: '🍲', label: 'Program', href: '/hub/kitchen/program.html' },
       { key: 'events', ico: '🎉', label: 'Events', href: '/hub/kitchen/event.html' },
+      { key: 'recipes', ico: '📖', label: 'Recipe standards', href: '/hub/kitchen/recipes.html' },
       { key: 'library', ico: '📚', label: 'Library', href: '/hub/kitchen/library.html' },
       { key: 'mydata', ico: '🔒', label: 'My data', href: '/hub/my-activity.html' }
     ],

@@ -3,10 +3,11 @@ import {escHtml} from './email.js';
 export const LABEL_THEMES={ivory:{name:'Ivory & champagne',ink:'#5b4427',paper:'#fffdf5',accent:'#b79b61'},blush:{name:'Blush botanical',ink:'#823d51',paper:'#fff5f5',accent:'#bb6a82'},signature:{name:'Signature Añejo',ink:'#193d2d',paper:'#fffdf5',accent:'#aa8649'}};
 const parse=x=>{try{return JSON.parse(x);}catch{return null;}};
 const fail=error=>({ok:false,error});
+async function rendererFingerprint(){return [...new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(renderEventLabels.toString()+qrSvg.toString()+JSON.stringify(LABEL_THEMES)+'qrcode-1.5.4')))].map(b=>b.toString(16).padStart(2,'0')).join('');}
 export async function labelDraft(env,qid){
  const row=await env.DB.prepare('SELECT * FROM catering_label_drafts WHERE quote_id=?').bind(qid).first();
  const q=await env.DB.prepare('SELECT updated_at FROM catering_quotes WHERE id=?').bind(qid).first();
- return row?{...row,snapshot:parse(row.snapshot_json),stale:!q||q.updated_at!==row.quote_updated_at}:null;
+ return row?{...row,snapshot:parse(row.snapshot_json),stale:!q||q.updated_at!==row.quote_updated_at||parse(row.snapshot_json)?.renderer_fingerprint!==await rendererFingerprint()}:null;
 }
 export async function saveLabelDraft(env,b,{actor,at=Date.now()}={}){
  const q=await env.DB.prepare('SELECT * FROM catering_quotes WHERE id=?').bind(b.quote_id).first();if(!q||q.deposit_status!=='paid')return fail('Choose a paid event.');
@@ -18,7 +19,7 @@ export async function saveLabelDraft(env,b,{actor,at=Date.now()}={}){
  const theme=LABEL_THEMES[b.theme];if(!theme)return fail('Choose a label theme.');
  const lines=parse(q.quote_json)?.lines;
  if(!Array.isArray(lines)||!lines.length)return fail('The saved quote needs an itemized menu.');
- const snapshot={title:String(b.title||q.theme||'A celebration by Añejo').trim().slice(0,80),theme:b.theme,lines:lines.map(l=>({name:String(l.name||'').slice(0,100),qty:String(l.qty||'').slice(0,80)})),website:'https://anejocateringco.com',instagram:'https://instagram.com/anejo.catering.co',phone:'561-778-7474',renderer:'anejo-labels-v1'};
+ const snapshot={title:String(b.title||q.theme||'A celebration by Añejo').trim().slice(0,80),theme:b.theme,lines:lines.map(l=>({name:String(l.name||'').slice(0,100),qty:String(l.qty||'').slice(0,80)})),website:'https://anejocateringco.com',instagram:'https://instagram.com/anejo.catering.co',phone:'561-778-7474',renderer:'anejo-labels-v1',renderer_fingerprint:await rendererFingerprint()};
  const r=await env.DB.prepare(`INSERT INTO catering_label_drafts(quote_id,theme,quote_updated_at,snapshot_json,created_by,created_at,updated_at) VALUES(?,?,?,?,?,?,?) ON CONFLICT(quote_id) DO UPDATE SET theme=excluded.theme,quote_updated_at=excluded.quote_updated_at,snapshot_json=excluded.snapshot_json,version=catering_label_drafts.version+1,approved_by=NULL,approved_at=NULL,updated_at=excluded.updated_at WHERE catering_label_drafts.version=?`).bind(q.id,b.theme,q.updated_at,JSON.stringify(snapshot),actor,at,at,b.expected_version||0).run();return r.meta?.changes===1?{ok:true,printed:false}:fail('Draft changed. Reload.');
 }
 function qrSvg(url,ink,paper){

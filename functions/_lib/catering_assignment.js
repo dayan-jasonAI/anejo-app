@@ -34,6 +34,10 @@ async function view(env,a,{at=Date.now()}={}) {
   }
  }
  const operations=await readCateringOperations(env,q);
+ if(operations.activated&&a.status==='accepted'&&['ready','arrived'].includes(e.status)){
+  const handling=await cateringHandlingRequirements(env,q,e.status==='ready'?'pickup':'delivery');
+  if(handling.missing.length){reasons.push(...handling.missing);actions=actions.filter(x=>!['confirm_pickup','depart','complete'].includes(x));}
+ }
  return {ok:true,assignment:a,execution:e,operations,event:{customer:q.customer_name,event_date:q.event_date,serving_time:q.serving_time,address:q.address,lines:lineView(q)},available_actions:actions,blockers:reasons,notifications};
 }
 export async function readCateringAssignments(env,ctx,{assignment_id,quote_id,date,at=Date.now()}={}) {

@@ -1,6 +1,6 @@
 /* Private descriptors only. Explicit clicks; never auto-save, publish or silently redirect. */
 (function () {
-  var paths = {photos:'/hub/owner/marketing.html#photos',create:'/hub/owner/marketing.html#create',drafts:'/hub/owner/marketing.html#create?filter=drafts',inventory:'/hub/kitchen/inventory',production:'/hub/kitchen/inventory#inventory-production'};
+  var paths = {recipe_standards:'/hub/kitchen/recipes.html',photos:'/hub/owner/marketing.html#photos',create:'/hub/owner/marketing.html#create',drafts:'/hub/owner/marketing.html#create?filter=drafts',inventory:'/hub/kitchen/inventory',production:'/hub/kitchen/inventory#inventory-production'};
   function button(root, label, fn) { var b=document.createElement('button'); b.type='button'; b.textContent=label; b.addEventListener('click',fn); root.appendChild(b); return b; }
   function paragraph(root, text) { var p=document.createElement('p'); p.textContent=text; root.appendChild(p); }
   // Baseline values catch unsaved normal inputs. A page may supply a more exact dirty hook.
@@ -266,10 +266,10 @@
     var ui=result && result.ui;
     if(!ui) return;
     if(ui.kind==='navigate' && Object.prototype.hasOwnProperty.call(paths,ui.destination)) {
-      button(root,'Open '+({photos:'Photos',create:'Create & Schedule',drafts:'drafts'}[ui.destination]),function(){
+      button(root,'Open '+({photos:'Photos',create:'Create & Schedule',drafts:'drafts',recipe_standards:'Recipe standards'}[ui.destination]),function(){
         var url=new URL(paths[ui.destination],location.origin);
         if(canonical(url.pathname)===canonical(location.pathname)) { location.hash=url.hash; return; }
-        if(dirty() && !window.confirm('Open Marketing and leave unsaved changes on this page?')) return;
+        if(dirty() && !window.confirm('Open this workspace and leave unsaved changes on this page?')) return;
         location.assign(url.pathname+url.hash);
       });
     } else if(ui.kind==='brief_preview' && ui.saved===false) {
