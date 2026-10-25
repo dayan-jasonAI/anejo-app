@@ -1,3 +1,4 @@
+import {executionQuoteSnapshot} from './catering_execution.js';
 import QRCode from 'qrcode/lib/core/qrcode.js';
 import {escHtml} from './email.js';
 export const LABEL_THEMES={ivory:{name:'Ivory & champagne',ink:'#5b4427',paper:'#fffdf5',accent:'#b79b61'},blush:{name:'Blush botanical',ink:'#823d51',paper:'#fff5f5',accent:'#bb6a82'},signature:{name:'Signature Añejo',ink:'#193d2d',paper:'#fffdf5',accent:'#aa8649'}};
@@ -6,15 +7,15 @@ const fail=error=>({ok:false,error});
 async function rendererFingerprint(){return [...new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(renderEventLabels.toString()+qrSvg.toString()+fitName.toString()+JSON.stringify(LABEL_THEMES)+'qrcode-1.5.4')))].map(b=>b.toString(16).padStart(2,'0')).join('');}
 export async function labelDraft(env,qid){
  const row=await env.DB.prepare('SELECT * FROM catering_label_drafts WHERE quote_id=?').bind(qid).first();
- const q=await env.DB.prepare('SELECT updated_at FROM catering_quotes WHERE id=?').bind(qid).first();
- return row?{...row,snapshot:parse(row.snapshot_json),stale:!q||q.updated_at!==row.quote_updated_at||parse(row.snapshot_json)?.renderer_fingerprint!==await rendererFingerprint()}:null;
+ const q=await env.DB.prepare('SELECT * FROM catering_quotes WHERE id=?').bind(qid).first();
+ return row?{...row,snapshot:parse(row.snapshot_json),stale:!q||row.quote_snapshot!==JSON.stringify([executionQuoteSnapshot(q),q.customer_name,q.theme,q.colors])||parse(row.snapshot_json)?.renderer_fingerprint!==await rendererFingerprint()}:null;
 }
 export async function saveLabelDraft(env,b,{actor,at=Date.now()}={}){
  const q=await env.DB.prepare('SELECT * FROM catering_quotes WHERE id=?').bind(b.quote_id).first();if(!q||q.deposit_status!=='paid')return fail('Choose a paid event.');
  const old=await labelDraft(env,q.id);if(old&&old.version!==b.expected_version)return fail('Label draft changed. Reload.');
  if(b.op==='approve_labels'){
   if(!old||old.stale||b.reviewed!==true)return fail('Review the current label preview before approving.');
-  const r=await env.DB.prepare('UPDATE catering_label_drafts SET approved_by=?,approved_at=?,updated_at=? WHERE quote_id=? AND version=? AND quote_updated_at=(SELECT updated_at FROM catering_quotes WHERE id=?)').bind(actor,at,at,q.id,b.expected_version,q.id).run();return r.meta?.changes===1?{ok:true}:fail('Event changed. Regenerate labels.');
+  const r=await env.DB.prepare(`UPDATE catering_label_drafts SET approved_by=?,approved_at=?,updated_at=? WHERE quote_id=? AND version=? AND quote_snapshot=? AND EXISTS(SELECT 1 FROM catering_quotes q WHERE q.id=? AND json_array(printf('%s',json_array(q.quote_json,q.event_date,q.serving_time,q.address,q.guests,q.dietary_notes)),q.customer_name,q.theme,q.colors)=?)`).bind(actor,at,at,q.id,b.expected_version,old.quote_snapshot,q.id,old.quote_snapshot).run();return r.meta?.changes===1?{ok:true}:fail('Event changed. Regenerate labels.');
  }
  if(b.quote_updated_at!==q.updated_at)return fail('The event changed. Reload before generating labels.');
  const theme=LABEL_THEMES[b.theme];if(!theme)return fail('Choose a label theme.');
@@ -24,7 +25,7 @@ export async function saveLabelDraft(env,b,{actor,at=Date.now()}={}){
  const wording=String(b.title||q.theme||'A celebration by Añejo').trim();
  if(wording.length>48||labelNames.some(n=>!n||n.length>80))return fail('Use a celebration title under 49 characters and label dish names under 81 characters. Edit Label wording; the quote stays unchanged.');
  const snapshot={title:wording,theme:b.theme,lines:lines.map((l,index)=>({name:labelNames[index],source_name:String(l.name||''),qty:String(l.qty||'').slice(0,80)})),website:'https://anejocateringco.com',instagram:'https://instagram.com/anejo.catering.co',phone:'561-778-7474',renderer:'anejo-labels-v1',renderer_fingerprint:await rendererFingerprint()};
- const r=await env.DB.prepare(`INSERT INTO catering_label_drafts(quote_id,theme,quote_updated_at,snapshot_json,created_by,created_at,updated_at) VALUES(?,?,?,?,?,?,?) ON CONFLICT(quote_id) DO UPDATE SET theme=excluded.theme,quote_updated_at=excluded.quote_updated_at,snapshot_json=excluded.snapshot_json,version=catering_label_drafts.version+1,approved_by=NULL,approved_at=NULL,updated_at=excluded.updated_at WHERE catering_label_drafts.version=?`).bind(q.id,b.theme,q.updated_at,JSON.stringify(snapshot),actor,at,at,b.expected_version||0).run();return r.meta?.changes===1?{ok:true,printed:false}:fail('Draft changed. Reload.');
+ const r=await env.DB.prepare(`INSERT INTO catering_label_drafts(quote_id,theme,quote_updated_at,quote_snapshot,snapshot_json,created_by,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?) ON CONFLICT(quote_id) DO UPDATE SET theme=excluded.theme,quote_updated_at=excluded.quote_updated_at,quote_snapshot=excluded.quote_snapshot,snapshot_json=excluded.snapshot_json,version=catering_label_drafts.version+1,approved_by=NULL,approved_at=NULL,updated_at=excluded.updated_at WHERE catering_label_drafts.version=?`).bind(q.id,b.theme,q.updated_at,JSON.stringify([executionQuoteSnapshot(q),q.customer_name,q.theme,q.colors]),JSON.stringify(snapshot),actor,at,at,b.expected_version||0).run();return r.meta?.changes===1?{ok:true,printed:false}:fail('Draft changed. Reload.');
 }
 function fitName(name){let size=23;while(size>8&&Math.ceil(name.length*size*1.1/184)*size*1.1>42)size-=.5;return size;}
 function qrSvg(url,ink,paper){

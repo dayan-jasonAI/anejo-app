@@ -1,3 +1,4 @@
+import {executionQuoteSnapshot} from './catering_execution.js';
 import {callbackEventId} from './catering_callback_delivery.js';
 const fail=error=>({ok:false,error});
 function resultRows(result){if(result?.success!==true||!Array.isArray(result.results))throw Error('Kitchen reservation query unavailable.');return result.results;}
@@ -11,12 +12,12 @@ export async function configureKitchenCalendar(env,b,{actor,at=Date.now()}={}){
  await env.DB.prepare('UPDATE catering_kitchen_calendar_settings SET calendar_id=?,confirmed_by=?,confirmed_at=? WHERE id=1').bind(b.calendar_id,actor,at).run();return {ok:true,booked:false};
 }
 export async function saveKitchenReservation(env,b,{actor,at=Date.now(),owner=false}={}){
- const q=await env.DB.prepare('SELECT id,updated_at,deposit_status,event_date FROM catering_quotes WHERE id=?').bind(b.quote_id).first();
+ const q=await env.DB.prepare('SELECT * FROM catering_quotes WHERE id=?').bind(b.quote_id).first();
  if(!q||q.deposit_status!=='paid')return fail('A paid catering booking is required.');
  const prior=await env.DB.prepare('SELECT * FROM catering_kitchen_reservations WHERE quote_id=?').bind(q.id).first();
  if(prior&&prior.version!==b.expected_version)return fail('Kitchen hours changed. Reload before saving.');
  if(b.op==='approve_hours'){
-  if(!owner||!prior||prior.status!=='draft'||prior.quote_updated_at!==q.updated_at)return fail('Owner approval requires current draft hours.');
+  if(!owner||!prior||prior.status!=='draft'||prior.quote_snapshot!==executionQuoteSnapshot(q))return fail('Owner approval requires current draft hours.');
   const view=await kitchenCalendarView(env,q.id);if(!view.ready)return fail(view.reason||'The calendar integration is not ready.');
   if(prior.start_at<=at)return fail('Past kitchen hours cannot be booked automatically.');
   const r=await env.DB.prepare("UPDATE catering_kitchen_reservations SET status='approved',calendar_id=?,approved_by=?,approved_at=?,updated_at=?,version=version+1 WHERE quote_id=? AND version=? AND status='draft'").bind(view.settings.calendar_id,actor,at,at,q.id,b.expected_version).run();return r.meta?.changes===1?{ok:true,booked:false,status:'approved'}:fail('Hours changed; reload.');
@@ -26,7 +27,7 @@ export async function saveKitchenReservation(env,b,{actor,at=Date.now(),owner=fa
  const local=t=>new Intl.DateTimeFormat('en-CA',{timeZone:'America/New_York',year:'numeric',month:'2-digit',day:'2-digit'}).format(t);
  if(local(end)>q.event_date)return fail('Kitchen hours cannot finish after the event date.');
  if(prior&&(['booking','confirmed','approved'].includes(prior.status)||prior.provider_event_id))return fail('These hours have been approved or booked. Review the calendar reservation before changing them.');
- const result=await env.DB.prepare(`INSERT INTO catering_kitchen_reservations(quote_id,start_at,end_at,quote_updated_at,created_by,created_at,updated_at) VALUES(?,?,?,?,?,?,?) ON CONFLICT(quote_id) DO UPDATE SET start_at=excluded.start_at,end_at=excluded.end_at,quote_updated_at=excluded.quote_updated_at,status='draft',approved_by=NULL,approved_at=NULL,error=NULL,version=catering_kitchen_reservations.version+1,updated_at=excluded.updated_at WHERE catering_kitchen_reservations.version=? AND catering_kitchen_reservations.status IN ('draft','needs_review')`).bind(q.id,start,end,q.updated_at,actor,at,at,b.expected_version||0).run();return result.meta?.changes===1?{ok:true,booked:false,status:'draft'}:fail('Hours changed; reload.');
+ const result=await env.DB.prepare(`INSERT INTO catering_kitchen_reservations(quote_id,start_at,end_at,quote_updated_at,quote_snapshot,created_by,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?) ON CONFLICT(quote_id) DO UPDATE SET start_at=excluded.start_at,end_at=excluded.end_at,quote_updated_at=excluded.quote_updated_at,quote_snapshot=excluded.quote_snapshot,status='draft',approved_by=NULL,approved_at=NULL,error=NULL,version=catering_kitchen_reservations.version+1,updated_at=excluded.updated_at WHERE catering_kitchen_reservations.version=? AND catering_kitchen_reservations.status IN ('draft','needs_review')`).bind(q.id,start,end,q.updated_at,executionQuoteSnapshot(q),actor,at,at,b.expected_version||0).run();return result.meta?.changes===1?{ok:true,booked:false,status:'draft'}:fail('Hours changed; reload.');
 }
 export function kitchenCalendarAdapter(env,{fetcher=fetch}={}){
  let token;async function call(url,options={}){
@@ -46,25 +47,25 @@ export async function runKitchenReservations(env,{at:startedAt=Date.now(),adapte
   const holder=crypto.randomUUID();await env.DB.prepare('INSERT INTO catering_kitchen_calendar_locks VALUES(?,?,?) ON CONFLICT(calendar_id) DO UPDATE SET holder=excluded.holder,lease_until=excluded.lease_until WHERE catering_kitchen_calendar_locks.lease_until<?').bind(row.calendar_id,holder,at+120000,at).run();
   if((await env.DB.prepare('SELECT holder FROM catering_kitchen_calendar_locks WHERE calendar_id=?').bind(row.calendar_id).first())?.holder!==holder)continue;
   try{
-   const q=await env.DB.prepare('SELECT updated_at,deposit_status FROM catering_quotes WHERE id=?').bind(row.quote_id).first();
-   if(!q||q.deposit_status!=='paid'||q.updated_at!==row.quote_updated_at||row.calendar_id!==view.settings.calendar_id)throw Error('Booking or calendar changed; review hours.');
+   const q=await env.DB.prepare('SELECT * FROM catering_quotes WHERE id=?').bind(row.quote_id).first();
+   if(!q||q.deposit_status!=='paid'||executionQuoteSnapshot(q)!==row.quote_snapshot||row.calendar_id!==view.settings.calendar_id)throw Error('Booking or calendar changed; review hours.');
    const p={...row,provider_event_id:row.provider_event_id||await callbackEventId('kitchen:'+row.quote_id+':'+row.version)};
    let e=await adapter.get(p);
    if(e.missing){
     if(row.start_at<=at)throw Error('Reservation time elapsed.');
     const overlap=await env.DB.prepare("SELECT quote_id FROM catering_kitchen_reservations WHERE calendar_id=? AND quote_id!=? AND status IN ('approved','booking','confirmed') AND start_at<? AND end_at>? LIMIT 1").bind(row.calendar_id,row.quote_id,row.end_at,row.start_at).first();
     if(overlap||await adapter.busy(p))throw Error('Kitchen hours overlap an existing reservation.');
-    const fresh=await env.DB.prepare('SELECT r.status,r.version,q.updated_at,q.deposit_status,s.calendar_id FROM catering_kitchen_reservations r JOIN catering_quotes q ON q.id=r.quote_id JOIN catering_kitchen_calendar_settings s ON s.id=1 WHERE r.quote_id=?').bind(row.quote_id).first();
-    if(!fresh||fresh.version!==row.version||!['approved','booking'].includes(fresh.status)||fresh.updated_at!==row.quote_updated_at||fresh.deposit_status!=='paid'||fresh.calendar_id!==row.calendar_id)throw Error('Reservation changed before booking.');
-    const claim=await env.DB.prepare("UPDATE catering_kitchen_reservations SET status='booking',provider_event_id=?,updated_at=? WHERE quote_id=? AND version=? AND status IN ('approved','booking') AND EXISTS(SELECT 1 FROM catering_quotes q JOIN catering_kitchen_calendar_settings s ON s.id=1 WHERE q.id=catering_kitchen_reservations.quote_id AND q.updated_at=catering_kitchen_reservations.quote_updated_at AND q.deposit_status='paid' AND s.calendar_id=catering_kitchen_reservations.calendar_id)").bind(p.provider_event_id,at,row.quote_id,row.version).run();if(claim.meta?.changes!==1)continue;
+    const fresh=await env.DB.prepare('SELECT r.status,r.version,q.*,s.calendar_id FROM catering_kitchen_reservations r JOIN catering_quotes q ON q.id=r.quote_id JOIN catering_kitchen_calendar_settings s ON s.id=1 WHERE r.quote_id=?').bind(row.quote_id).first();
+    if(!fresh||fresh.version!==row.version||!['approved','booking'].includes(fresh.status)||executionQuoteSnapshot(fresh)!==row.quote_snapshot||fresh.deposit_status!=='paid'||fresh.calendar_id!==row.calendar_id)throw Error('Reservation changed before booking.');
+    const claim=await env.DB.prepare("UPDATE catering_kitchen_reservations SET status='booking',provider_event_id=?,updated_at=? WHERE quote_id=? AND version=? AND status IN ('approved','booking') AND EXISTS(SELECT 1 FROM catering_quotes q JOIN catering_kitchen_calendar_settings s ON s.id=1 WHERE q.id=catering_kitchen_reservations.quote_id AND catering_kitchen_reservations.quote_snapshot=json_array(q.quote_json,q.event_date,q.serving_time,q.address,q.guests,q.dietary_notes) AND q.deposit_status='paid' AND s.calendar_id=catering_kitchen_reservations.calendar_id)").bind(p.provider_event_id,at,row.quote_id,row.version).run();if(claim.meta?.changes!==1)continue;
     const lease=await env.DB.prepare('SELECT holder,lease_until FROM catering_kitchen_calendar_locks WHERE calendar_id=?').bind(row.calendar_id).first();
     if(lease?.holder!==holder||lease.lease_until<=startedAt+clock()-startedClock)throw Error('Calendar reservation lease elapsed; reconcile before retrying.');
     await adapter.create(p);e=await adapter.get(p);
    }
    if(!matches(e,p))throw Error('Calendar readback does not match approved hours.');
-   const authority=await env.DB.prepare('SELECT q.updated_at,q.deposit_status,s.calendar_id FROM catering_quotes q JOIN catering_kitchen_calendar_settings s ON s.id=1 WHERE q.id=?').bind(row.quote_id).first();
-   if(!authority||authority.updated_at!==row.quote_updated_at||authority.deposit_status!=='paid'||authority.calendar_id!==row.calendar_id)throw Error('Calendar event exists but booking authority changed. Review existing reservation.');
-   const confirmed=await env.DB.prepare("UPDATE catering_kitchen_reservations SET status='confirmed',provider_event_id=?,provider_verified_at=?,error=NULL,updated_at=? WHERE quote_id=? AND version=? AND status IN ('approved','booking') AND EXISTS(SELECT 1 FROM catering_quotes q JOIN catering_kitchen_calendar_settings s ON s.id=1 WHERE q.id=catering_kitchen_reservations.quote_id AND q.updated_at=catering_kitchen_reservations.quote_updated_at AND q.deposit_status='paid' AND s.calendar_id=catering_kitchen_reservations.calendar_id)").bind(p.provider_event_id,at,at,row.quote_id,row.version).run();if(confirmed.meta?.changes!==1)throw Error('Reservation changed after provider readback.');out.confirmed++;
+   const authority=await env.DB.prepare('SELECT q.*,s.calendar_id FROM catering_quotes q JOIN catering_kitchen_calendar_settings s ON s.id=1 WHERE q.id=?').bind(row.quote_id).first();
+   if(!authority||executionQuoteSnapshot(authority)!==row.quote_snapshot||authority.deposit_status!=='paid'||authority.calendar_id!==row.calendar_id)throw Error('Calendar event exists but booking authority changed. Review existing reservation.');
+   const confirmed=await env.DB.prepare("UPDATE catering_kitchen_reservations SET status='confirmed',provider_event_id=?,provider_verified_at=?,error=NULL,updated_at=? WHERE quote_id=? AND version=? AND status IN ('approved','booking') AND EXISTS(SELECT 1 FROM catering_quotes q JOIN catering_kitchen_calendar_settings s ON s.id=1 WHERE q.id=catering_kitchen_reservations.quote_id AND catering_kitchen_reservations.quote_snapshot=json_array(q.quote_json,q.event_date,q.serving_time,q.address,q.guests,q.dietary_notes) AND q.deposit_status='paid' AND s.calendar_id=catering_kitchen_reservations.calendar_id)").bind(p.provider_event_id,at,at,row.quote_id,row.version).run();if(confirmed.meta?.changes!==1)throw Error('Reservation changed after provider readback.');out.confirmed++;
   }catch(error){out.ok=false;out.needs_review++;await env.DB.prepare("UPDATE catering_kitchen_reservations SET status='needs_review',error=?,updated_at=? WHERE quote_id=? AND version=?").bind(error.message,at,row.quote_id,row.version).run();}
   finally{await env.DB.prepare('DELETE FROM catering_kitchen_calendar_locks WHERE calendar_id=? AND holder=?').bind(row.calendar_id,holder).run();}
  }
