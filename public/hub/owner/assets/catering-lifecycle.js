@@ -23,7 +23,7 @@
     current.cards.forEach(function(card){
       var ready=card.loaded&&card.message.review_hash&&!card.locked&&!current.readOnly;
       card.review.disabled=busy||!ready;card.send.disabled=busy||!ready||!card.review.checked||!card.message.send_eligible;
-      card.futureReview.disabled=busy||!ready||Boolean(card.message.approved_at);card.approve.disabled=busy||!ready||!card.futureReview.checked||Boolean(card.message.approved_at);
+      card.futureReview.disabled=busy||!ready||card.message.can_approve===false||Boolean(card.message.approved_at);card.approve.disabled=busy||!ready||card.message.can_approve===false||!card.futureReview.checked||Boolean(card.message.approved_at);
     });
   }
   function recordText(message){
