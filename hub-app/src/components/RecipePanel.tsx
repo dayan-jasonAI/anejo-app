@@ -75,9 +75,9 @@ export function RecipePanel({ sessionId, onClose }: { sessionId: string | null; 
 
       {published ? (
         <div className="rp-done">
-          ✅ {t('recipePublished')}
-          <a className="cp-go rp-lib" href="/hub/kitchen/library.html">
-            {t('openLibrary')}
+          {t('recipePublished')}
+          <a className="cp-go rp-lib" href={"/hub/kitchen/recipes.html?recipe_id=" + encodeURIComponent(savedId || "")}>
+            Complete recipe standards / Completar receta
           </a>
         </div>
       ) : (

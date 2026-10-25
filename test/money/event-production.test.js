@@ -208,14 +208,17 @@ test('the plan is built from the quote, and says plainly what it does not know',
 
   // Scaled to this event, not to the recipe's own basis.
   const congri = plan.production.find((p) => p.name === 'Congrí');
-  assert.deepEqual(congri.ingredients, [{ item: 'White rice', qty: '6 lb', basis: '9 lb' }]);
+  assert.deepEqual(congri.ingredients, [], 'a published legacy name match is not owner-approved yield evidence');
+  assert.equal(congri.recipe_confirmed,false);
   assert.equal(congri.recipe.id, 'rcp_congri', 'a published recipe beats the program copy at the same score');
 
   // A dish with no recipe is NAMED, not silently skipped, and it contributes nothing to the
   // purchase list rather than a guess.
   const noRecipe = plan.production.filter((p) => p.needs_recipe).map((p) => p.name);
-  assert.deepEqual(noRecipe, ['Flan de coco']);
-  assert.ok(plan.gaps.some((g) => g.includes('Flan de coco') && /No recipe on file/.test(g)));
+  assert.equal(noRecipe.length,8,'every unmatched-to-approved-SKU line remains unconfirmed');
+  assert.ok(noRecipe.includes('Flan de coco'));
+  assert.ok(plan.shopping.some(x=>x.item==='Congrí'&&x.needs_confirmation),'an unconfirmed ordered dish remains on the purchase list');
+  assert.ok(plan.gaps.some((g) => g.includes('Flan de coco') && /No owner-approved recipe mapping/.test(g)));
   // A draft recipe is called a draft wherever it appears — the cook is the authority, not the HUB.
   assert.ok(plan.gaps.some((g) => /still a draft/.test(g) && g.includes('Cuban tamales')));
   // The catering lechón is the one that gets used, not the contract copy. See the dedicated test
@@ -271,18 +274,21 @@ test('a task is ticked, re-ticked and unticked without piling up rows', async ()
   assert.equal(env.DB.rows('SELECT * FROM event_tasks')[0].done_at, null);
 });
 
-test('changing the guest count changes the plan — nothing stale is left behind', async () => {
+test('changing quoted quantities changes the plan without inventing an unapproved recipe yield', async () => {
   const env = ownerEnv();
   seedQuote(env);
   seedRecipe(env, { id: 'rcp_congri', name: 'Congrí', ingredients: [{ item: 'White rice', qty: '9 lb' }] });
   const before = await eventPlan(env, 'cq_test');
-  assert.equal(before.production.find((p) => p.name === 'Congrí').ingredients[0].qty, '6 lb');
+  assert.equal(before.production.find(p=>p.name==='Congrí').ordered_qty,'30');
+  assert.deepEqual(before.production.find(p=>p.name==='Congrí').ingredients,[]);
 
   env.DB.sqlite.prepare("UPDATE catering_quotes SET guests = 45, quote_json = ? WHERE id = 'cq_test'")
     .run(JSON.stringify({ lines: LINES.map((l) => ({ ...l, qty: '45' })) }));
   const after = await eventPlan(env, 'cq_test');
   assert.equal(after.event.guests, 45);
-  assert.equal(after.production.find((p) => p.name === 'Congrí').ingredients[0].qty, '9 lb');
+  assert.equal(after.production.find(p=>p.name==='Congrí').ordered_qty,'45');
+  assert.deepEqual(after.production.find(p=>p.name==='Congrí').ingredients,[]);
+  assert.match(after.shopping.find(p=>p.item==='Congrí').note,/45/);
 });
 
 // ---------------------------------------------------------------- when, where and what it looks like
@@ -399,7 +405,8 @@ test('the endpoint lists events, serves one plan, and records a tick', async () 
   const tick = await (await eventPost({ request: req('/api/hub/kitchen/event', { method: 'POST', body: JSON.stringify({ op: 'task', quote_id: 'cq_test', task_key: 'pack', done: true }) }), env })).json();
   assert.equal(tick.ok, true);
   const after = await (await eventGet({ request: req('/api/hub/kitchen/event?id=cq_test'), env })).json();
-  assert.equal(after.tasks.find((t) => t.key === 'pack').done, true);
+  assert.equal(after.tasks.find(t=>t.key==='pack').done,false,'planning checkbox cannot manufacture packed execution');
+  assert.equal(after.tasks.find(t=>t.key==='pack').planning_done,true);
 
   const junk = await eventPost({ request: req('/api/hub/kitchen/event', { method: 'POST', body: JSON.stringify({ op: 'nonsense' }) }), env });
   assert.equal(junk.status, 400);
@@ -519,17 +526,16 @@ test('things you buy whole are rounded up — 0.625 of a roll of twine is not a 
   assert.equal(scaleQty('to cover', 30), 'to cover');
 });
 
-test('every dish on the live 9/26 order now has a recipe, so the purchase list is complete', async () => {
+test('legacy catering recipes remain unconfirmed and every ordered dish stays visible on the purchase list', async () => {
   const env = ownerEnv();
   seedQuote(env, { serving_time: '19:00' });
   const plan = await eventPlan(env, 'cq_test');
 
   const missing = plan.production.filter((p) => p.needs_recipe).map((p) => p.name);
-  assert.deepEqual(missing, [], 'the six dishes 0127 added close the gap the first plan found');
-  assert.ok(plan.shopping.length > 50, 'and the purchase list is the whole order, not one dish');
-  assert.ok(plan.shopping.some((l) => /Masa harina/.test(l.item)), 'tamales reached the list');
-  assert.ok(plan.shopping.some((l) => /Guava paste/.test(l.item)), 'so did the skewers');
-  assert.ok(plan.shopping.some((l) => /Elbow macaroni/.test(l.item)));
+  assert.equal(missing.length,7,'legacy draft publication cannot establish approved purchase quantities');
+  assert.equal(plan.shopping.length,7);
+  assert.ok(plan.shopping.some(x=>/Roast pork/.test(x.item)),'main pork item never disappears');
+  assert.ok(plan.shopping.every(x=>x.needs_confirmation&&x.quantities.length===0));
 
   // Still honest: seeded as drafts, so the cook is asked to confirm them before they are trusted.
   const drafts = plan.production.filter((p) => p.recipe && p.recipe.draft).map((p) => p.name);
@@ -598,9 +604,9 @@ test('the recipe supplies its own cook time, so an eight-hour roast is not sched
   seedQuote(env, { serving_time: '19:00' });
   const plan = await eventPlan(env, 'cq_test');
   const lechon = plan.production.find((p) => /Roast pork/.test(p.name));
-  assert.equal(lechon.minutes, 320, '480 minutes for 45 portions, scaled to 30');
-  assert.match(lechon.minutes_source, /from the recipe/);
-  assert.equal(lechon.minutes_is_guess, false);
+  assert.equal(lechon.minutes,480,'unconfirmed long-cook reference is not shortened by an invented yield basis');
+  assert.match(lechon.minutes_source,/unconfirmed recipe reference/);
+  assert.equal(lechon.minutes_is_guess,true,'reference timing still requires owner confirmation');
   // Over two hours, so it lands the day before rather than on Saturday afternoon.
   assert.equal(Number(etDateOf(plan.tasks.find((t) => t.key === 'cook:l0').at).slice(-2)), 25);
 });
@@ -744,4 +750,15 @@ test('pickup plan schedules handover without fictitious owner departure or arriv
   const plan = await eventPlan(env,quoteId,{atMs:at});
   assert.equal(plan.tasks.find(t=>t.key==='pickup').at,etWallClockMs('2026-10-01T19:00'));
   assert.ok(!plan.tasks.some(t=>['depart','arrive','serve'].includes(t.key)));
+});
+
+test('unknown quoted units do not manufacture packaging counts from guests',()=>{
+ const pack=packagingList([{name:'Roast pork',portions:null,ordered_qty:'2 trays'}],200);
+ assert.equal(pack.find(p=>p.item==='Packaging for Roast pork').qty,'Confirm');
+ assert.match(pack.find(p=>p.item==='Packaging for Roast pork').why,/2 trays/);
+ assert.equal(pack.some(p=>/aluminium pans/.test(p.item)),false);
+});
+test('logistics projects actual packing evidence without claiming automatic safety clearance',()=>{
+ const load=logistics({event:{address:'Test'},production:[{name:'Synthetic dish',handling:{packing:{mode:'hot',temperature_f:145,carrier:'Measured carrier',stale:false}}}]}).load[0];
+ assert.equal(load.handling_status,'recorded');assert.match(load.how,/145°F.*Measured carrier/);assert.match(load.how,/not an automatic/);assert.doesNotMatch(load.how,/not recorded/);
 });

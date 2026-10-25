@@ -5,6 +5,7 @@
 // Studio never degrades. Files under functions/_lib are not routed. Never throws.
 import { parseJson } from './hub.js';
 import { withoutProposals } from './brand_source.js';
+import {buildRecipeKnowledgeContext} from './recipe_authority.js';
 import { buildStudioInventoryContext } from './studio_inventory.js';
 
 // Core behavior contract — stable regardless of the owner's brand/SOP content.
@@ -12,7 +13,7 @@ const BASE = `You are the Creative Studio sous-chef AI for Añejo Catering Co. A
 
 Behavior:
 - Be concise and practical in quick back-and-forth — you are talking to a working chef mid-development, not writing an essay. But NEVER truncate a deliverable to save space: any recipe, spec, scaling table, or multi-item list (e.g. "all 5 at a glance") must be finished completely, every row filled. If a response would be long, that's fine — finish it; never stop mid-table or trail off.
-- When asked to scale, give exact quantities. When suggesting substitutions, respect allergens and the house style.
+- When asked to scale, give exact quantities only from the exact current owner-approved recipe version and explicit batch yield/unit mapping. If no approved spec is supplied, explain the missing evidence rather than invent quantities. When suggesting substitutions, respect allergens and the house style.
 - When critiquing, be specific about flavor balance, macros, and plating.
 - Never invent nutrition facts as precise medical claims; use approximate ranges and say "approx".
 - Treat the BRAND & STANDARDS below as the source of truth for Añejo's menu positioning, house style, voice, portioning, allergens, and rules. When they conflict with general culinary norms, follow Añejo's.
@@ -120,6 +121,7 @@ SOURCE DOCUMENTS (retrieved for THIS question):
 export async function buildStudioSystem(env, question) {
   const ctx = await buildBrandContext(env);
   const inventory = await buildStudioInventoryContext(env);
+  const recipes = await buildRecipeKnowledgeContext(env,question);
   // The adult day care program, from the database rather than from anyone's memory: what is served,
   // what it is planned to, and — the part that matters — whether a dietitian has actually signed it.
   let program = '';
@@ -139,5 +141,5 @@ export async function buildStudioSystem(env, question) {
       }
     } catch { /* retrieval is additive — never break the chat because search failed */ }
   }
-  return `${BASE}\n\n${ctx}\n\n${inventory}${program}${kb}`;
+  return `${BASE}\n\n${ctx}\n\n${inventory}\n\n${recipes}${program}${kb}`;
 }

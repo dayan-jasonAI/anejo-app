@@ -23,11 +23,11 @@
     current.cards.forEach(function(card){
       var ready=card.loaded&&card.message.review_hash&&!card.locked&&!current.readOnly;
       card.review.disabled=busy||!ready;card.send.disabled=busy||!ready||!card.review.checked||!card.message.send_eligible;
-      card.futureReview.disabled=busy||!ready||Boolean(card.message.approved_at);card.approve.disabled=busy||!ready||!card.futureReview.checked||Boolean(card.message.approved_at);
+      card.futureReview.disabled=busy||!ready||card.message.can_approve===false||Boolean(card.message.approved_at);card.approve.disabled=busy||!ready||card.message.can_approve===false||!card.futureReview.checked||Boolean(card.message.approved_at);
     });
   }
   function recordText(message){
-    return 'Saved state: '+String(message.status||'unverified')+(message.approved_at?' · Future trigger approved '+new Date(message.approved_at).toLocaleString():' · Future trigger not approved')+(message.receipt_id?' · Provider receipt: '+message.receipt_id:'')+(message.status==='accepted'?'. Provider acceptance is recorded; delivery and reading are not established.':'');
+    return (message.missed_window ? 'Not sent · approved after the pre-event window. No late email will send. ' : '')+'Saved state: '+String(message.status||'unverified')+(message.approved_at?' · Future trigger approved '+new Date(message.approved_at).toLocaleString():' · Future trigger not approved')+(message.receipt_id?' · Provider receipt: '+message.receipt_id:'')+(message.delivery_verified?'. Provider delivery recorded '+new Date(message.provider_observed_at).toLocaleString()+'.':message.status==='accepted'?'. Provider acceptance is recorded; delivery and reading are not established.':'');
   }
   function addPreview(card,host,seq){
     var iframe=el('iframe');iframe.title='Actual branded Añejo '+labels[card.message.kind]+' email';iframe.setAttribute('sandbox','');iframe.referrerPolicy='no-referrer';host.appendChild(iframe);

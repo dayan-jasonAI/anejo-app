@@ -45,6 +45,7 @@
   summary { cursor:pointer; font-weight:600; }
   .ev-row { display:block; padding:12px; border:1px solid var(--line,#e3e3da); border-radius:12px; margin-bottom:8px; background:#fff; text-decoration:none; color:inherit; }
 </style>
+<link rel="stylesheet" href="/hub/kitchen/event-operations.css?v=20261025-unified1">
 </head>
 <body>
 <div class="hub-bar">
@@ -61,6 +62,8 @@
 <script src="/hub/assets/hub.js"></script>
 <script src="/hub/kitchen/kitchen.js"></script>
 <script src="/hub/kitchen/catering-driver-assignment.js"></script>
+<script src="/hub/kitchen/event-operations.js?v=20261025-unified1"></script>
+<script src="/hub/kitchen/event-services.js"></script>
 <script>
 (function () {
   'use strict';
@@ -69,7 +72,7 @@
   var out = document.getElementById('out');
   var back = document.getElementById('back');
   var quoteId = new URLSearchParams(location.search).get('id');
-  var plan = null;
+  var plan = null, activeWorkStage='production';
   var executionData = null, executionPending = null, executionBusy = false, executionMessage = '';
   var executionStorageKey = 'anejo:event-execution:' + quoteId;
   try { executionPending = JSON.parse(sessionStorage.getItem(executionStorageKey) || 'null'); } catch (ignore) {}
@@ -85,7 +88,9 @@
     time: 'Hora de servicio (24 h)', addr: 'Dirección', theme: 'Tema', colors: 'Colores', diet: 'Alergias / dieta',
     link: 'Usar esta solicitud', brief: 'Solicitud de diseño que coincide', noRecipe: 'sin receta',
     onHand: 'en inventario', total: 'Total', forDish: 'para', estimate: 'estimado',
-    mins: 'min', setTime: '¿Cuánto tarda de verdad? Ponlo en minutos y el plan se reordena solo.'
+    mins: 'min', setTime: '¿Cuánto tarda de verdad? Ponlo en minutos y el plan se reordena solo.',
+    draftPill:'BORRADOR — sin confirmar',okPill:'versión aprobada',openRecipe:'Receta',closeRecipe:'Cerrar',ingHead:'Ingredientes',stepHead:'Método',
+    baseNote:'Guardas una propuesta de receta base, no cantidades escaladas para este evento. Solo la revisión exacta de Dayan cambia la receta operativa.',ingHint:'Un ingrediente por línea: 3 tazas — ajo',stepHint:'Un paso por línea.',saveRecipe:'Guardar borrador',confirmRecipe:'Enviar a Dayan',confirming:'Enviando…',confirmed:'Enviado a Dayan para revisión; aún sin aprobar.',loadingRecipe:'Abriendo…'
   } : {
     none: 'No booked events in the next three weeks.', guests: 'guests', days: 'days',
     today: 'TODAY', tomorrow: 'TOMORROW', deposit: 'Deposit', balance: 'Balance', paid: 'paid', due: 'due',
@@ -98,11 +103,11 @@
     mins: 'min', setTime: 'How long does it really take? Put the minutes in and the plan reorders itself.',
     draftPill: 'DRAFT — not confirmed', okPill: 'confirmed', openRecipe: 'Recipe',
     closeRecipe: 'Close', ingHead: 'Ingredients', stepHead: 'Method',
-    baseNote: 'You are editing the MASTER recipe, written for its own batch size. The amounts in the purchase list above are this recipe scaled to THIS event — change those amounts here only if the master itself is wrong.',
+    baseNote: 'You are proposing a MASTER recipe draft at its own batch size, not quantities scaled to this event. Only Dayan’s exact-version review can replace the kitchen standard.',
     ingHint: 'One per line:  3 cups — garlic, mashed',
     stepHint: 'One step per line.',
-    saveRecipe: 'Save changes', confirmRecipe: 'Confirm this recipe', confirming: 'Confirming…',
-    confirmed: 'Confirmed — the kitchen can cook from this.', loadingRecipe: 'Opening…'
+    saveRecipe: 'Save draft', confirmRecipe: 'Submit to Dayan', confirming: 'Submitting…',
+    confirmed: 'Submitted for Dayan’s review; not yet approved.', loadingRecipe: 'Opening…'
   };
   var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]; }); };
   var money = function (c) { return '$' + ((c || 0) / 100).toFixed(2); };
@@ -129,24 +134,28 @@
     back.style.display = '';
     var e = d.event;
     var when = e.days_out === 0 ? T.today : e.days_out === 1 ? T.tomorrow : e.days_out;
-    var html = '<div class="ev-head"><h2>' + esc(e.customer || '—') + '</h2>'
-      + '<div class="sub">' + esc(dayName(Date.parse(e.date + 'T16:00:00Z'))) + (e.serving_time ? ' · ' + esc(e.serving_time) : '')
-      + ' · ' + esc(e.guests) + ' ' + esc(T.guests) + '</div>'
-      + (e.address ? '<div class="sub">' + esc(e.address) + '</div>' : '')
+    var html = '<div class="ev-head"><div><h2>' + esc(e.customer || '—') + '</h2>'
+      + '<div class="sub">' + esc(dayName(Date.parse(e.date + 'T16:00:00Z'))) + '</div>'
+      + '<div class="ev-top-meta"><span>'+esc(e.guests)+' '+esc(T.guests)+'</span><span>'+(e.serving_time?esc(lang==='es'?'Servir a las ':'Serve at ')+esc(formatServingTime(e.serving_time))+' ET':esc(lang==='es'?'Falta hora de servicio':'Serving time needed'))+'</span></div>'
+      + (e.address ? '<div class="sub" style="margin-top:10px">' + esc(e.address) + '</div>' : '')+'</div>'
       + '<div class="countdown">' + esc(when) + '<small>' + esc(e.days_out > 1 ? T.days : '') + '</small></div>'
       + '<div class="money"><span>' + esc(T.deposit) + '<b>' + esc(money(e.deposit_paid_cents)) + ' ' + esc(e.deposit_status === 'paid' ? T.paid : e.deposit_status) + '</b></span>'
-      + '<span>' + esc(T.balance) + '<b>' + esc(money(e.balance_cents)) + ' ' + esc(e.balance_status === 'paid' ? T.paid : T.due) + '</b></span>'
+      + '<span>' + esc(T.balance) + '<b>' + esc(money(e.balance_cents)) + ' ' + esc(e.balance_status === 'paid' ? T.paid : e.balance_status==='waived'?(lang==='es'?'exonerado':'waived'):T.due) + '</b></span>'
       + '<span>' + esc(T.total) + '<b>' + esc(money(e.total_cents)) + '</b></span></div></div>';
-
-    html += '<div id="driver-assignment-panel" class="sect" hidden></div>';
-    html += '<div id="execution-panel" class="sect" aria-live="polite">' + esc(lang === 'es' ? 'Cargando progreso del evento…' : 'Loading event progress…') + '</div>';
-    html += d.gaps.map(function (g) { return '<div class="gap">' + esc(g) + '</div>'; }).join('');
-    html += briefHtml(d) + detailsHtml(e) + timelineHtml(d) + productionHtml(d)
-          + shoppingHtml(d) + packagingHtml(d) + hoursHtml(d) + logisticsHtml(d) + designHtml(d);
+    html += '<section id="execution-panel" class="ev-progress-shell" aria-live="polite">' + esc(lang === 'es' ? 'Cargando progreso del evento…' : 'Loading saved event progress…') + '</section>';
+    html += '<nav class="ev-work-nav" role="tablist" aria-label="'+esc(lang==='es'?'Trabajo del evento':'Event workspace')+'">'+[['production',lang==='es'?'Cocina':'Production'],['purchases',lang==='es'?'Compras':'Purchases'],['delivery',lang==='es'?'Empaque / entrega':'Pack / delivery'],['details',lang==='es'?'Detalles':'Details']].map(function(stage){return '<button type="button" role="tab" id="ev-tab-'+stage[0]+'" aria-controls="ev-stage-'+stage[0]+'" aria-selected="'+(activeWorkStage===stage[0]?'true':'false')+'" data-work-stage="'+stage[0]+'">'+esc(stage[1])+'</button>';}).join('')+'</nav>';
+    html += '<section class="ev-view" role="tabpanel" aria-labelledby="ev-tab-production" id="ev-stage-production"'+(activeWorkStage==='production'?'':' hidden')+'>'+productionHtml(d)+'<details class="ev-subsection"><summary>'+esc(lang==='es'?'Cronograma y lista de tareas':'Schedule and task checklist')+'</summary>'+timelineHtml(d)+'</details></section>';
+    html += '<section class="ev-view" role="tabpanel" aria-labelledby="ev-tab-purchases" id="ev-stage-purchases"'+(activeWorkStage==='purchases'?'':' hidden')+'>'+shoppingHtml(d)+'</section>';
+    html += '<section class="ev-view" role="tabpanel" aria-labelledby="ev-tab-delivery" id="ev-stage-delivery"'+(activeWorkStage==='delivery'?'':' hidden')+'>'+packagingHtml(d)+'<div id="delivery-handling-panel"></div><div id="driver-assignment-panel" class="sect" hidden></div><details class="ev-subsection"><summary>'+esc(T.logistics)+'</summary>'+logisticsHtml(d)+'</details></section>';
+    html += '<section class="ev-view" role="tabpanel" aria-labelledby="ev-tab-details" id="ev-stage-details"'+(activeWorkStage==='details'?'':' hidden')+'>'+detailsHtml(e)+briefHtml(d)+'<details class="ev-subsection"><summary>'+esc(lang==='es'?'Horas de cocina estimadas':'Estimated kitchen hours')+'</summary>'+hoursHtml(d)+'</details>'+designHtml(d)+(d.gaps.length?'<details class="ev-subsection ev-warning-summary"><summary>'+esc(lang==='es'?'Revisar '+d.gaps.length+' notas del plan':'Review '+d.gaps.length+' planning notes')+'</summary>'+d.gaps.map(function(g){return '<p class="gap">'+esc(g)+'</p>';}).join('')+'</details>':'')+'</section>';
+    html+='<section id="event-services" hidden></section>';
     out.innerHTML = html;
+    if(window.EventOperations)window.EventOperations.mount(plan,executionData,load);
+    if(window.EventServices)window.EventServices.load({quoteId:quoteId,role:d.can_configure?'owner':'kitchen'});
     wire();
-    if (keepExecution) renderExecution(); else loadExecution();
+    var executionReady;if(keepExecution){renderExecution();executionReady=Promise.resolve();}else executionReady=loadExecution();
     if (Hub && Hub.i18nRefresh) Hub.i18nRefresh();
+    return executionReady;
   }
 
   function briefHtml(d) {
@@ -160,63 +169,45 @@
     }).join('') + '</div>';
   }
 
+  function formatServingTime(value){var m=/^(\d{1,2}):(\d{2})$/.exec(String(value||''));if(!m)return value;var h=Number(m[1]);return (h%12||12)+':'+m[2]+(h<12?' AM':' PM');}
+  function itemMenu(name,buttons){return '<details class="ev-more"><summary aria-label="'+esc((lang==='es'?'Acciones para ':'More actions for ')+name)+'"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="4" cy="12" r="2"></circle><circle cx="12" cy="12" r="2"></circle><circle cx="20" cy="12" r="2"></circle></svg></summary><div class="ev-more-menu">'+buttons+'</div></details>';}
+  function selectWorkStage(stage){activeWorkStage=stage;document.querySelectorAll('[data-work-stage]').forEach(function(button){button.setAttribute('aria-selected',button.dataset.workStage===stage?'true':'false');});document.querySelectorAll('.ev-view').forEach(function(panel){panel.hidden=panel.id!=='ev-stage-'+stage;});}
   function detailsHtml(e) {
     return '<details class="sect"><summary>' + esc(T.details) + '</summary><div class="fields" style="margin-top:10px">'
-      + '<div><label for="f-time">' + esc(T.time) + '</label><input id="f-time" type="text" inputmode="numeric" placeholder="19:00" value="' + esc(e.serving_time || '') + '"></div>'
+      + '<div><label for="f-time">' + esc(T.time) + '</label><input id="f-time" type="time" value="' + esc(e.serving_time || '') + '"></div>'
       + '<div><label for="f-addr">' + esc(T.addr) + '</label><input id="f-addr" type="text" value="' + esc(e.address || '') + '"></div>'
       + '<div><label for="f-theme">' + esc(T.theme) + '</label><input id="f-theme" type="text" value="' + esc(e.theme || '') + '"></div>'
       + '<div><label for="f-colors">' + esc(T.colors) + '</label><input id="f-colors" type="text" value="' + esc(e.colors || '') + '"></div>'
       + '<div><label for="f-diet">' + esc(T.diet) + '</label><input id="f-diet" type="text" value="' + esc(e.dietary_notes || '') + '"></div>'
+      + '<p class="ev-help">'+esc(lang==='es'?'La hora de servicio es cuando la comida debe estar lista en el evento. Viaje y montaje son duraciones distintas.':'Serving time is when the food must be ready at the event. Travel and setup are separate durations.')+'</p>'
       + '<button class="btn" id="save-details" type="button">' + esc(T.save) + '</button></div></details>';
   }
 
   function timelineHtml(d) {
     var lastDay = null;
-    var rows = d.tasks.map(function (t) {
-      var head = '';
-      var k = dayKey(t.at);
-      if (k !== lastDay) { lastDay = k; head = '<div class="daybar">' + esc(dayName(t.at)) + '</div>'; }
-      return head + '<div class="task' + (t.done ? ' done' : '') + '">'
-        + '<input type="checkbox" class="tick" data-key="' + esc(t.key) + '"' + (t.done ? ' checked' : '') + ' aria-label="' + esc(t.label) + '">'
-        + '<div style="flex:1"><label>' + esc(t.label) + '</label>'
-        + '<div class="when">' + esc(clock(t.at)) + (t.minutes ? ' · ' + t.minutes + ' min' : '') + '</div></div>'
-        + '<span class="kind">' + esc(t.kind) + '</span></div>';
+    var rows = d.tasks.map(function (task) {
+      var head = '', k = dayKey(task.at), operational=task.operational||task.key.indexOf('cook:')===0||task.key==='pack',purchase=task.kind==='shop';
+      if (k !== lastDay) { lastDay = k; head = '<div class="daybar">' + esc(dayName(task.at)) + '</div>'; }
+      var status=operational?'<span class="pill '+(task.done?'':'warn')+'">'+esc(task.done?(lang==='es'?'Registrado':'Recorded'):(lang==='es'?'Pendiente':'Pending'))+'</span>':purchase?'<span class="pill">'+esc((d.shopping||[]).filter(function(item){return item.status==='purchased';}).length)+' / '+esc((d.shopping||[]).filter(function(item){return item.status!=='removed';}).length)+'</span>':'<input type="checkbox" class="tick" data-key="' + esc(task.key) + '"' + (task.done ? ' checked' : '') + ' aria-label="' + esc(task.label) + '">';
+      var action=operational||purchase?'<button type="button" class="btn ghost" data-task-operation="'+esc(task.key)+'">'+esc(lang==='es'?'Ver acción':'View action')+'</button>':'';
+      return head + '<div class="task' + (task.done ? ' done' : '') + '">'+status
+        + '<div style="flex:1"><label>' + esc(task.label) + '</label>'
+        + '<div class="when">' + esc(clock(task.at)) + (task.minutes ? ' · ' + task.minutes + ' min' : '') + '</div></div>'+action+'</div>';
     }).join('');
-    return '<div class="sect"><h3>' + esc(T.timeline) + '</h3><p class="row-sub">' + esc(lang === 'es' ? 'Lista de planificación · Hora del Este. Marcar una tarea no cambia el progreso de entrega ni envía notificaciones.' : 'Planning checklist · Eastern time. Checking a task does not change delivery progress or send notifications.') + '</p>' + rows + '</div>';
+    return '<div class="sect"><h3>' + esc(T.timeline) + '</h3><p class="row-sub">' + esc(lang === 'es' ? 'Hora del Este. Cocina y empaque reflejan las acciones guardadas arriba. Las compras se registran por artículo. Las demás casillas son recordatorios de planificación.' : 'Eastern time. Cooking and packing reflect the saved actions above. Purchases are recorded per item. Other checkboxes are planning reminders.') + '</p>' + rows + '</div>';
   }
 
   function productionHtml(d) {
-    // The minutes box is the one place the kitchen teaches the HUB. Whatever the cook types here
-    // drives this event's schedule and is kept as the starting point for the next one.
-    return '<div class="sect"><h3>' + esc(T.plan) + '</h3>'
-      + '<p class="row-sub" style="margin:-4px 0 8px">' + esc(T.setTime) + '</p>'
-      + '<table class="grid"><tbody>'
-      + d.production.map(function (p) {
-        var rec = p.recipe;
-        return '<tr><td>' + esc(p.name)
-          + (p.needs_recipe ? ' <span class="pill warn">' + esc(T.noRecipe) + '</span>' : '')
-          + (rec ? ' <span class="pill' + (rec.draft ? ' warn' : '') + '">' + esc(rec.draft ? T.draftPill : T.okPill) + '</span>' : '')
-          + '<div class="when" style="font-size:11px;opacity:' + (p.minutes_is_guess ? '.9' : '.65') + '">' + esc(p.minutes_source) + '</div>'
-          + (rec ? '<button type="button" class="btn ghost rx-open" data-rx="' + esc(rec.id) + '" data-rxname="' + esc(rec.name) + '"'
-              + ' style="margin-top:6px;padding:5px 10px;font-size:12px">📖 ' + esc(T.openRecipe) + '</button>'
-              + '<div class="rx-panel" id="rx-' + esc(rec.id) + '" hidden></div>' : '')
-          + '</td>'
-          + '<td class="q">' + esc(p.portions)
-          + '<div style="margin-top:4px;display:flex;gap:4px;align-items:center;justify-content:flex-end">'
-          + '<input class="mins" type="number" inputmode="numeric" min="1" max="1440" value="' + esc(p.minutes) + '" data-key="cook:' + esc(p.key) + '" aria-label="' + esc(p.name) + ' ' + esc(T.mins) + '" style="width:64px;padding:6px;text-align:right;font-size:15px">'
-          + '<span style="font-weight:400;font-size:11px;opacity:.7">' + esc(T.mins) + '</span></div></td></tr>';
-      }).join('') + '</tbody></table></div>';
+    var complete=(d.production||[]).filter(function(p){return p.progress&&['cooked','packed'].includes(p.progress.state);}).length;
+    return '<div class="ev-section-title"><div><h3>'+esc(lang==='es'?'En la cocina':'At the kitchen')+'</h3><p>'+esc(lang==='es'?'Cantidades del pedido. Cada plato conserva su progreso guardado.':'Ordered quantities. Each dish keeps its own saved progress.')+'</p></div><span class="pill">'+complete+' / '+d.production.length+'</span></div><div class="ev-item-grid">'+d.production.map(function(p){
+      var rec=p.recipe,progress=p.progress||{},state=progress.state||'pending',labels={pending:lang==='es'?'Pendiente':'Not started',preparing:lang==='es'?'En preparación':'Preparing',cooked:lang==='es'?'Cocinado':'Cooked',packed:lang==='es'?'Empacado':'Packed'};
+      var buttons=(rec?'<button type="button" class="rx-open" data-rx="'+esc(rec.id)+'" data-rxname="'+esc(rec.name)+'">'+esc(lang==='es'?'Ver / editar receta maestra':'Open / edit master recipe')+'</button>':'')+'<button type="button" data-focus-minutes="'+esc(p.key)+'">'+esc(lang==='es'?'Ajustar tiempo de cocción':'Adjust cooking duration')+'</button>';
+      return '<article class="ev-item" id="production-'+esc(p.key)+'"><div class="ev-item-top"><div><h4>'+esc(p.name)+'</h4><div class="ev-item-quantity">'+esc(p.ordered_qty||p.qty||p.portions)+' '+esc(lang==='es'?'en el pedido':'ordered')+'</div></div>'+itemMenu(p.name,buttons)+'</div>'+(p.detail?'<p class="ev-item-detail">'+esc(p.detail)+'</p>':'')+'<span class="pill '+(state==='pending'?'warn':'')+'">'+esc(labels[state]||state)+'</span>'+(progress.stale?' <span class="pill warn">'+esc(lang==='es'?'Reconfirmar cambio de menú':'Reconfirm changed menu')+'</span>':'')+(p.needs_recipe?' <span class="pill warn">'+esc(T.noRecipe)+'</span>':'')+(rec&&rec.draft?' <span class="pill warn">'+esc(T.draftPill||'Draft recipe')+'</span>':'')+'<div class="ev-item-metrics"><div><b>'+esc(p.required_qty??p.portions??(lang==='es'?'Confirmar':'Confirm'))+'</b><small>'+esc(p.required_qty!=null?(lang==='es'?'Unidades del pedido':'Ordered units'):(lang==='es'?'Base de receta · verificar unidad':'Recipe scaling basis · verify units'))+'</small></div><div><label for="minutes-'+esc(p.key)+'"><small>'+esc(lang==='es'?'Cocción · minutos':'Cook time · minutes')+'</small></label><input id="minutes-'+esc(p.key)+'" class="mins" type="number" inputmode="numeric" min="1" max="1440" value="'+esc(p.minutes)+'" data-key="cook:'+esc(p.key)+'" aria-label="'+esc(p.name)+' '+esc(T.mins)+'"></div></div><details><summary>'+esc(lang==='es'?'Origen del tiempo y cantidades':'Time and quantity basis')+'</summary><p class="ev-item-detail">'+esc(p.minutes_source)+'</p>'+(rec&&rec.portion?'<p class="ev-item-detail">'+esc(rec.portion)+'</p>':'')+'</details>'+(progress.version!=null?'<div class="ev-item-progress">'+[['preparing',lang==='es'?'Iniciar':'Start'],['cooked',lang==='es'?'Cocinado':'Cooked'],['packed',lang==='es'?'Empacado':'Packed']].map(function(step){return '<button type="button" class="btn '+(state===step[0]?'is-recorded':'ghost')+'" data-line-progress="'+esc(p.key)+'" data-target="'+step[0]+'" data-version="'+esc(progress.version)+'"'+(state===step[0]||!(progress.available_targets||[]).includes(step[0])?' disabled':'')+'>'+esc(step[1])+'</button>';}).join('')+'</div>':'')+(progress.actual_qty!=null?'<p class="ev-item-detail">'+esc(lang==='es'?'Cantidad registrada: ':'Recorded quantity: ')+esc(progress.actual_qty)+'</p>':'')+'<button type="button" class="btn ghost" data-temperature="'+esc(p.key)+'">'+esc(lang==='es'?'Temperatura y transporte':'Temperature and carrier')+'</button>'+(p.handling&&p.handling.packing?'<p class="ev-help">'+esc(lang==='es'?'Registro de empaque: ':'Packing record: ')+esc(p.handling.packing.mode)+' · '+esc(p.handling.packing.temperature_f!=null?p.handling.packing.temperature_f+' °F':'')+' · '+esc(p.handling.packing.carrier||'')+(p.handling.packing.stale?' · '+esc(lang==='es'?'requiere nueva medición':'new reading needed'):'')+'</p>':'')+'<p class="ev-action-status" id="line-status-'+esc(p.key)+'" role="status"></p>'+(rec?'<div class="rx-panel" id="rx-'+esc(rec.id)+'" hidden></div>':'')+'</article>';
+    }).join('')+'</div>';
   }
-
   function shoppingHtml(d) {
-    if (!d.shopping.length) return '';
-    return '<div class="sect"><h3>' + esc(T.shopping) + '</h3><table class="grid"><tbody>'
-      + d.shopping.map(function (s) {
-        return '<tr><td>' + esc(s.item)
-          + '<div class="when" style="font-size:11px;opacity:.65">' + esc(T.forDish) + ' ' + esc(s.for.join(', ')) + '</div>'
-          + (s.on_hand ? '<div class="when" style="font-size:11px">' + esc(s.on_hand.amount + ' ' + (s.on_hand.unit || '')) + ' ' + esc(T.onHand) + '</div>' : '')
-          + '</td><td class="q">' + esc(s.quantities.join(' + ')) + '</td></tr>';
-      }).join('') + '</tbody></table></div>';
+    if(!d.shopping.length)return '<div class="ev-section-title"><h3>'+esc(T.shopping)+'</h3><button type="button" class="btn ghost" data-add-purchase>'+esc(lang==='es'?'Agregar artículo':'Add item')+'</button></div><p class="ev-muted">'+esc(lang==='es'?'No hay ingredientes calculados. Confirme las recetas o agregue artículos para este evento.':'No ingredients calculated. Confirm recipes or add items for this event.')+'</p>';
+    return '<div class="ev-section-title"><div><h3>'+esc(T.shopping)+'</h3><p>'+esc(lang==='es'?'Cantidades para este evento. Los cambios no alteran la receta maestra.':'Quantities for this event. Edits do not change the master recipe.')+'</p></div><button type="button" class="btn ghost" data-add-purchase>'+esc(lang==='es'?'Agregar artículo':'Add item')+'</button></div><div class="ev-item-grid">'+d.shopping.map(function(item,index){var key=item.key||String(index),quantity=item.qty||(item.quantities||[]).join(' + ');return '<article class="ev-item"><div class="ev-item-top"><div><h4>'+esc(item.item)+'</h4><div class="ev-item-quantity">'+esc(quantity)+'</div></div>'+itemMenu(item.item,item.key?'<button type="button" data-edit-purchase="'+esc(key)+'">'+esc(lang==='es'?'Editar cantidad / nota':'Edit event quantity / note')+'</button><button type="button" data-edit-purchase="'+esc(key)+'" data-purchase-status="purchased">'+esc(lang==='es'?'Marcar comprado':'Mark purchased')+'</button><button type="button" data-edit-purchase="'+esc(key)+'" data-purchase-status="removed">'+esc(lang==='es'?'Quitar de compras pendientes':'Remove from needed purchases')+'</button>':'<span class="ev-muted">'+esc(lang==='es'?'Fuente: recetas del evento':'Source: event recipes')+'</span>')+'</div><p class="ev-item-detail">'+esc(T.forDish)+' '+esc((item.for||[]).join(', '))+'</p>'+(item.on_hand?'<p class="ev-item-detail">'+esc(item.on_hand.amount+' '+(item.on_hand.unit||''))+' '+esc(T.onHand)+'</p>':'')+(item.note?'<p class="ev-item-detail ev-purchase-note">'+esc(item.note)+'</p>':'')+(item.status==='purchased'?'<span class="pill">'+esc(lang==='es'?'Comprado':'Purchased')+'</span>':item.status==='removed'?'<span class="pill warn">'+esc(lang==='es'?'No se necesita':'Not needed')+'</span>':'')+(item.override?'<span class="pill">'+esc(lang==='es'?'Ajustado para este evento':'Event-specific adjustment')+'</span>':'')+'</article>';}).join('')+'</div>';
   }
 
   function packagingHtml(d) {
@@ -270,7 +261,7 @@
   "Arrived": "Llegó",
   "Completed": "Completado",
   "Event progress": "Progreso del evento",
-  "Owner delivery, staff driver or customer pickup. This flow records progress; no notifications are sent.": "Entrega del propietario, chofer del equipo o recogida del cliente. Este proceso registra el progreso; no se envían avisos.",
+  "Driver actions update this event. Owner-reviewed delivery messages follow real departure and delivery records; see Client communication for saved outcomes.": "Las acciones del chofer actualizan este evento. Los avisos aprobados siguen la salida y entrega reales; consulte Comunicación con el cliente.",
   "Reload progress": "Recargar progreso",
   "Owner delivery": "Entrega del propietario",
   "Customer pickup": "Recogida del cliente",
@@ -333,16 +324,19 @@
   function executionText(status) {
     return ({ planned: executionLabel("Planned"), preparing: executionLabel("Preparing"), ready: executionLabel("Packed and ready"), en_route: executionLabel("On the way"), arrived: executionLabel("Arrived"), completed: executionLabel("Completed") })[status] || status;
   }
+  function executionStepper(status){var stages=[['planned','Planned'],['preparing','Preparing'],['ready','Packed and ready'],['en_route','On the way'],['arrived','Arrived'],['completed','Completed']],index=stages.findIndex(function(stage){return stage[0]===status;});return '<ol class="ev-stepper" aria-label="'+esc(executionLabel('Event progress'))+'">'+stages.map(function(stage,i){return '<li class="'+(i<index?'is-done':i===index?'is-current':'')+'"'+(i===index?' aria-current="step"':'')+'>'+esc(executionLabel(stage[1]))+'</li>';}).join('')+'</ol>';}
+  function nextExecutionActions(d,e){var operate=typeof plan!=='undefined'&&plan&&plan.can_operate;if((!d.can_write&&!operate)||d.read_only||executionPending)return '';var actions=(d.available_actions||[]).filter(function(action){return d.can_write||['preparing','ready'].includes(action);}),html='';if(actions.includes('ready'))html+='<label class="ev-check-label" style="margin:12px 0"><input id="execution-packed" type="checkbox">'+esc(executionLabel('Food, quantities and all packaging are checked and ready.'))+'</label>';html+='<div class="ev-next-actions">'+actions.map(function(action){var label=({preparing:executionLabel('Start preparation'),ready:executionLabel('Mark packed and ready'),en_route:executionLabel('Record departure'),arrived:executionLabel('Record arrival'),completed:e.delivery_mode==='pickup'?executionLabel('Confirm pickup completed'):executionLabel('Complete delivery')})[action];return label?'<button class="btn execution-action" type="button" data-action="'+esc(action)+'"'+(executionBusy?' disabled':'')+'>'+esc(label)+'</button>':'';}).join('')+'</div>';return html;}
   function renderExecution() {
     var el = document.getElementById('execution-panel');
     if (!el) return;
     var d = executionData, e = d && d.execution;
-    var html = '<h3>' + esc(executionLabel("Event progress")) + '</h3><p class="row-sub">' + esc(executionLabel("Owner delivery, staff driver or customer pickup. This flow records progress; no notifications are sent.")) + '</p>';
+    var html = '<div class="ev-progress-top"><h3>'+esc(executionLabel('Event progress'))+'</h3>'+(e?'<span class="ev-state-label">'+esc(executionText(e.status))+'</span>':'')+'</div>'+(e?executionStepper(e.status):'');
     if (executionMessage) html += '<p role="status" class="gap">' + esc(executionMessage) + '</p>';
     if (!e) {
       el.innerHTML = html + '<button type="button" class="btn" id="execution-refresh">' + esc(executionLabel("Reload progress")) + '</button>';
     } else {
-      html += '<p><b>' + esc(executionText(e.status)) + '</b> · ' + esc(e.delivery_mode === 'owner_self' ? executionLabel("Owner delivery") : e.delivery_mode === 'pickup' ? executionLabel("Customer pickup") : e.delivery_mode === 'staff_driver' ? executionLabel("Staff driver") : executionLabel("Choose fulfillment below")) + '</p>';
+      html += nextExecutionActions(d,e);
+      html += '<p class="ev-help">'+esc(e.delivery_mode==='owner_self'?executionLabel('Owner delivery'):e.delivery_mode==='staff_driver'?executionLabel('Staff driver'):e.delivery_mode==='pickup'?executionLabel('Customer pickup'):executionLabel('Choose fulfillment below'))+'</p>';
       html += (d.blockers || []).map(function (x) { return '<p class="gap">' + esc(executionLabel(x)) + '</p>'; }).join('');
       if (!d.can_write) html += '<p class="row-sub">' + esc(executionLabel("View only. An owner records fulfillment progress.")) + '</p>';
       if (d.read_only) html += '<p class="row-sub">' + esc(executionLabel("Execution is read only until the conditions above are resolved. Past events remain archived.")) + '</p>';
@@ -350,22 +344,17 @@
         html += '<p class="gap">' + esc(executionLabel("A previous save has no confirmed outcome. Retry that same request to resolve it before recording another step.")) + '</p>';
         if (d.can_write) html += '<button type="button" class="btn" id="execution-retry"' + (executionBusy ? ' disabled' : '') + '>' + esc(executionLabel("Resolve previous save")) + '</button><a class="btn ghost" href="/hub/">' + esc(executionLabel("Open Hub sign-in")) + '</a>';
       } else if (d.can_write && !d.read_only) {
-        if (d.can_reopen) html += '<form id="execution-reopen" class="fields" style="margin:12px 0"><p class="gap">' + esc(executionLabel('Returns to preparation. Confirm handling and packing again; no notifications are sent.')) + '</p><label for="execution-reason">' + esc(executionLabel('Reason for reopening')) + '</label><textarea id="execution-reason" required maxlength="1000" rows="2"></textarea><button class="btn ghost" type="submit">' + esc(executionLabel('Reopen preparation')) + '</button></form>';
-        if (d.configurable) html += '<form id="execution-config" class="fields"><label for="execution-mode">' + esc(executionLabel("Fulfillment")) + '</label><select id="execution-mode"><option value="owner_self"' + (e.delivery_mode === 'owner_self' ? ' selected' : '') + '>' + esc(executionLabel("I am delivering")) + '</option><option value="pickup"' + (e.delivery_mode === 'pickup' ? ' selected' : '') + '>' + esc(executionLabel("Customer pickup")) + '</option><option value="staff_driver"' + (e.delivery_mode === 'staff_driver' ? ' selected' : '') + '>' + esc(executionLabel('Staff driver')) + '</option></select>'
-          + '<label for="execution-travel">' + esc(executionLabel("Travel minutes (0 for pickup)")) + '</label><input required id="execution-travel" type="number" min="0" max="720" step="1" value="' + esc(e.travel_minutes == null ? '' : e.travel_minutes) + '">'
-          + '<label for="execution-setup">' + esc(executionLabel("Setup minutes")) + '</label><input required id="execution-setup" type="number" min="0" max="720" step="1" value="' + esc(e.setup_minutes == null ? '' : e.setup_minutes) + '">'
-          + '<label><input required id="execution-handling" type="checkbox" style="width:auto">' + esc(executionLabel("I confirmed food handling for every dish and these travel/setup times.")) + '</label><button class="btn" type="submit">' + esc(executionLabel("Confirm execution plan")) + '</button></form>';
-        if ((d.available_actions || []).includes('ready')) html += '<label style="display:block;margin:12px 0"><input id="execution-packed" type="checkbox">' + esc(executionLabel("Food, quantities and all packaging are checked and ready.")) + '</label>';
-        html += '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">' + (d.available_actions || []).map(function (action) {
-          var label = ({ preparing:executionLabel("Start preparation"), ready:executionLabel("Mark packed and ready"), en_route:executionLabel("Record departure"), arrived:executionLabel("Record arrival"), completed:e.delivery_mode === 'pickup' ? executionLabel("Confirm pickup completed") : executionLabel("Complete delivery") })[action];
-          return label ? '<button class="btn execution-action" type="button" data-action="' + esc(action) + '">' + esc(label) + '</button>' : '';
-        }).join('') + '</div>';
+        if (d.can_reopen) html += '<details class="ev-progress-details"><summary>'+esc(executionLabel('Reopen preparation'))+'</summary><form id="execution-reopen" class="fields" style="margin:12px 0"><p class="gap">' + esc(executionLabel('Returns to preparation. Confirm handling and packing again; no notifications are sent.')) + '</p><label for="execution-reason">' + esc(executionLabel('Reason for reopening')) + '</label><textarea id="execution-reason" required maxlength="1000" rows="2"></textarea><button class="btn ghost" type="submit">' + esc(executionLabel('Reopen preparation')) + '</button></form></details>';
+        if (d.configurable) html += '<details class="ev-progress-details"'+(!e.handling_confirmed?' open':'')+'><summary>'+esc(lang==='es'?'Plan de entrega · viaje y montaje':'Delivery plan · travel and setup')+'</summary><form id="execution-config" class="fields"><label for="execution-mode">' + esc(executionLabel("Fulfillment")) + '</label><select id="execution-mode"><option value="owner_self"' + (e.delivery_mode === 'owner_self' ? ' selected' : '') + '>' + esc(executionLabel("I am delivering")) + '</option>'+(e.delivery_mode==='pickup'?'<option value="pickup" selected>'+esc(executionLabel('Customer pickup'))+' · legacy</option>':'')+'<option value="staff_driver"' + (e.delivery_mode === 'staff_driver' ? ' selected' : '') + '>' + esc(executionLabel('Staff driver')) + '</option></select>'
+          + '<label for="execution-travel">' + esc((lang==='es'?'Duración del viaje · minutos':'Travel duration · minutes')) + '</label><input required id="execution-travel" type="number" min="0" max="720" step="1" value="' + esc(e.travel_minutes == null ? '' : e.travel_minutes) + '">'
+          + '<label for="execution-setup">' + esc((lang==='es'?'Duración del montaje · minutos':'Setup duration · minutes')) + '</label><input required id="execution-setup" type="number" min="0" max="720" step="1" value="' + esc(e.setup_minutes == null ? '' : e.setup_minutes) + '">'
+          + '<label><input required id="execution-handling" type="checkbox" style="width:auto">' + esc(executionLabel("I confirmed food handling for every dish and these travel/setup times.")) + '</label><button class="btn" type="submit">' + esc(executionLabel("Confirm execution plan")) + '</button><p class="ev-help">'+esc(lang==='es'?'Estas son duraciones, no horas del reloj. La hora de servicio se cambia en Detalles.':'These are durations, not clock times. Change the event serving time under Details.')+'</p></form></details>';
       }
-      html += '<button type="button" class="btn ghost" id="execution-refresh" style="margin-top:10px">' + esc(executionLabel("Refresh saved progress")) + '</button><details style="margin-top:12px"><summary>' + esc(executionLabel("Saved history")) + '</summary>';
+      html += '<button type="button" class="btn ghost" id="execution-refresh" style="margin-top:10px">' + esc(executionLabel("Refresh saved progress")) + '</button><details class="ev-progress-history"><summary>' + esc(executionLabel("Saved history")) + '</summary>';
       html += (d.transitions || []).length ? '<ol>' + d.transitions.map(function (t) {
         return '<li>' + esc(dayName(t.recorded_at) + ' ' + clock(t.recorded_at)) + ' ET · ' + esc(t.from_status === t.to_status ? executionLabel("Plan confirmed") : executionText(t.to_status)) + ' · ' + esc(t.actor) + (t.note ? '<br>' + esc(t.note) : '') + '</li>';
       }).join('') + '</ol>' : '<p class="row-sub">' + esc(executionLabel("No execution steps recorded.")) + '</p>';
-      el.innerHTML = html + '</details>';
+      el.innerHTML = html + '</details><details class="ev-progress-details"><summary>'+esc(lang==='es'?'Sobre los avisos y este progreso':'About notifications and progress')+'</summary><p class="ev-help">'+esc(executionLabel('Driver actions update this event. Owner-reviewed delivery messages follow real departure and delivery records; see Client communication for saved outcomes.'))+'</p></details>';
     }
     var refresh = document.getElementById('execution-refresh');
     if (refresh) { refresh.disabled = executionBusy; refresh.onclick = loadExecution; }
@@ -387,6 +376,7 @@
       btn.onclick = function () {
         var target = btn.dataset.action, packing = document.getElementById('execution-packed');
         if (target === 'ready' && (!packing || !packing.checked)) { Hub.toast(executionLabel("Confirm all food and packaging are ready.")); return; }
+        if(['preparing','ready'].includes(target)&&window.EventOperations){window.EventOperations.transition(target);return;}
         saveExecution({ op:'transition', target_status:target, packing_confirmed:target === 'ready' });
       };
     });
@@ -398,10 +388,12 @@
     return K.get('/api/hub/kitchen/event-execution?id=' + encodeURIComponent(quoteId)).then(function (d) {
       if (!d || !d.ok || !d.execution) throw new Error('unavailable');
       executionData = d; executionMessage = ''; renderExecution();
-      return window.CateringAssignment.load(quoteId, d.can_write, loadExecution);
+      if(window.EventOperations)window.EventOperations.mount(plan,d,load);
+      return window.CateringAssignment.load(quoteId, typeof plan!=='undefined'&&plan&&typeof plan.can_assign==='boolean'?plan.can_assign:d.can_write, loadExecution);
     }).catch(function () { window.CateringAssignment.load(quoteId, false); executionData = null; executionMessage = executionLabel("Could not verify saved event progress. Reload to try again."); renderExecution(); });
   }
   function saveExecution(action) {
+    if(window.EventOperations&&window.EventOperations.hasUnresolved()){Hub.toast(lang==='es'?'Resuelve el guardado pendiente de cocina primero.':'Resolve the pending kitchen operation first.');return Promise.resolve();}
     if (executionBusy || !executionData || !executionData.can_write) return Promise.resolve();
     if (!executionPending) {
       if (!action || executionData.read_only) return Promise.resolve();
@@ -421,11 +413,12 @@
         executionPending = null; storeExecutionPending(); executionMessage = executionLabel(r.error) || executionLabel("Save rejected. Refresh progress before continuing.");
       } else { executionMessage = executionLabel("Save outcome is unconfirmed. Resolve the previous save before continuing."); }
     }).catch(function () { executionMessage = executionLabel("Connection interrupted. Save outcome is unconfirmed; retry the same request."); })
-      .finally(function () { executionBusy = false; renderExecution(); window.CateringAssignment.load(quoteId, !!(executionData && executionData.can_write), loadExecution); });
+      .finally(function () { executionBusy = false; renderExecution(); window.CateringAssignment.load(quoteId, !!(typeof plan!=='undefined'&&plan&&typeof plan.can_assign==='boolean'?plan.can_assign:executionData&&executionData.can_write), loadExecution); });
   }
 
   // ---- wiring ---------------------------------------------------------------------------------
   function post(body, after) {
+    if(window.EventOperations&&window.EventOperations.hasUnresolved()){Hub.toast(lang==='es'?'Resuelve el guardado pendiente de cocina primero.':'Resolve the pending kitchen operation first.');return Promise.resolve({ok:false});}
     return K.post('/api/hub/kitchen/event', body).then(function (r) {
       if (r && r.ok) { if (after) after(); } else { Hub.toast((r && r.error) || 'Error'); }
       return r;
@@ -438,7 +431,7 @@
   // was no screen anywhere that could finish them. This is that screen, and it is deliberately on
   // the production plan rather than in the library: the person who knows the recipe is wrong is
   // the one cooking from it, standing at the bench, today.
-  function rxRender(el, r) {
+  function rxRender(el, r, revision) {
     var ing = (r.ingredients || []).map(function (x) {
       return (x.qty ? x.qty + ' — ' : '') + x.item;
     }).join('\n');
@@ -452,12 +445,14 @@
       + '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">'
       + '<button type="button" class="btn rx-save">' + esc(T.saveRecipe) + '</button>'
       + (r.draft ? '<button type="button" class="btn gold rx-confirm">✓ ' + esc(T.confirmRecipe) + '</button>' : '')
+      + '<a class="btn ghost" href="/hub/kitchen/recipes.html?recipe_id=' + encodeURIComponent(r.id) + '">Full recipe standard / Receta completa</a>'
       + '<button type="button" class="btn ghost rx-close">' + esc(T.closeRecipe) + '</button></div>';
 
     el.querySelector('.rx-save').addEventListener('click', function () {
       var btn = this; btn.disabled = true;
       K.post('/api/hub/kitchen/recipe/draft', {
         id: r.id,
+        expected_revision_id: revision ? revision.id : null,
         ingredients: el.querySelector('.rx-ing').value,
         steps: el.querySelector('.rx-steps').value
       }).then(function (res) {
@@ -468,11 +463,12 @@
 
     var conf = el.querySelector('.rx-confirm');
     // Save first, then confirm: confirming a recipe whose edits are still in the textarea would
-    // publish the version the cook has just corrected away from.
+    // submit an older version instead of the cook’s current draft.
     if (conf) conf.addEventListener('click', function () {
       conf.disabled = true; conf.textContent = T.confirming;
       K.post('/api/hub/kitchen/recipe/draft', {
         id: r.id,
+        expected_revision_id: revision ? revision.id : null,
         ingredients: el.querySelector('.rx-ing').value,
         steps: el.querySelector('.rx-steps').value
       }).then(function (saved) {
@@ -496,7 +492,7 @@
         el.hidden = false;
         el.innerHTML = '<p class="rx-hint">' + esc(T.loadingRecipe) + '</p>';
         K.get('/api/hub/kitchen/recipe/draft?id=' + encodeURIComponent(btn.dataset.rx)).then(function (d) {
-          if (d && d.ok) rxRender(el, d.recipe);
+          if (d && d.ok) rxRender(el, d.recipe, d.revision);
           else { el.innerHTML = '<p class="rx-hint">' + esc((d && d.error) || 'Could not open this recipe.') + '</p>'; }
         }, function () { el.innerHTML = '<p class="rx-hint">Could not open this recipe.</p>'; });
       });
@@ -520,6 +516,9 @@
 
   function wire() {
     wireRecipes();
+    document.querySelectorAll('[data-work-stage]').forEach(function(button){button.onclick=function(){selectWorkStage(button.dataset.workStage);};});
+    document.querySelectorAll('[data-task-operation]').forEach(function(button){button.onclick=function(){var key=button.dataset.taskOperation,target;if(key.indexOf('cook:')===0){selectWorkStage('production');target=document.getElementById('production-'+key.slice(5));}else if(key==='pack'){target=document.getElementById('execution-panel');}else{selectWorkStage('purchases');target=document.getElementById('ev-stage-purchases');}if(target){target.scrollIntoView({block:'start',behavior:'auto'});var action=target.querySelector('[data-line-progress]:not([disabled])')||target.querySelector('.execution-action:not([disabled])')||target.querySelector('button:not([disabled])');if(action)action.focus({preventScroll:true});}};});
+    document.querySelectorAll('[data-focus-minutes]').forEach(function(button){button.onclick=function(){var input=document.getElementById('minutes-'+button.dataset.focusMinutes);button.closest('details').open=false;if(input){input.focus();input.select();}};});
     Array.prototype.forEach.call(document.querySelectorAll('.tick'), function (box) {
       box.addEventListener('change', function () { saveTask(box); });
     });
@@ -556,9 +555,9 @@
 
   function load() {
     var url = '/api/hub/kitchen/event' + (quoteId ? '?id=' + encodeURIComponent(quoteId) : '');
-    K.get(url).then(function (d) {
+    return K.get(url).then(function (d) {
       if (!d || !d.ok) { out.innerHTML = '<div class="gap">' + esc((d && d.error) || 'Could not load.') + '</div>'; return; }
-      if (quoteId) render(d); else renderList(d);
+      if (quoteId) return render(d); else renderList(d);
     }).catch(function () { out.innerHTML = '<div class="gap">Could not load.</div>'; });
   }
   load();

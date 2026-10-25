@@ -1,3 +1,4 @@
+import {buildRecipeKnowledgeContext,readRecipeKnowledge} from '../../../_lib/recipe_authority.js';
 import {previewInventoryCount} from '../../../_lib/operator_inventory.js';
 import {readStudioInventory} from '../../../_lib/studio_inventory.js';
 import {readCateringStatus,summarizeCateringStatus} from '../../../_lib/operator_catering.js';
@@ -99,7 +100,7 @@ export function operatorCapabilities() {
   return {
     mode: 'read_only', mutations: false,
     deterministic_commands: ['capabilities', 'marketing status', 'open photos', 'open create & schedule', 'show drafts', 'show audit status', 'catering status', 'draft campaign brief: topic', 'show saved campaign ideas'],
-    model_questions: ['orders', 'deliveries', 'rewards'],
+    model_questions: ['orders', 'deliveries', 'rewards', 'owner-approved recipe standards'],
     unavailable_actions: ['publish posts', 'send customer replies', 'change orders', 'refunds', 'Google review replies'],
   };
 }
@@ -150,6 +151,7 @@ HARD RULES:
 - You see ONLY Añejo. You know nothing about DRH, Aether, or any other business.
 - You are READ-ONLY. You cannot place orders, refund, message customers, or change anything.
   If asked to act, say what you would change and that the owner must do it in the hub.
+- For recipes, only exact owner-approved versions in PRIVATE RECIPE AUTHORITY are standards. Never substitute draft/legacy references or invent missing quantities, yield, safety instructions or proprietary details. Report missing evidence.
 - Cite record ids in [brackets] when referring to specific orders.
 
 VOICE: you are usually being listened to, not read. Lead with the answer. Keep it short and
@@ -193,6 +195,9 @@ export const onRequestPost = async ({ request, env }) => {
   if (['help', 'capabilities', 'what can you do', 'qué puedes hacer', 'que puedes hacer'].includes(command)) {
     return json({ ok: true, reply: 'I can report saved catering progress for the next 14 Eastern dates, orders, deliveries, rewards and marketing queue status, offer private Photos/Create/drafts navigation, read saved audit status, and preview your campaign idea with an explicit private save button. Say “show saved campaign ideas” to read them later. Saved ideas contain your words only. From a saved idea, explicitly choose Generate proposed strategy to create or reload a private AI-generated proposal for review; it does not activate a campaign. I cannot publish, send replies, change orders or answer Google reviews. Those actions are not connected to this operator.', capabilities: operatorCapabilities(), receipt: { mode: 'deterministic', mutation: false } });
   }
+  if(['recipe standards','recipe status','recipes','recetas','estado de recetas'].includes(command)){
+    try{const recipes=await readRecipeKnowledge(env);return json({ok:true,reply:recipes.counts.catalog_skus+' catalog SKUs: '+recipes.counts.confirmed+' exact owner-approved recipe mappings, '+recipes.counts.unconfirmed+' unconfirmed references, '+recipes.counts.missing+' missing. Open Recipe standards to supply or review the kitchen method. No recipes were changed.',recipes,ui:{kind:'navigate',destination:'recipe_standards'},receipt:{mode:'deterministic',mutation:false,observed_at:recipes.read_at}});}catch{return json({ok:false,error:'recipe_records_unavailable',detail:'Recipe authority could not be read. No approval or completeness can be inferred.'},503);}
+  }
   if (['marketing status', 'marketing team status', 'estado de marketing'].includes(command)) {
     const status = await marketingStatus(env);
     const queue = status.queue === null ? 'The marketing queue is unavailable.' : status.queue.length ? status.queue.map(row => `${row.n} ${row.status}`).join(', ') + '.' : 'The marketing queue is empty.';
@@ -224,6 +229,7 @@ export const onRequestPost = async ({ request, env }) => {
   const data = await buildContext(env);
   if (data.unavailable.length) return json({ ok: false, error: 'context_unavailable', detail: 'Some operational records could not be read. I cannot verify the answer right now.', receipt: { ...data, text: undefined } }, 503);
 
+  const recipeContext=await buildRecipeKnowledgeContext(env,message);
   try {
     const r = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
@@ -232,7 +238,7 @@ export const onRequestPost = async ({ request, env }) => {
         model: MODEL,
         max_tokens: 900,
         system: SYSTEM,
-        messages: [{ role: 'user', content: `=== ANEJO DATA (live, read just now) ===\n${data.text}\n\n=== QUESTION ===\n${message}` }],
+        messages: [{ role: 'user', content: `=== ANEJO DATA (live, read just now) ===\n${data.text}\n\n${recipeContext}\n\n=== QUESTION ===\n${message}` }],
       }),
     });
     const j = await r.json();

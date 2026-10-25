@@ -37,6 +37,7 @@ export function Studio({ sessionId, initialMessages }: { sessionId: string | nul
   return (
     <div className="studio">
       <div className="studio-bar">
+        <a className="cp-toggle" href="/hub/kitchen/recipes.html">{lang === 'es' ? 'Recetas y revisión' : 'Recipe standards'}</a>
         <button type="button" className={`cp-toggle${inventoryMode === 'inventory' ? ' on' : ''}`} aria-expanded={inventoryMode === 'inventory'} onClick={() => { const next = inventoryMode !== 'inventory'; closeAll(); if (next) setInventoryMode('inventory'); }}>{lang === 'es' ? 'Inventario' : 'Inventory'}</button>
         <button type="button" className={`cp-toggle${inventoryMode === 'production' ? ' on' : ''}`} aria-expanded={inventoryMode === 'production'} onClick={() => { const next = inventoryMode !== 'production'; closeAll(); if (next) setInventoryMode('production'); }}>{lang === 'es' ? 'Planes de producción' : 'Production plans'}</button>
         <button

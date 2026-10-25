@@ -1,6 +1,7 @@
 // Internal catering fulfillment only: no ordinary routes, money writes or provider imports.
 import {id, etDateOf, parseJson} from './hub.js';
 import {executionQuoteSnapshot} from './catering_execution.js';
+import {readCateringOperations,cateringHandlingRequirements} from './catering_operations.js';
 const notifications={enabled:false,sent:false};
 const fail=(error,status=409)=>({ok:false,error,status});
 const active=['assigned','accepted'];
@@ -32,7 +33,12 @@ async function view(env,a,{at=Date.now()}={}) {
    else reasons.push('The recorded balance must be paid or waived before completion.');
   }
  }
- return {ok:true,assignment:a,execution:e,event:{customer:q.customer_name,event_date:q.event_date,serving_time:q.serving_time,address:q.address,lines:lineView(q)},available_actions:actions,blockers:reasons,notifications};
+ const operations=await readCateringOperations(env,q);
+ if(operations.activated&&a.status==='accepted'&&['ready','arrived'].includes(e.status)){
+  const handling=await cateringHandlingRequirements(env,q,e.status==='ready'?'pickup':'delivery');
+  if(handling.missing.length){reasons.push(...handling.missing);actions=actions.filter(x=>!['confirm_pickup','depart','complete'].includes(x));}
+ }
+ return {ok:true,assignment:a,execution:e,operations,event:{customer:q.customer_name,event_date:q.event_date,serving_time:q.serving_time,address:q.address,lines:lineView(q)},available_actions:actions,blockers:reasons,notifications};
 }
 export async function readCateringAssignments(env,ctx,{assignment_id,quote_id,date,at=Date.now()}={}) {
  const staff=await roster(env,ctx);
@@ -79,6 +85,8 @@ export async function mutateCateringAssignment(env,b,ctx,{at=Date.now()}={}) {
  }
  let target=a?.status, executionTarget=null,pickup=a?.pickup_execution_version??null;
  const snapshot=executionQuoteSnapshot(q);
+ let operationsRevision=null;
+ if(['confirm_pickup','depart','complete'].includes(b.op)){const handling=await cateringHandlingRequirements(env,q,b.op==='complete'?'delivery':'pickup');if(handling.missing.length)return fail(handling.missing.join(' '));if(handling.operations.activated)operationsRevision=handling.operations.revision;}
  if(b.op==='assign'){
   if(b.expected_version!==0||!['planned','preparing','ready'].includes(e.status))return fail('Assign before departure with version zero.');
   const driver=await env.DB.prepare("SELECT id FROM staff WHERE id=? AND role='driver' AND active=1").bind(b.driver_id||'').first();if(!driver)return fail('Choose an active driver.',400);
@@ -111,8 +119,8 @@ export async function mutateCateringAssignment(env,b,ctx,{at=Date.now()}={}) {
  const actor=staff.id;
  statements.push(prep('INSERT INTO catering_assignment_receipts(quote_id,idempotency_key,assignment_id,request_json,actor,recorded_at) VALUES(?,?,?,?,?,?)',[quoteId,b.idempotency_key,a.id,request,actor,at]));
  const guard=`EXISTS (SELECT 1 FROM catering_execution e JOIN catering_quotes q ON q.id=e.quote_id WHERE e.quote_id=? AND e.version=? AND e.status=? AND e.quote_snapshot IS ? AND e.delivery_mode IS ? AND e.handling_confirmed=? AND e.packing_confirmed=? AND q.quote_json IS ? AND q.event_date IS ? AND q.serving_time IS ? AND q.address IS ? AND q.guests IS ? AND q.dietary_notes IS ? AND q.deposit_status IS ? AND q.balance_status IS ? AND q.balance_cents IS ?)
- AND EXISTS(SELECT 1 FROM staff WHERE id=? AND role=? AND active=1)`;
- const guardArgs=[quoteId,e.version,e.status,e.quote_snapshot,e.delivery_mode,e.handling_confirmed,e.packing_confirmed,q.quote_json,q.event_date,q.serving_time,q.address,q.guests,q.dietary_notes,q.deposit_status,q.balance_status,q.balance_cents,staff.id,staff.role];
+ AND EXISTS(SELECT 1 FROM staff WHERE id=? AND role=? AND active=1) AND (?=0 OR EXISTS(SELECT 1 FROM catering_operations_activation WHERE quote_id=? AND revision=? AND quote_snapshot=?))`;
+ const guardArgs=[quoteId,e.version,e.status,e.quote_snapshot,e.delivery_mode,e.handling_confirmed,e.packing_confirmed,q.quote_json,q.event_date,q.serving_time,q.address,q.guests,q.dietary_notes,q.deposit_status,q.balance_status,q.balance_cents,staff.id,staff.role,operationsRevision===null?0:1,quoteId,operationsRevision??-1,snapshot];
  if(b.op==='assign')statements.push(prep(`INSERT INTO catering_assignments(id,quote_id,driver_id,status,version,quote_snapshot,pickup_execution_version,assigned_by,created_at,updated_at) SELECT ?,?,?,'assigned',1,?,NULL,?,?,? WHERE ${guard} AND EXISTS(SELECT 1 FROM staff WHERE id=? AND role='driver' AND active=1)`,[a.id,quoteId,a.driver_id,snapshot,actor,at,at,...guardArgs,a.driver_id]));
  else statements.push(prep(`UPDATE catering_assignments SET status=?,version=version+1,quote_snapshot=?,pickup_execution_version=?,updated_at=? WHERE id=? AND version=? AND status=? AND driver_id=? AND ${guard}`,[target,snapshot,pickup,at,a.id,a.version,a.status,a.driver_id,...guardArgs]));
  const assertion=()=>prep('UPDATE catering_assignment_receipts SET success=CASE WHEN changes()=1 THEN 1 ELSE NULL END WHERE quote_id=? AND idempotency_key=?',[quoteId,b.idempotency_key]);

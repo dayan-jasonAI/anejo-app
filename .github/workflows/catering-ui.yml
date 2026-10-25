@@ -2,6 +2,15 @@ name: Catering UI acceptance
 on:
   pull_request:
     paths:
+      - 'public/hub/kitchen/**'
+      - 'public/hub/driver/catering.html'
+      - 'public/hub/owner/recipes.html'
+      - 'functions/_lib/catering*'
+      - 'functions/_lib/recipe_authority.js'
+      - 'functions/api/hub/kitchen/**'
+      - 'scripts/verify-event-*.cjs'
+      - 'scripts/verify-kitchen-catering-board-ui.cjs'
+      - 'scripts/verify-recipe-authority-ui.cjs'
       - 'public/hub/owner/catering*'
       - 'public/hub/owner/assets/catering-service.js'
       - 'public/hub/owner/assets/catering-balance.js'
@@ -39,6 +48,10 @@ jobs:
       - run: node scripts/verify-catering-client-account.cjs
       - run: node scripts/verify-catering-payment-return.mjs
       - run: node scripts/verify-catering-experience-ui.cjs
+      - run: node scripts/verify-event-operations-ui.cjs
+      - run: node scripts/verify-event-services-ui.cjs
+      - run: node scripts/verify-kitchen-catering-board-ui.cjs
+      - run: node scripts/verify-recipe-authority-ui.cjs
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -46,3 +59,7 @@ jobs:
           path: |
             /tmp/catering-ui-evidence
             /tmp/catering-balance-ui-evidence
+            /tmp/event-operations-ui-evidence
+            /tmp/event-services-ui-evidence
+            /tmp/kitchen-catering-board-ui-evidence
+            /tmp/recipe-authority-ui-evidence

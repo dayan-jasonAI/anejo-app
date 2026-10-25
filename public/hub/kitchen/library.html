@@ -25,6 +25,7 @@
 </div>
 
 <div class="hub-wrap">
+  <a class="btn block" href="/hub/kitchen/recipes.html" style="margin-bottom:18px">Recipe standards &amp; missing recipes / Recetas y pendientes</a>
   <div id="list-view">
     <div class="field"><input id="search" type="search" placeholder="Search the library…"></div>
     <div class="type-tabs" id="tabs">
@@ -75,12 +76,18 @@
 
   function recipeHtml(r) {
     if (!r) return '';
-    var ing = (r.ingredients || []).map(function (i) { return '<li>' + esc(typeof i === 'string' ? i : (i.name || JSON.stringify(i))) + '</li>'; }).join('');
+    var ing = (r.ingredients || []).map(function (i) { return '<li>' + esc(typeof i === 'string' ? i : ((i.qty ? i.qty + ' — ' : '') + (i.item || i.name || '') + (i.basis ? ' · ' + i.basis : ''))) + '</li>'; }).join('');
     var steps = (r.steps || []).map(function (s) { return '<li>' + esc(typeof s === 'string' ? s : (s.text || JSON.stringify(s))) + '</li>'; }).join('');
     var n = r.nutrition || {};
     var nut = Object.keys(n).length ? '<h3>Nutrition (approx)</h3><div class="row-sub">' +
       esc(Object.keys(n).map(function (k) { return k + ': ' + n[k]; }).join(' · ')) + '</div>' : '';
-    return '<div class="recipe-block">' +
+    var authority=r.authority,standard=r.standard,details='';
+    if(standard){
+      details='<h3>Portion & batch yield</h3><p>'+esc(standard.portion)+' · '+esc(standard.yield_count)+' '+esc(standard.yield_unit)+'</p><p>Prep '+esc(standard.prep_minutes)+' min · Cook '+esc(standard.cook_minutes)+' min</p>';
+      [['equipment','Equipment'],['cook_temperature','Cooking & doneness'],['holding','Holding/service'],['cooling_reheating','Cooling/reheating'],['storage','Storage'],['shelf_life','Shelf life'],['allergens','Allergens'],['packaging','Packaging & plating'],['source_reference','Verified source'],['training_media','Training media']].forEach(function(pair){var v=standard[pair[0]];details+='<h3>'+pair[1]+'</h3><div class="doc-body">'+esc(Array.isArray(v)?v.join('\n'):v||'Not supplied')+'</div>';});
+      details+='<div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:15px">'+standard.photos.map(function(url){return '<img src="'+esc(url)+'" alt="Approved recipe reference" style="max-width:180px;height:auto">';}).join('')+'</div>';
+    }
+    return '<div class="recipe-block"><p class="row-sub">'+(authority?'Owner-approved recipe v'+esc(authority.version)+' · '+esc(new Date(authority.approved_at).toLocaleDateString()):'Unconfirmed legacy reference — Needs Dayan confirmation. Publication alone is not owner approval.')+'</p><a href="/hub/kitchen/recipes.html?recipe_id='+encodeURIComponent(r.id)+'">Open recipe standard / Revisar receta</a>' + details +
       (ing ? '<h3>Ingredients</h3><ul>' + ing + '</ul>' : '') +
       (steps ? '<h3>Steps</h3><ol>' + steps + '</ol>' : '') + nut + '</div>';
   }

@@ -32,7 +32,7 @@ test('double submit and server rejection cannot report progress saved',async()=>
 test('failed refresh removes stale actions',async()=>{const f=fixture();f.response(null);await f.ui.load();assert.equal(f.ui.getState(),null);assert.doesNotMatch(f.elements.content.innerHTML,/catering-action/);});
 test('Spanish view translates controls and operational boundary while escaping source fields',()=>{
  const f=fixture();f.ui.setLang('es');const v=view();v.event.customer='<img src=x>';v.event.lines[0].name='<script>';f.ui.setState(v);f.ui.render();
- assert.match(f.elements.content.innerHTML,/Confirmar recogida de todos los paquetes/);assert.match(f.elements.boundary.textContent,/No se envían notificaciones/);assert.match(f.elements.boundary.textContent,/compensación/);assert.doesNotMatch(f.elements.content.innerHTML,/<img|<script/);assert.match(f.elements.content.innerHTML,/&lt;img/);
+ assert.match(f.elements.content.innerHTML,/Confirmar recogida de todos los paquetes/);assert.match(f.elements.boundary.textContent,/Los avisos aprobados/);assert.match(f.elements.boundary.textContent,/compensación/);assert.doesNotMatch(f.elements.content.innerHTML,/<img|<script/);assert.match(f.elements.content.innerHTML,/&lt;img/);
 });
 test('assignment list uses scoped backend result and encoded links',async()=>{
  const f=fixture('');const v=view();v.assignment.id='a&other=1';f.response({ok:true,actor_id:'driver1',assignments:[v]});await f.ui.load();assert.match(f.calls[0].url,/^\/api\/hub\/driver\/catering\?date=\d{4}-\d{2}-\d{2}$/);assert.match(f.elements.content.innerHTML,/a%26other%3D1/);assert.match(f.elements.content.innerHTML,/Eastern time/);
@@ -69,4 +69,23 @@ test('list date form fetches exact selected future date',async()=>{
 });
 test('future date remains attached to assignment detail links',async()=>{
  const f=fixture('?date=2026-10-04');f.response({ok:true,actor_id:'driver1',assignments:[view()]});await f.ui.load();assert.match(f.elements.content.innerHTML,/assignment_id=a1&amp;date=2026-10-04/);
+});
+
+function handlingForm(f,fields={}){
+ const form={dataset:{line:'l0',stage:'pickup',version:'7'},elements:{mode:{value:'hot'},temperature:{value:'145.5'},carrier:{value:'Insulated box'},note:{value:''}}};
+ for(const [key,value]of Object.entries(fields))form.elements[key].value=value;
+ const v=view();v.operations={activated:true,lines:[{key:'l0',name:'Congri',qty:'30',handling:{pickup:{version:7,mode:'hot',temperature_f:144,carrier:'<script>carrier</script>',note:'measured',at:1}}}]};
+ f.ui.setState(v);f.elements.content.querySelectorAll=selector=>selector==='.handling-form'?[form]:[];f.ui.render();return form;
+}
+test('live handling form submits measured reading version, not assignment version, and escapes carrier text',async()=>{
+ const f=fixture(),form=handlingForm(f);assert.match(f.elements.content.innerHTML,/Live food handling/);assert.doesNotMatch(f.elements.content.innerHTML,/<script>carrier/);assert.match(f.elements.content.innerHTML,/&lt;script&gt;carrier/);
+ await form.onsubmit({preventDefault(){}});assert.equal(f.calls[0].body.op,'temperature');assert.equal(f.calls[0].body.expected_version,7);assert.equal(f.calls[0].body.temperature_f,145.5);assert.equal(f.calls[0].body.assignment_id,'a1');assert.equal(f.calls[0].body.stage,'pickup');
+});
+test('driver form requires measured temperature or explicit ambient note, with no invented reading',async()=>{
+ const f=fixture(),form=handlingForm(f,{temperature:''});await form.onsubmit({preventDefault(){}});assert.equal(f.calls.length,0);assert.match(f.elements.status.textContent,/measured temperature/);
+ form.elements.mode.value='ambient';await form.onsubmit({preventDefault(){}});assert.equal(f.calls.length,0);form.elements.note.value='Dry packaged bread';await form.onsubmit({preventDefault(){}});assert.equal(f.calls[0].body.temperature_f,null);assert.equal(f.calls[0].body.note,'Dry packaged bread');
+});
+test('unknown handling outcome retains exact reading and idempotency key across retry',async()=>{
+ const f=fixture(),form=handlingForm(f);f.response(()=>{throw Error('offline');});await form.onsubmit({preventDefault(){}});const body=f.calls[0].body;assert.ok(f.ui.getPending());form.elements.temperature.value='160';await form.onsubmit({preventDefault(){}});assert.equal(f.calls.length,1);
+ f.response(view());await f.ui.save(null);assert.deepEqual(f.calls[1].body,body);assert.equal(f.calls[1].body.temperature_f,145.5);assert.equal(f.ui.getPending(),null);
 });

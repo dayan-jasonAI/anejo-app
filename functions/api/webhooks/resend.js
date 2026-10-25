@@ -9,6 +9,7 @@
 //   3. Copy the signing secret → set Pages secret RESEND_WEBHOOK_SECRET (whsec_...).
 // Until the secret is set this endpoint returns 503 and nothing is recorded (the app keeps
 // working; it just isn't yet learning about bounces).
+import { saveCateringEmailReceipt } from '../../_lib/catering_email_receipts.js';
 import { verifySvix } from '../../_lib/svix.js';
 import { addSuppression } from '../../_lib/email.js';
 import { applyProviderEvent } from '../../_lib/sales/outreach.js';
@@ -40,6 +41,7 @@ export const onRequestPost = async ({ request, env }) => {
   // message id. Additive — the suppression block above is unchanged, and an id that is not a sales
   // email matches no row. A bounce or complaint also stops that prospect's sequence.
   if (env.DB && evt && evt.type && evt.data && evt.data.email_id) {
+    try { await saveCateringEmailReceipt(env,{provider_id:evt.data.email_id,status:evt.type.replace(/^email\./,''),source:'signed_webhook'}); } catch { /* receipt schema rollout must not interrupt existing suppression handling */ }
     try { await applyProviderEvent(env, { type: evt.type, email_id: evt.data.email_id }); } catch { /* never fail the webhook */ }
   }
   // Always 200 for handled/ignored event types so Resend doesn't retry-storm.

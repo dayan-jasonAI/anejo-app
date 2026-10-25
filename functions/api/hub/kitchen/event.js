@@ -10,6 +10,9 @@
 import { json, bad } from '../../../_lib/util.js';
 import { requireRole } from '../../../_lib/roles.js';
 import { eventPlan, setEventTask, setEventDetails, setCookMinutes, briefCandidates, upcomingEvents } from '../../../_lib/event.js';
+import {mutateCateringOperation} from '../../../_lib/catering_operations.js';
+import {matchStaffByPin} from '../../../_lib/pinmatch.js';
+import {limitOr429} from '../../../_lib/ratelimit.js';
 
 export const onRequestGet = async ({ request, env }) => {
   if (!env.DB) return bad('Database not configured.', 500);
@@ -26,7 +29,7 @@ export const onRequestGet = async ({ request, env }) => {
     const candidates = missing
       ? await briefCandidates(env, { guests: plan.event.guests })
       : [];
-    return json({ ...plan, brief_candidates: candidates });
+    return json({...plan,brief_candidates:candidates,actor_id:ctx.distinct_id,can_operate:true,can_configure:ctx.role==='owner',can_assign:ctx.role==='owner'});
   } catch (e) {
     return bad('Could not build the event plan: ' + String((e && e.message) || e).slice(0, 160), 500);
   }
@@ -40,6 +43,13 @@ export const onRequestPost = async ({ request, env }) => {
   try { b = await request.json(); } catch { return bad('Invalid JSON body.'); }
   const op = String(b.op || '');
   try {
+    if(['line_progress','purchase','temperature'].includes(op)){
+      const limited=await limitOr429(env,request,{name:'kitchen-pin',limit:20,windowSec:60});if(limited)return limited;
+      const staff=await matchStaffByPin(env,String(b.pin||''),{roles:['owner','kitchen']});if(!staff)return bad('PIN not recognized.',401);
+      const plan=op==='purchase'?await eventPlan(env,b.quote_id):null;
+      const r=await mutateCateringOperation(env,b,{...staff,pin_verified:true},{shopping:plan?.shopping||[]});
+      return json(r,r.status||200);
+    }
     if (op === 'task') {
       const r = await setEventTask(env, b, ctx);
       return r.ok ? json(r) : bad(r.error);

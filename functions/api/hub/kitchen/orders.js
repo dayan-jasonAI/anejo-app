@@ -31,6 +31,7 @@ import { putMedia } from '../../../_lib/media.js';
 import { PHOTO_KINDS, currentPhotosByOrder, photoUrl } from '../../../_lib/kitchen-photos.js';
 import { loadKitchenTiming, loadPrepMinutes, loadSiteWindows, orderTiming } from '../../../_lib/kitchen-timing.js';
 import { recordOrderActual } from '../../../_lib/prep-actuals.js';
+import {cateringKitchenBoard,mutateCateringKitchenStatus} from '../../../_lib/catering_operations.js';
 
 const PHOTO_LABEL = { contents: 'inside the container / adentro del envase', packed: 'closed and packed / cerrado y empacado' };
 
@@ -169,7 +170,8 @@ export const onRequestGet = async ({ request, env }) => {
     clearedToday = (cr && cr.results) || [];
   } catch { clearedToday = []; }
 
-  return json({ date: day, board, incoming, cleared_today: clearedToday, counts: {
+  const catering_board=await cateringKitchenBoard(env);
+  return json({ date: day, board,catering_board, incoming, cleared_today: clearedToday, counts: {
     pending: board.pending.length, prep: board.prep.length, ready: board.ready.length,
     cleared_today: clearedToday.length, incoming: 0,
   } });
@@ -186,6 +188,12 @@ export const onRequestPost = async ({ request, env }) => {
   const action = (b && b.action || '').toString().trim();
   if (!orderId) return bad('Missing order id.');
   if (!['prep_start', 'mark_ready', 'bowl_done', 'bowl_undo', 'kitchen_clear', 'photo'].includes(action)) return bad('Unknown action.');
+  if(orderId.startsWith('cq_')){
+    if(!['prep_start','mark_ready'].includes(action))return bad('Open the catering production plan to record dish counts and handling.',409);
+    const limited=await limitOr429(env,request,{name:'kitchen-pin',limit:20,windowSec:60});if(limited)return limited;
+    const staff=await matchStaffByPin(env,String(b.pin||''),{roles:['kitchen','owner']});if(!staff)return bad('PIN not recognized.',401);
+    try{const result=await mutateCateringKitchenStatus(env,{...b,id:orderId,action},{...staff,pin_verified:true});return json(result,result.status&&typeof result.status==='number'?result.status:result.ok?200:409);}catch{return bad('Catering progress is unconfirmed. Retry the same action and request key.',503);}
+  }
 
   const order = await env.DB.prepare('SELECT * FROM orders WHERE id = ?').bind(orderId).first();
   if (!order) return bad('Order not found.', 404);

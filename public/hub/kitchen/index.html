@@ -691,6 +691,7 @@
   }
 
   function orderCard(o, stage) {
+    if (o.is_catering) return cateringCard(o, stage);
     var actions = '';
     if (stage === 'pending') actions = '<div class="order-actions"><button class="btn gold" data-prep="' + esc(o.id) + '">Start prep</button></div>';
     else if (stage === 'prep') {
@@ -720,10 +721,26 @@
       body + actions + '</div>';
   }
 
+  function cateringCard(o, stage) {
+    var url = '/hub/kitchen/event.html?id=' + encodeURIComponent(o.id);
+    var lines = (o.items || []).map(function(item) {
+      return '<li><span>' + esc(item.name) + (item.detail ? '<small style="display:block;color:var(--muted)">' + esc(item.detail) + '</small>' : '') + '</span><strong class="q">' + esc(item.qty == null ? 'Confirm count' : item.qty) + '</strong></li>';
+    }).join('');
+    var action = stage === 'pending'
+      ? '<button class="btn gold" data-prep="' + esc(o.id) + '" data-execution-version="' + esc(o.execution_version) + '">Start prep · PIN</button>'
+      : '<a class="btn gold" href="' + url + '">' + (stage === 'prep' ? 'Continue prep & packing' : 'Driver handoff') + '</a>';
+    return '<article class="card order-card" data-catering-order="' + esc(o.id) + '"><div class="row-title">' + esc(o.customer_name || 'Catering') + '</div>' +
+      '<div class="order-badges"><span class="badge">Catering</span><span class="badge ok">' + esc(o.delivery_date || 'Confirm date') + ' · ' + esc(o.serving_time || 'Confirm serving time') + '</span></div>' +
+      '<ul class="order-items">' + lines + '</ul><div class="order-actions">' + action + (stage === 'pending' ? '<a class="btn ghost" href="' + url + '">Event details</a>' : '') + '</div></article>';
+  }
+
   // ---- Shared-tablet PIN prompt ----
   // askPin(title, submit): submit(pin, helpers) runs the action; helpers.fail(msg) keeps the
   // modal open with an error (wrong PIN → retry); helpers.done() closes it.
-  var _pinSubmit = null;
+  var _pinSubmit = null, pinBusy = false, boardActor = null;
+  var prepRequests = {};
+  try { prepRequests = JSON.parse(sessionStorage.getItem('anejo:catering-board-start:v1') || '{}'); } catch(ignore) {}
+  function persistPrepRequests() { try { var saved=JSON.stringify(prepRequests);sessionStorage.setItem('anejo:catering-board-start:v1',saved);return sessionStorage.getItem('anejo:catering-board-start:v1')===saved; } catch(ignore) { return false; } }
   function askPin(title, submit) {
     _pinSubmit = submit;
     document.getElementById('pin-title').textContent = title || 'Enter your PIN';
@@ -732,17 +749,18 @@
     document.getElementById('pin-modal').style.display = 'flex';
     setTimeout(function () { inp.focus(); }, 30);
   }
-  function closePin() { document.getElementById('pin-modal').style.display = 'none'; _pinSubmit = null; }
+  function closePin() { if(pinBusy)return;document.getElementById('pin-modal').style.display = 'none';document.getElementById('pin-input').value='';_pinSubmit = null; }
   (function wirePin() {
     var ok = document.getElementById('pin-ok'), inp = document.getElementById('pin-input'), err = document.getElementById('pin-err');
     function go() {
+      if(pinBusy)return;
       var pin = (inp.value || '').trim();
       if (!/^\d{4,8}$/.test(pin)) { err.textContent = 'Enter your 4–8 digit PIN.'; return; }
       var fn = _pinSubmit; if (!fn) return;
-      ok.disabled = true;
+      ok.disabled = true;pinBusy=true;document.getElementById('pin-cancel').disabled=true;
       fn(pin, {
-        fail: function (m) { ok.disabled = false; err.textContent = m || 'PIN not recognized.'; inp.value = ''; inp.focus(); },
-        done: function () { ok.disabled = false; closePin(); }
+        fail: function (m) { pinBusy=false;document.getElementById('pin-cancel').disabled=false;ok.disabled = false; err.textContent = m || 'PIN not recognized.'; inp.value = ''; inp.focus(); },
+        done: function () { pinBusy=false;document.getElementById('pin-cancel').disabled=false;ok.disabled = false;closePin(); }
       });
     }
     ok.addEventListener('click', go);
@@ -755,9 +773,13 @@
     // Start prep — PIN-gated (pending → prep). The cook enters their PIN to take ownership.
     Array.prototype.forEach.call(document.querySelectorAll('[data-prep]'), function (b) {
       b.addEventListener('click', function () {
+        var orderId=b.getAttribute('data-prep'), catering=b.hasAttribute('data-execution-version');
+        if(catering&&(!boardActor||prepRequests[orderId]&&prepRequests[orderId].session_actor!==boardActor)){Hub.toast('A saved prep request belongs to another signed-in operator. Reconcile it before starting again.');return;}
+        if(catering&&!prepRequests[orderId]){prepRequests[orderId]={session_actor:boardActor,id:orderId,action:'prep_start',expected_execution_version:Number(b.getAttribute('data-execution-version')),idempotency_key:'kitchen-prep-'+crypto.randomUUID()};if(!persistPrepRequests()){delete prepRequests[orderId];Hub.toast('Recovery storage unavailable. No preparation change was sent.');return;}}
         askPin('PIN to start prep', function (pin, h) {
-          K.post('/api/hub/kitchen/orders', { id: b.getAttribute('data-prep'), action: 'prep_start', pin: pin })
-            .then(function (d) { if (d && d.ok) { h.done(); Hub.toast('Prep started' + (d.by ? ' · ' + d.by : '')); loadBoard(); } else { h.fail(d && d.error); } });
+          K.post('/api/hub/kitchen/orders', {...(catering?prepRequests[orderId]:{id:orderId,action:'prep_start'}),pin:pin})
+            .then(function(d){if(d&&d.ok){if(catering){delete prepRequests[orderId];persistPrepRequests();}h.done();Hub.toast('Prep started'+(d.by?' · '+d.by:''));loadBoard();}else{h.fail(d&&d.error);}})
+            .catch(function(){h.fail('Save outcome unconfirmed. Retry with your PIN to check the same request.');});
         });
       });
     });
@@ -766,7 +788,7 @@
       b.addEventListener('click', function () {
         askPin('PIN to mark this order ready', function (pin, h) {
           K.post('/api/hub/kitchen/orders', { id: b.getAttribute('data-ready'), action: 'mark_ready', pin: pin })
-            .then(function (d) { if (d && d.ok) { h.done(); Hub.toast('Marked ready'); loadBoard(); } else { h.fail(d && d.error); } });
+            .then(function (d) { if (d && d.ok) { h.done(); Hub.toast('Marked ready'); loadBoard(); } else { h.fail(d && d.error); } }).catch(function(){h.fail('Save outcome unconfirmed. Refresh the board before retrying.');});
         });
       });
     });
@@ -775,7 +797,7 @@
       b.addEventListener('click', function () {
         askPin('PIN to hand off this order', function (pin, h) {
           K.post('/api/hub/kitchen/orders', { id: b.getAttribute('data-clear'), action: 'kitchen_clear', pin: pin })
-            .then(function (d) { if (d && d.ok) { h.done(); Hub.toast('Handed off' + (d.by ? ' · ' + d.by : '')); loadBoard(); } else { h.fail(d && d.error); } });
+            .then(function (d) { if (d && d.ok) { h.done(); Hub.toast('Handed off' + (d.by ? ' · ' + d.by : '')); loadBoard(); } else { h.fail(d && d.error); } }).catch(function(){h.fail('Save outcome unconfirmed. Refresh the board before retrying.');});
         });
       });
     });
@@ -879,6 +901,8 @@
   function loadBoard() {
     K.get('/api/hub/kitchen/orders?surface=1').then(function (d) {
       var b = (d && d.board) || { pending: [], prep: [], ready: [] };
+      var catering = (d && d.catering_board) || {};
+      ['pending','prep','ready'].forEach(function(stage){ b[stage] = (b[stage] || []).concat(catering[stage] || []); });
       var inc = (d && d.incoming) || [];
       lastCleared = (d && d.cleared_today) || [];
       // Sound alert when a NEW confirmed order arrives.
@@ -916,7 +940,8 @@
   var dismiss = document.getElementById('install-dismiss');
   if (dismiss) dismiss.addEventListener('click', Hub.dismissInstall);
 
-  K.boot('board', function () {
+  K.boot('board', function (me) {
+    boardActor=me&&me.staff&&me.staff.id||null;
     setupSound();
     loadClock(); loadReminders(); loadEvents(); loadBoard(); btLoad();
     setInterval(loadBoard, 15000); // poll the board (15s → snappier order alerts)

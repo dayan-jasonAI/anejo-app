@@ -1,8 +1,9 @@
 import {json,bad} from '../../../_lib/util.js';
 import {requireRole,currentStaff} from '../../../_lib/roles.js';
 import {id,now,etDateOf,etDayBounds} from '../../../_lib/hub.js';
-import {parseProductionRequirements,productionStatus,reconcileInventoryProduction,notifyProduction} from '../../../_lib/inventory_production.js';
+import {parseProductionRequirements,productionStatus,reconcileInventoryProduction,notifyProduction,productionRecipeGuard,productionRecipeArgs} from '../../../_lib/inventory_production.js';
 import {notifyInventory} from '../../../_lib/inventory_updates.js';
+import {getApprovedRecipeAuthority} from '../../../_lib/recipe_authority.js';
 const roles=['owner','kitchen'];
 export async function onRequestGet({env,request}){
  const ctx=await requireRole(request,env,roles);if(ctx instanceof Response)return ctx;
@@ -20,7 +21,9 @@ export async function onRequestPost({env,request}){
    for(const key of ['target_count','min_batch','max_batch','stock_max_age_hours'])if(!Number.isInteger(b[key])||b[key]<1||b[key]>(key==='stock_max_age_hours'?168:9999))return bad('Use positive whole targets, batch limits and a 1–168 hour stock freshness window.');
    if(b.min_batch>b.max_batch||b.max_batch>b.target_count)return bad('Minimum ≤ maximum batch ≤ target.');
    const menu=await env.DB.prepare('SELECT * FROM menu_items WHERE id=?').bind(b.menu_item_id).first(),recipe=await env.DB.prepare("SELECT * FROM recipes WHERE id=? AND status='published'").bind(b.recipe_id).first();
-   if(!menu||!recipe)return bad('Select an existing menu item and published recipe.');
+   if(!menu||!recipe)return bad('Select an existing menu item and owner-approved recipe.');
+   const authority=await getApprovedRecipeAuthority(env,{menuItemId:menu.id});
+   if(!authority||authority.recipe_id!==recipe.id)return bad('Needs Dayan confirmation: approve the exact recipe version and link this catalog SKU before reviewing production.',409);
    let assignee=null;if(b.assigned_staff_id){assignee=await env.DB.prepare("SELECT id FROM staff WHERE id=? AND role='kitchen' AND active=1").bind(b.assigned_staff_id).first();if(!assignee)return bad('Choose active kitchen staff.');}
    for(const r of requirements){
     const item=await env.DB.prepare('SELECT * FROM inventory_items WHERE id=? AND active=1').bind(r.inventory_id).first();if(!item||(r.basis==='on_hand'&&item.unit!==r.unit))return bad('Requirement must match an active inventory item and its exact unit.');
@@ -33,11 +36,11 @@ export async function onRequestPost({env,request}){
    if(old&&b.expected_revision!==old.revision)return bad('Production plan changed. Reload before editing.',409);
    const revision=(old?.revision||0)+1;
    await env.DB.batch([
-    env.DB.prepare(`INSERT INTO inventory_production_policies(menu_item_id,recipe_id,recipe_updated_at,requirements_json,target_count,min_batch,max_batch,stock_max_age_hours,assigned_staff_id,enabled,auto_relist,reviewed_by,reviewed_at,last_event_id,revision)
-     VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(menu_item_id) DO UPDATE SET recipe_id=excluded.recipe_id,recipe_updated_at=excluded.recipe_updated_at,requirements_json=excluded.requirements_json,target_count=excluded.target_count,min_batch=excluded.min_batch,max_batch=excluded.max_batch,stock_max_age_hours=excluded.stock_max_age_hours,assigned_staff_id=excluded.assigned_staff_id,enabled=excluded.enabled,auto_relist=excluded.auto_relist,reviewed_by=excluded.reviewed_by,reviewed_at=excluded.reviewed_at,last_event_id=excluded.last_event_id,revision=excluded.revision WHERE inventory_production_policies.revision=?`)
-      .bind(menu.id,recipe.id,recipe.updated_at,JSON.stringify(requirements),b.target_count,b.min_batch,b.max_batch,b.stock_max_age_hours,assignee?.id||null,b.enabled===true?1:0,b.auto_relist===true?1:0,actor.id,at,eventId,revision,old?.revision||0),
+    env.DB.prepare(`INSERT INTO inventory_production_policies(menu_item_id,recipe_id,recipe_updated_at,requirements_json,target_count,min_batch,max_batch,stock_max_age_hours,assigned_staff_id,enabled,auto_relist,reviewed_by,reviewed_at,last_event_id,revision,recipe_version_id)
+     SELECT ?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,? WHERE ${productionRecipeGuard} ON CONFLICT(menu_item_id) DO UPDATE SET recipe_id=excluded.recipe_id,recipe_updated_at=excluded.recipe_updated_at,requirements_json=excluded.requirements_json,target_count=excluded.target_count,min_batch=excluded.min_batch,max_batch=excluded.max_batch,stock_max_age_hours=excluded.stock_max_age_hours,assigned_staff_id=excluded.assigned_staff_id,enabled=excluded.enabled,auto_relist=excluded.auto_relist,reviewed_by=excluded.reviewed_by,reviewed_at=excluded.reviewed_at,last_event_id=excluded.last_event_id,revision=excluded.revision,recipe_version_id=excluded.recipe_version_id WHERE inventory_production_policies.revision=?`)
+      .bind(menu.id,recipe.id,recipe.updated_at,JSON.stringify(requirements),b.target_count,b.min_batch,b.max_batch,b.stock_max_age_hours,assignee?.id||null,b.enabled===true?1:0,b.auto_relist===true?1:0,actor.id,at,eventId,revision,authority.version_id,...productionRecipeArgs({menu_item_id:menu.id,recipe_id:recipe.id,recipe_version_id:authority.version_id,recipe_updated_at:recipe.updated_at}),old?.revision||0),
     env.DB.prepare("INSERT INTO inventory_production_events(id,menu_item_id,actor_id,action,details_json,created_at) SELECT ?,?,?,'policy_reviewed',?,? WHERE EXISTS(SELECT 1 FROM inventory_production_policies WHERE menu_item_id=? AND last_event_id=?)")
-      .bind(eventId,menu.id,actor.id,JSON.stringify({requirements,target_count:b.target_count,enabled:b.enabled===true,auto_relist:b.auto_relist===true}),at,menu.id,eventId)
+      .bind(eventId,menu.id,actor.id,JSON.stringify({recipe_version_id:authority.version_id,requirements,target_count:b.target_count,enabled:b.enabled===true,auto_relist:b.auto_relist===true}),at,menu.id,eventId)
    ]);
    if(!await env.DB.prepare('SELECT id FROM inventory_production_events WHERE id=?').bind(eventId).first())return bad('Production plan changed. Reload.',409);
    const notification=await notifyProduction(env,eventId);return json({ok:true,revision,notification,production:await reconcileInventoryProduction(env,{actorId:actor.id})});
@@ -58,6 +61,10 @@ export async function onRequestPost({env,request}){
   if(b.expected_version!==task.version)return bad('Task changed. Reload.',409);
   if(task.assigned_staff_id&&task.assigned_staff_id!==actor.id&&ctx.role!=='owner')return bad('This task is assigned to another cook.',403);
   const at=now(),eventId=id('ipe');
+  if(b.action==='start'||b.action==='complete'){
+   const authority=await getApprovedRecipeAuthority(env,{menuItemId:task.menu_item_id});
+   if(!authority||authority.recipe_id!==task.recipe_id||authority.version_id!==task.recipe_version_id||authority.recipe_updated_at!==task.recipe_updated_at)return bad('Recipe authority changed or is unconfirmed. Dayan must review the recipe and production plan.',409);
+  }
   if(b.action==='start'){
    const policy=await env.DB.prepare('SELECT * FROM inventory_production_policies WHERE menu_item_id=?').bind(task.menu_item_id).first();
    if(!policy)return bad('Production plan missing.',409);
@@ -71,7 +78,7 @@ export async function onRequestPost({env,request}){
    if(b.action==='cancel'&&ctx.role!=='owner')return bad('Owner required to cancel reserved production.',403);
    const recipe=await env.DB.prepare('SELECT * FROM recipes WHERE id=?').bind(task.recipe_id).first();if(b.action==='start'&&(!recipe||recipe.updated_at!==task.recipe_updated_at||recipe.status!=='published'))return bad('Recipe changed; owner must review a new plan.',409);
    await env.DB.batch([
-    env.DB.prepare("UPDATE inventory_production_tasks SET status=?,assigned_staff_id=COALESCE(assigned_staff_id,?),started_by=?,updated_at=?,last_event_id=?,version=version+1 WHERE id=? AND version=? AND status='queued'").bind(b.action==='start'?'preparing':'cancelled',actor.id,b.action==='start'?actor.id:null,at,eventId,task.id,task.version),
+    env.DB.prepare(`UPDATE inventory_production_tasks SET status=?,assigned_staff_id=COALESCE(assigned_staff_id,?),started_by=?,updated_at=?,last_event_id=?,version=version+1 WHERE id=? AND version=? AND status='queued' AND (?='cancel' OR ${productionRecipeGuard})`).bind(b.action==='start'?'preparing':'cancelled',actor.id,b.action==='start'?actor.id:null,at,eventId,task.id,task.version,b.action,...productionRecipeArgs(task)),
     env.DB.prepare('INSERT INTO inventory_production_events(id,task_id,menu_item_id,actor_id,action,details_json,created_at) SELECT ?,?,?,?,?,?,? WHERE EXISTS(SELECT 1 FROM inventory_production_tasks WHERE id=? AND last_event_id=?)').bind(eventId,task.id,task.menu_item_id,actor.id,b.action,'{}',at,task.id,eventId)
    ]);
    if(!await env.DB.prepare('SELECT id FROM inventory_production_events WHERE id=?').bind(eventId).first())return bad('Task changed. Reload.',409);
@@ -84,8 +91,8 @@ export async function onRequestPost({env,request}){
   if(!policy)return bad('Production plan missing.',409);
   const requirements=parseProductionRequirements(JSON.parse(task.requirements_json)),clauses=[],args=[];
   for(const r of requirements){clauses.push(`EXISTS(SELECT 1 FROM inventory_items WHERE id=? AND active=1 AND ${r.basis}>=? AND counted_at>=? AND counted_at<=? AND (expires_on IS NULL OR expires_on>=?)${r.basis==='on_hand'?' AND unit=?':''})`);args.push(r.inventory_id,r.per_unit*task.qty,at-policy.stock_max_age_hours*3600000,at,etDateOf(at));if(r.basis==='on_hand')args.push(r.unit);}
-  const event=env.DB.prepare(`INSERT INTO inventory_production_events(id,task_id,menu_item_id,actor_id,action,details_json,created_at) SELECT ?,?,?,?,'completed',?,? WHERE EXISTS(SELECT 1 FROM inventory_production_tasks WHERE id=? AND status='preparing' AND version=?) AND EXISTS(SELECT 1 FROM menu_items WHERE id=? AND stock_count IS NOT NULL AND stock_counted_at>=? AND stock_counted_at<?) AND EXISTS(SELECT 1 FROM recipes WHERE id=? AND status='published' AND updated_at=?) AND ${clauses.join(' AND ')}`)
-   .bind(eventId,task.id,task.menu_item_id,actor.id,JSON.stringify({planned_qty:task.qty,actual_qty:b.actual_qty,shortfall:task.qty-b.actual_qty,note:String(b.note||'').slice(0,1000)}),at,task.id,task.version,task.menu_item_id,etDayBounds(etDateOf(at)).start,etDayBounds(etDateOf(at)).end,task.recipe_id,task.recipe_updated_at,...args);
+  const event=env.DB.prepare(`INSERT INTO inventory_production_events(id,task_id,menu_item_id,actor_id,action,details_json,created_at) SELECT ?,?,?,?,'completed',?,? WHERE EXISTS(SELECT 1 FROM inventory_production_tasks WHERE id=? AND status='preparing' AND version=?) AND EXISTS(SELECT 1 FROM menu_items WHERE id=? AND stock_count IS NOT NULL AND stock_counted_at>=? AND stock_counted_at<?) AND ${productionRecipeGuard} AND ${clauses.join(' AND ')}`)
+   .bind(eventId,task.id,task.menu_item_id,actor.id,JSON.stringify({planned_qty:task.qty,actual_qty:b.actual_qty,shortfall:task.qty-b.actual_qty,note:String(b.note||'').slice(0,1000)}),at,task.id,task.version,task.menu_item_id,etDayBounds(etDateOf(at)).start,etDayBounds(etDateOf(at)).end,...productionRecipeArgs(task),...args);
   const statements=[event],changeIds=[];
   for(const r of requirements){
    const item=await env.DB.prepare('SELECT * FROM inventory_items WHERE id=?').bind(r.inventory_id).first();

@@ -9,7 +9,7 @@
  function store(){if(pending)sessionStorage.setItem(key(),JSON.stringify(pending));else sessionStorage.removeItem(key());}
  function render(message){
   var el=document.getElementById('driver-assignment-panel');if(!el)return;
-  var h='<h3>'+text('Catering driver','Chofer de catering')+'</h3><p class="row-sub">'+text('Assignments appear in the driver Hub. No alert or customer message is sent; driver pay is not calculated here.','Las asignaciones aparecen en el Hub del chofer. No se envían avisos ni mensajes al cliente; aquí no se calcula el pago del chofer.')+'</p>';
+  var h='<h3>'+text('Delivery person','Persona de entrega')+'</h3><p class="row-sub">'+text('Assignments appear in the driver Hub. No alert or customer message is sent; driver pay is not calculated here.','Las asignaciones aparecen en el Hub del chofer. No se envían avisos ni mensajes al cliente; aquí no se calcula el pago del chofer.')+'</p>';
   if(message)h+='<p role="status" class="gap">'+esc(message)+'</p>';
   if(!state){el.innerHTML=h;return;}
   var a=state.assignment,e=state.execution;
@@ -21,9 +21,10 @@
   else if((activeAssignment||!(state.blockers&&state.blockers.length))&&e&&e.delivery_mode==='staff_driver'&&['planned','preparing','ready'].includes(e.status)){
    if(!a||!['assigned','accepted'].includes(a.status))h+='<form id="assignment-form"><label for="assignment-driver">'+text('Driver','Chofer')+'</label><select id="assignment-driver" required><option value="">'+text('Choose a driver','Selecciona un chofer')+'</option>'+(state.drivers||[]).map(function(d){return '<option value="'+esc(d.id)+'">'+esc(d.name)+(d.available?'':' · '+text('availability unconfirmed','disponibilidad sin confirmar'))+'</option>';}).join('')+'</select><button class="btn" type="submit"'+(busy?' disabled':'')+'>'+text('Assign in Hub','Asignar en el Hub')+'</button></form>';
    else h+='<form id="assignment-release"><label for="assignment-reason">'+text('Reason to release this assignment','Motivo para liberar esta asignación')+'</label><input id="assignment-reason" required maxlength="1000"><button class="btn ghost" type="submit"'+(busy?' disabled':'')+'>'+text('Release assignment','Liberar asignación')+'</button></form>';
-  }else if(!a)h+='<p>'+text('Choose Staff driver in the execution plan to assign a driver.','Elige Chofer del equipo en el plan para asignar un chofer.')+'</p>';
+  }else if(!a)h+='<p>'+text(e&&e.delivery_mode==='owner_self'?'The owner is delivering this event.':'Choose who will deliver this event.',e&&e.delivery_mode==='owner_self'?'El propietario entrega este evento.':'Elige quién entregará este evento.')+'</p><button type="button" class="btn" id="assignment-configure">'+text('Choose owner or staff driver','Elegir propietario o chofer')+'</button>';
   h+='<button class="btn ghost" id="assignment-refresh"'+(busy?' disabled':'')+'>'+text('Refresh assignment','Actualizar asignación')+'</button>';
   el.innerHTML=h;
+  var configure=document.getElementById('assignment-configure');if(configure)configure.onclick=function(){var form=document.getElementById('execution-config'),select=document.getElementById('execution-mode');if(form){var details=form.closest('details');if(details)details.open=true;form.scrollIntoView({behavior:'smooth',block:'center'});if(select)select.focus();}};
   var n=document.getElementById('assignment-refresh');if(n)n.onclick=function(){load(quoteId,true,changed);};
   n=document.getElementById('assignment-retry');if(n)n.onclick=function(){save(null);};
   n=document.getElementById('assignment-form');if(n)n.onsubmit=function(ev){ev.preventDefault();var d=document.getElementById('assignment-driver').value;if(d)save({op:'assign',quote_id:quoteId,driver_id:d,expected_version:0,expected_execution_version:e.version});};
