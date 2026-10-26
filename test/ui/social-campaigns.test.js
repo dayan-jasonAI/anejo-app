@@ -16,7 +16,7 @@ test('post readiness counts use explicit current API records including unfilled 
   assert.deepEqual({ ...h.api.counts([{ slot_id: 'empty' }, { post_id: 'draft', post_status: 'draft' }, { post_id: 'ready', ready: true }, { post_id: 'audit-failed', ready: true, blockers: ['audit stale'] }, { post_id: 'scheduled', post_status: 'scheduled' }, { post_id: 'published', post_status: 'published' }]) }, { ready: 1, draft: 1, blocked: 2, scheduled: 1, published: 1 });
 });
 test('review export is never approval and scheduling binds the exact current snapshot', () => {
-  assert.doesNotMatch(code, /op:\s*['"](?:publish|publish_now)|fetch\(/);
+  assert.doesNotMatch(code, /op:\s*['"](?:publish|publish_now)/);
   assert.match(code, /approval: null/);
   assert.match(code, /source_preview_digest: cycle.preview_digest/);
   assert.match(code, /requires_new_server_preview: dirty\(\)/);
@@ -24,7 +24,7 @@ test('review export is never approval and scheduling binds the exact current sna
   assert.match(code, /expected_version: state.cycle.version/);
   assert.match(code, /acknowledge_exact_preview: true/);
   assert.match(code, /acknowledged_warning_ids: mode/);
-  assert.match(code, /if \(state.busy \|\| state.needsRefresh \|\| dirty\(\)\) return/);
+  assert.match(code, /if \(state.busy \|\| state.needsRefresh \|\| dirty\(\) \|\| mediaPending\(\)\) return/);
 });
 test('URLs reject active schemes, invalid origins, and embedded credentials', () => {
   const h = harness();

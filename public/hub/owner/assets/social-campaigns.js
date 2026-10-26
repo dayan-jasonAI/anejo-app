@@ -3,7 +3,7 @@
 (function () {
   'use strict';
   var API = '/api/hub/owner/social-campaigns';
-  var state = { cycles: [], cycle: null, readiness: {}, filter: 'all', view: 'list', edits: {}, loading: false, busy: false, needsRefresh: false, request: 0, saveRequest: null, nextRequest: null };
+  var state = { cycles: [], cycle: null, readiness: {}, filter: 'all', view: 'list', edits: {}, loading: false, busy: false, needsRefresh: false, request: 0, saveRequest: null, nextRequest: null, mediaDraft: null };
   var root = document.getElementById('owner-root');
   var esc = Hub.esc;
   function say(text) { document.getElementById('campaign-feedback').textContent = text; }
@@ -27,6 +27,7 @@
     slots.forEach(function (slot) { out[category(slot)]++; }); return out;
   }
   function dirty() { return Object.keys(state.edits).length > 0; }
+  function mediaPending() { return !!state.mediaDraft; }
   function approvalCurrent(cycle) {
     var record = cycle.approval;
     return !!(record && record.id && record.owner_id && record.approved_at && Number.isFinite(new Date(record.approved_at).getTime()) && record.scope === 'exact_manifest_only' && cycle.preview_digest && record.approved_manifest_hash === cycle.preview_digest);
@@ -111,6 +112,7 @@
       if (node.parentElement.querySelector('.campaign-media-failure')) return;
       var message = document.createElement('p'); message.className = 'campaign-media-failure'; message.textContent = 'Preview unavailable · review media before approval'; node.parentElement.appendChild(message);
     }); });
+    mountMediaEditors();
   }
   function renderDirty() {
     var notice = document.getElementById('campaign-unsaved'); notice.hidden = !dirty();
@@ -133,20 +135,138 @@
     buildActions(); setViewButtons(); renderPosts(); renderDirty();
   }
   function canSchedule() {
-    return !dirty() && !state.busy && !state.loading && !state.needsRefresh && !!state.cycle.preview_digest && ['draft', 'paused'].indexOf(state.cycle.state) >= 0 && (state.cycle.validation || {}).state === 'complete' && (state.readiness.strict_ready === true || state.readiness.owner_review_ready === true);
+    return !dirty() && !mediaPending() && !state.busy && !state.loading && !state.needsRefresh && !!state.cycle.preview_digest && ['draft', 'paused'].indexOf(state.cycle.state) >= 0 && (state.cycle.validation || {}).state === 'complete' && (state.readiness.strict_ready === true || state.readiness.owner_review_ready === true);
   }
   function syncActions() {
     var review = document.getElementById('campaign-review'), validate = document.getElementById('campaign-validate'), pause = document.getElementById('campaign-pause');
     if (!review) return;
-    var importing = document.getElementById('campaign-import'); if (importing) importing.disabled = state.busy || state.loading || dirty();
-    document.getElementById('campaign-reload').disabled = state.busy || state.loading;
-    document.getElementById('campaign-select').disabled = state.busy || state.loading;
+    var importing = document.getElementById('campaign-import'); if (importing) importing.disabled = state.busy || state.loading || dirty() || mediaPending();
+    document.getElementById('campaign-reload').disabled = state.busy || state.loading || mediaPending();
+    document.getElementById('campaign-select').disabled = state.busy || state.loading || mediaPending();
     review.disabled = !canSchedule();
-    validate.disabled = dirty() || state.busy || state.needsRefresh || ['draft', 'paused'].indexOf(state.cycle.state) < 0;
-    pause.disabled = dirty() || state.busy || state.needsRefresh || state.cycle.state !== 'scheduled';
-    var saving = document.getElementById('campaign-save-captions'); if (saving) saving.disabled = !dirty() || state.busy || state.loading || state.needsRefresh || ['draft', 'paused'].indexOf(state.cycle.state) < 0;
-    var discard = document.getElementById('campaign-discard-edits'); if (discard) { discard.hidden = !dirty(); discard.disabled = state.busy || state.loading; }
-    var next = document.getElementById('campaign-next-create'); if (next) next.disabled = dirty() || state.busy || state.loading || state.needsRefresh;
+    validate.disabled = dirty() || mediaPending() || state.busy || state.needsRefresh || ['draft', 'paused'].indexOf(state.cycle.state) < 0;
+    pause.disabled = dirty() || mediaPending() || state.busy || state.needsRefresh || state.cycle.state !== 'scheduled';
+    var saving = document.getElementById('campaign-save-captions'); if (saving) saving.disabled = !dirty() || mediaPending() || state.busy || state.loading || state.needsRefresh || ['draft', 'paused'].indexOf(state.cycle.state) < 0;
+    var discard = document.getElementById('campaign-discard-edits'); if (discard) { discard.hidden = !dirty(); discard.disabled = state.busy || state.loading || mediaPending(); }
+    var next = document.getElementById('campaign-next-create'); if (next) next.disabled = dirty() || mediaPending() || state.busy || state.loading || state.needsRefresh;
+    root.querySelectorAll('[data-media-pick]').forEach(function (button) { var slot = state.cycle.slots.find(function (s) { return s.slot_id === button.dataset.mediaPick; }); button.disabled = !mediaEditable(slot) || dirty() || mediaPending() || state.busy || state.loading || state.needsRefresh; button.nextElementSibling.textContent = dirty() ? 'Save caption changes before adding media.' : mediaPending() ? 'Finish or discard the active media selection first.' : state.needsRefresh ? 'Refresh the saved campaign before adding media.' : mediaHint(slot); });
+    if (mediaPending()) root.querySelectorAll('[data-caption]').forEach(function (input) { input.disabled = true; });
+  }
+  function mediaEditable(slot) {
+    return !!(slot && slot.post_id && slot.revision_snapshot && ['draft', 'failed'].indexOf(slot.post_status) >= 0 && ['draft', 'paused'].indexOf(state.cycle.state) >= 0);
+  }
+  function mediaRules(slot) {
+    var reel = slot.channel === 'reel', story = slot.channel === 'story';
+    return { max: reel || story ? 1 : 10, accept: reel ? 'video/mp4,.mp4' : story ? 'image/jpeg,video/mp4,.jpg,.jpeg,.mp4' : 'image/jpeg,.jpg,.jpeg', text: reel ? 'One MP4 video, up to 25 MB.' : story ? 'One JPEG photo (5 MB) or MP4 video (25 MB).' : 'Up to 10 JPEG photos, 5 MB each. The first photo is the cover.' };
+  }
+  function mediaHint(slot) {
+    if (!slot.post_id) return 'Save the caption draft first.';
+    if (slot.post_status === 'published') return 'Published posts cannot be edited here.';
+    if (slot.post_status === 'scheduled' || state.cycle.state === 'scheduled') return 'Pause the campaign before changing scheduled media.';
+    if (!slot.revision_snapshot) return 'Refresh to load this draft’s current saved revision.';
+    return mediaRules(slot).text;
+  }
+  function fileIssue(slot, files) {
+    var rules = mediaRules(slot);
+    if (!files.length || files.length > rules.max) return 'Choose ' + (rules.max === 1 ? 'one file' : '1–10 JPEG photos') + ' for this post.';
+    for (var i = 0; i < files.length; i++) {
+      var file = files[i], jpeg = /\.jpe?g$/i.test(file.name) && (!file.type || file.type === 'image/jpeg'), video = /\.mp4$/i.test(file.name) && (!file.type || file.type === 'video/mp4');
+      if (slot.channel === 'reel' && !video) return 'A Reel needs one MP4 video.';
+      if (slot.channel === 'feed' && !jpeg) return 'Feed posts accept JPEG photos. Use a Reel slot for video.';
+      if (!jpeg && !video) return 'Choose a JPEG photo or MP4 video.';
+      if (!file.size || file.size > (video ? 25 : 5) * 1024 * 1024) return file.name + ' exceeds the ' + (video ? '25 MB video' : '5 MB photo') + ' limit or is empty.';
+    }
+    return '';
+  }
+  function mountMediaEditors() {
+    root.querySelectorAll('[data-slot]').forEach(function (card) {
+      var slot = state.cycle.slots.find(function (s) { return s.slot_id === card.dataset.slot; });
+      var area = document.createElement('div'); area.className = 'campaign-media-picker';
+      area.innerHTML = '<button type="button" class="campaign-button" data-media-pick="' + esc(slot.slot_id) + '">Add / replace media</button><p class="campaign-media-help">' + esc(mediaHint(slot)) + '</p>';
+      card.querySelector('details').appendChild(area);
+      area.querySelector('button').addEventListener('click', function () { chooseMedia(slot); });
+    });
+    renderMediaWorkbench(); syncActions();
+  }
+  function chooseMedia(slot) {
+    if (!mediaEditable(slot) || dirty() || mediaPending() || state.busy || state.loading || state.needsRefresh) return;
+    var input = document.getElementById('campaign-media-file');
+    if (!input) { input = document.createElement('input'); input.id = 'campaign-media-file'; input.type = 'file'; input.hidden = true; document.body.appendChild(input); input.addEventListener('change', selectMediaFiles); }
+    input.dataset.slotId = slot.slot_id; input.accept = mediaRules(slot).accept; input.multiple = mediaRules(slot).max > 1; input.value = ''; input.click();
+  }
+  function selectMediaFiles(event) {
+    var input = event.target, slot = state.cycle.slots.find(function (s) { return s.slot_id === input.dataset.slotId; });
+    if (dirty() || mediaPending() || state.busy || state.loading || state.needsRefresh || !mediaEditable(slot)) return;
+    var files = Array.from(input.files || []); if (!files.length) return;
+    var issue = fileIssue(slot, files); if (issue) { say(issue); return; }
+    state.mediaDraft = { slotId: slot.slot_id, slotSnapshot: Object.assign({}, slot), postId: slot.post_id, version: state.cycle.version, revision: slot.revision_snapshot, requestId: crypto.randomUUID(), phase: 'selected', message: 'Review the files and their order, then upload. Uploading alone does not attach them.', items: files.map(function (file) { return { file: file, url: URL.createObjectURL(file), uploaded: null }; }) };
+    renderMediaWorkbench(); syncActions(); document.getElementById('campaign-media-heading').focus();
+  }
+  function releaseMediaDraft() {
+    if (state.mediaDraft) state.mediaDraft.items.forEach(function (item) { URL.revokeObjectURL(item.url); });
+    state.mediaDraft = null;
+  }
+  function renderMediaWorkbench() {
+    var area = document.getElementById('campaign-media-workbench');
+    if (!area) { area = document.createElement('section'); area.id = 'campaign-media-workbench'; area.className = 'campaign-media-workbench'; document.getElementById('campaign-posts').before(area); }
+    var draft = state.mediaDraft; area.hidden = !draft; if (!draft) { area.innerHTML = ''; return; }
+    var current = state.cycle.slots.find(function (s) { return s.slot_id === draft.slotId; }), slot = current || draft.slotSnapshot;
+    var editable = mediaEditable(current), ready = draft.phase === 'uploaded' && draft.items.every(function (item) { return item.uploaded; });
+    area.innerHTML = '<div class="campaign-media-heading-row"><div><p class="campaign-eyebrow">MEDIA FOR ONE POST</p><h3 id="campaign-media-heading" tabindex="-1">' + esc(dateLabel(slot)) + ' · ' + esc(slot.channel) + '</h3></div><span class="campaign-badge">' + draft.items.length + ' selected</span></div><p class="campaign-media-current-caption" translate="no" dir="auto">' + esc(slot.caption || '') + '</p><ol class="campaign-media-selection">' + draft.items.map(function (item, index) {
+      var video = /\.mp4$/i.test(item.file.name);
+      return '<li><div class="campaign-media-local-preview">' + (video ? '<video controls playsinline muted preload="metadata" src="' + esc(item.url) + '" aria-label="Selected video ' + (index + 1) + '"></video>' : '<img src="' + esc(item.url) + '" alt="Selected photo ' + (index + 1) + '">') + '</div><div class="campaign-media-file-info"><strong>' + (index + 1) + '. ' + esc(item.file.name) + '</strong><span>' + (item.file.size / (1024 * 1024)).toFixed(2) + ' MB · ' + (item.uploaded ? 'Uploaded, not attached' : 'Local file') + '</span></div><div class="campaign-media-reorder"><button type="button" class="campaign-button" data-media-move="' + index + '" data-direction="-1" aria-label="Move ' + esc(item.file.name) + ' earlier"' + (index === 0 || state.busy || !['selected', 'uploaded'].includes(draft.phase) ? ' disabled' : '') + '>Earlier</button><button type="button" class="campaign-button" data-media-move="' + index + '" data-direction="1" aria-label="Move ' + esc(item.file.name) + ' later"' + (index === draft.items.length - 1 || state.busy || !['selected', 'uploaded'].includes(draft.phase) ? ' disabled' : '') + '>Later</button></div></li>';
+    }).join('') + '</ol><p id="campaign-media-status" role="status" aria-live="polite">' + esc(draft.message) + '</p><div class="campaign-media-actions"><button type="button" id="campaign-media-upload" class="campaign-button"' + (draft.phase !== 'selected' || state.busy || dirty() || !editable ? ' disabled' : '') + '>Upload selected files</button><button type="button" id="campaign-media-attach" class="campaign-button primary"' + (!ready || state.busy || dirty() || !editable || state.needsRefresh ? ' disabled' : '') + '>Attach media to this draft</button><button type="button" id="campaign-media-readback" class="campaign-button"' + (!['stale', 'save_unknown', 'upload_unknown', 'upload_failed'].includes(draft.phase) || state.busy ? ' disabled' : '') + '>Refresh saved post</button><button type="button" id="campaign-media-discard" class="campaign-button"' + (state.busy ? ' disabled' : '') + '>Discard selection</button></div><p class="campaign-media-help">Attaching replaces this post’s saved media in the shown order and requires a fresh audit and review. Caption edits stay separate. Discarding does not delete staged uploads.</p>';
+    area.querySelectorAll('[data-media-move]').forEach(function (button) { button.addEventListener('click', function () { if (state.busy || !['selected', 'uploaded'].includes(draft.phase)) return; var from = Number(button.dataset.mediaMove), to = from + Number(button.dataset.direction); if (to < 0 || to >= draft.items.length) return; var item = draft.items.splice(from, 1)[0]; draft.items.splice(to, 0, item); draft.requestId = crypto.randomUUID(); renderMediaWorkbench(); }); });
+    document.getElementById('campaign-media-upload').addEventListener('click', uploadSelectedMedia);
+    document.getElementById('campaign-media-attach').addEventListener('click', attachSelectedMedia);
+    document.getElementById('campaign-media-readback').addEventListener('click', refreshMediaPost);
+    document.getElementById('campaign-media-discard').addEventListener('click', function () { if (state.busy) return; releaseMediaDraft(); renderPosts(); say('Local selection discarded. Staged uploads were not deleted or attached.'); });
+  }
+  async function uploadSelectedMedia() {
+    var draft = state.mediaDraft, slot = draft && state.cycle.slots.find(function (s) { return s.slot_id === draft.slotId; });
+    if (!draft || draft.phase !== 'selected' || state.busy || dirty() || !mediaEditable(slot) || state.needsRefresh) return;
+    state.busy = true; draft.phase = 'uploading'; syncActions(); renderMediaWorkbench();
+    try {
+      for (var i = 0; i < draft.items.length; i++) {
+        draft.message = 'Uploading file ' + (i + 1) + ' of ' + draft.items.length + '…'; renderMediaWorkbench();
+        var form = new FormData(); form.append('file', draft.items[i].file);
+        var response, data;
+        try { response = await fetch('/api/hub/owner/social-campaign-media-upload', { method: 'POST', credentials: 'same-origin', body: form }); data = await response.json(); }
+        catch (_) { throw { unknown: true, message: 'The upload outcome is unknown. No media attachment was requested. Refresh the saved post before starting a new selection.' }; }
+        if (response.status === 401 && Hub.sessionLost) Hub.sessionLost(data && data.error);
+        if (!response.ok || !data || !data.ok || !data.media || !data.media.key) throw { unknown: response.status >= 500, message: data && data.error || 'The file could not be uploaded.' };
+        draft.items[i].uploaded = data.media;
+      }
+      draft.phase = 'uploaded'; draft.message = 'Files uploaded. Review the order, then attach them explicitly. The saved post has not changed.';
+    } catch (error) { draft.phase = error.unknown ? 'upload_unknown' : 'upload_failed'; draft.message = error.message + ' Uploads will not be retried automatically.'; }
+    finally { state.busy = false; renderMediaWorkbench(); syncActions(); }
+  }
+  async function attachSelectedMedia() {
+    var draft = state.mediaDraft, slot = draft && state.cycle.slots.find(function (s) { return s.slot_id === draft.slotId; });
+    if (!draft || draft.phase !== 'uploaded' || !draft.items.every(function (item) { return item.uploaded; }) || state.busy || dirty() || !mediaEditable(slot) || state.needsRefresh) return;
+    state.busy = true; draft.phase = 'saving'; draft.message = 'Saving this ordered media selection…'; syncActions(); renderMediaWorkbench();
+    try {
+      var result = await Hub.api(API, { method: 'POST', body: { op: 'save_media', id: state.cycle.id, expected_version: draft.version, request_id: draft.requestId, post_id: draft.postId, expected_revision_snapshot: draft.revision, media_keys: draft.items.map(function (item) { return item.uploaded.key; }) } });
+      if (!result || !result.ok) { draft.phase = result && (result._status === 409 || result.review_required) ? 'stale' : 'save_unknown'; draft.message = draft.phase === 'stale' ? 'The saved version changed. Your uploaded files are retained. Refresh the saved post, review it, then choose whether to attach these files.' : 'The save outcome is unknown. Your files are retained. Refresh the saved post before any new save.'; state.needsRefresh = true; return; }
+      acceptSavedView(result); releaseMediaDraft(); render(); say('Media saved to this draft. Previous audit, validation, and approval no longer apply; review the new media before scheduling.');
+    } catch (_) { draft.phase = 'save_unknown'; draft.message = 'The save outcome is unknown. Refresh the saved post before any new save; files are retained.'; state.needsRefresh = true; }
+    finally { state.busy = false; renderMediaWorkbench(); syncActions(); }
+  }
+  async function refreshMediaPost() {
+    var draft = state.mediaDraft; if (!draft || state.busy || dirty()) return;
+    state.busy = true; draft.message = 'Reading the current saved post…'; renderMediaWorkbench(); syncActions();
+    try {
+      var data = await Hub.api(API + '?id=' + encodeURIComponent(state.cycle.id)); acceptSavedView(data); state.needsRefresh = false;
+      var slot = state.cycle.slots.find(function (s) { return s.slot_id === draft.slotId; });
+      if (!slot) { draft.phase = 'stale'; draft.message = 'This post is no longer in the campaign. Selected files are retained; discard the selection before continuing.'; render(); return; }
+      var expected = draft.items.map(function (item) { return item.uploaded && item.uploaded.key; });
+      if (expected.every(Boolean) && JSON.stringify((slot.media || []).map(function (m) { return m.key; })) === JSON.stringify(expected)) { releaseMediaDraft(); render(); say('Saved media confirmed from the current readback. No save was retried. A fresh audit and review are required.'); return; }
+      if (!mediaEditable(slot)) { draft.phase = 'stale'; draft.message = 'This post is no longer an editable draft. Files are retained; discard this selection, then pause the campaign if applicable.'; }
+      else if (draft.items.every(function (item) { return item.uploaded; })) { draft.phase = 'uploaded'; draft.version = state.cycle.version; draft.revision = slot.revision_snapshot; draft.postId = slot.post_id; draft.requestId = crypto.randomUUID(); draft.message = 'Current saved version refreshed. Review the caption and current media on its card. Your selected files are retained; attaching now requires a new explicit click.'; }
+      else { draft.message = 'Saved post refreshed. At least one upload is unconfirmed. Discard this selection and choose files again if you want to start a new upload; nothing is retried automatically.'; }
+      render();
+    } catch (_) { draft.message = 'Could not read the current post. Files remain selected; no upload or save was retried.'; }
+    finally { state.busy = false; renderMediaWorkbench(); syncActions(); }
   }
   function buildActions() {
     var validation = state.cycle.validation || {};
@@ -165,7 +285,7 @@
     document.getElementById('campaign-next-create').addEventListener('click', createNextCycle);
   }
   async function perform(op, extra, feedback) {
-    if (state.busy || state.needsRefresh || dirty()) return;
+    if (state.busy || state.needsRefresh || dirty() || mediaPending()) return;
     if (op === 'approve_schedule' && !canSchedule()) return;
     if (op === 'pause' && state.cycle.state !== 'scheduled') return;
     state.busy = true; syncActions();
@@ -226,7 +346,7 @@
     return Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(value))), function (v) { return v.toString(16).padStart(2, '0'); }).join('');
   }
   async function saveCaptions() {
-    if (!dirty() || state.busy || state.loading || state.needsRefresh || ['draft', 'paused'].indexOf(state.cycle.state) < 0) return;
+    if (!dirty() || mediaPending() || state.busy || state.loading || state.needsRefresh || ['draft', 'paused'].indexOf(state.cycle.state) < 0) return;
     var changes = Object.keys(state.edits).map(function (id) { var slot = state.cycle.slots.find(function (s) { return s.slot_id === id; }); return { slot_id: id, post_id: slot && slot.post_id, caption: state.edits[id], expected_revision_snapshot: slot && slot.revision_snapshot }; });
     if (changes.some(function (p) { return !p.post_id || !p.expected_revision_snapshot || !p.caption.trim(); })) { say('Each edit needs a saved draft and its current revision. Refresh before editing missing records.'); return; }
     state.busy = true; syncActions();
@@ -242,7 +362,7 @@
     finally { state.busy = false; syncActions(); }
   }
   async function createNextCycle() {
-    if (dirty() || state.busy || state.loading || state.needsRefresh) return;
+    if (dirty() || mediaPending() || state.busy || state.loading || state.needsRefresh) return;
     var input = document.getElementById('campaign-next-date'); if (!input || !input.reportValidity()) return;
     var start = input.value, signature = state.cycle.id + ':' + start;
     if (!state.nextRequest || state.nextRequest.signature !== signature) state.nextRequest = { signature: signature, id: crypto.randomUUID() };
@@ -267,7 +387,7 @@
     return { title: value.title.trim(), start_date: start, slots: slots };
   }
   async function importDraftPlan(file) {
-    if (!file || dirty() || state.busy || state.loading) return;
+    if (!file || dirty() || mediaPending() || state.busy || state.loading) return;
     if (file.size > 512 * 1024) { say('The JSON plan must be smaller than 512 KB.'); return; }
     var plan, raw;
     try { raw = await file.text(); plan = parseDraftPlan(JSON.parse(raw)); } catch (error) { say('Plan not imported. ' + error.message); return; }
@@ -302,7 +422,7 @@
   }
   function error(message) { root.setAttribute('aria-busy', 'false'); root.innerHTML = '<div class="campaign-state" role="alert"><h3>Campaign could not load</h3><p>' + esc(message || 'Try refreshing. Your campaign status has not been verified.') + '</p></div>'; }
   async function loadCycle(id) {
-    if (state.loading || dirty()) return;
+    if (state.loading || dirty() || mediaPending()) return;
     var request = ++state.request; state.loading = true; root.setAttribute('aria-busy', 'true'); document.getElementById('campaign-reload').disabled = true;
     try {
       var data = await Hub.api(API + '?id=' + encodeURIComponent(id));
@@ -314,7 +434,7 @@
     } catch (_) { error(); } finally { state.loading = false; document.getElementById('campaign-reload').disabled = false; syncActions(); }
   }
   async function load() {
-    if (state.busy) return;
+    if (state.busy || mediaPending()) return;
     if (dirty()) { say('Export your unsaved caption suggestions before refreshing.'); return; }
     if (state.loading) return;
     root.setAttribute('aria-busy', 'true'); document.getElementById('campaign-reload').disabled = true;
@@ -330,7 +450,7 @@
   document.getElementById('campaign-reload').addEventListener('click', load);
   document.getElementById('campaign-import').addEventListener('click', function () { if (state.busy || dirty()) return; var input = document.getElementById('campaign-plan-file'); input.value = ''; input.click(); });
   document.getElementById('campaign-plan-file').addEventListener('change', function (event) { importDraftPlan(event.target.files[0]); });
-  window.addEventListener('beforeunload', function (event) { if (!dirty() && !state.busy) return; event.preventDefault(); event.returnValue = ''; });
+  window.addEventListener('beforeunload', function (event) { if (!dirty() && !state.busy && !mediaPending()) return; event.preventDefault(); event.returnValue = ''; });
   // This owner-only guard intentionally matches the campaign API, including cold navigation.
   Owner.init('marketing', load);
   window.CampaignReview = { counts: counts, category: category, safeUrl: safeUrl, approvalCurrent: approvalCurrent, parseDraftPlan: parseDraftPlan, state: state };
