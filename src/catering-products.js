@@ -628,7 +628,7 @@ function render() {
   renderBrowse(root);
   renderAddons(root);
   renderSummary(root);
-  el('p', 'aq-sub', root, t('Standard catering: minimum 48 hours. Custom printing: minimum 72 hours.', 'Catering estándar: mínimo 48 horas. Impresión personalizada: mínimo 72 horas.')).style.marginTop = '16px';
+  el('p', 'aq-sub', root, t('Standard catering: minimum 48 hours. La Cajita, including themed branding: minimum 48 hours. Other custom printing: minimum 72 hours.', 'Catering estándar: mínimo 48 horas. La Cajita, incluida la presentación temática: mínimo 48 horas. Otras impresiones personalizadas: mínimo 72 horas.')).style.marginTop = '16px';
   queueEstimate();
   document.dispatchEvent(new CustomEvent('anejo:catering-cartchange', {detail:{products:readCart()}}));
 }

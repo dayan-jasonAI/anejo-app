@@ -51,7 +51,7 @@ Priced items: /order → customize → cart → Square hosted checkout → confi
 
 Market occasions, not unsupported outcomes: a busy workday, a family meal, a gift cajita, an office gathering or a celebration. Use the live product price and a direct action link. The homepage currently uses a food/event photo slideshow. No verified conversion lift or real payment settlement test is claimed.
 
- Standard Traditional/Catering orders need at least 48 hours from the selected Eastern delivery-window start; custom printing needs 72 hours and remains quote-only. Eligible standard catering selections can receive a live food estimate and transfer to the existing order cart for Square checkout. Unpriced products, custom printing/uploads, food changes and allergy notes require quote review; do not promise automatic checkout for these requests.
+ Owner clarification, 2026-10-26: Standard Traditional/Catering orders require at least 48 hours. La Cajita, including seasonal or themed branding, requires at least 48 hours notice and a reviewed quantity-based quote. Customers may customize the contents; confirm the final menu, quantities, presentation, availability and delivery before promising fulfillment. Other bespoke custom-printed catering requires at least 72 hours and quote review. Notice is measured from the selected Eastern delivery-window start. Personalized La Cajita requests remain quote-only. Eligible standard catering selections can receive a live food estimate and transfer to the existing order cart for Square checkout. Unpriced products, custom printing/uploads, food changes and allergy notes require quote review; do not promise automatic checkout for these requests.
 
 ## Catalog snapshot — 140 active SKUs
 

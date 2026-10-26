@@ -587,7 +587,7 @@ function paintSchedNote(){
   // line is how a visitor decides whether Añejo reaches them at all — losing it costs orders.
   const area=(sched && sched.areaLabel) ? sched.areaLabel : 'Palm Beach County';
   el.textContent = Object.keys(addons).some(id=>/^(catering_|traditional_)/.test(id))
-    ? L('Standard catering requires at least 48 hours before the delivery window starts. Custom printing requires 72 hours and a custom quote.','El catering estándar requiere al menos 48 horas antes del inicio de la entrega. La impresión personalizada requiere 72 horas y cotización.')
+    ? L('Standard catering requires at least 48 hours before the delivery window starts. La Cajita, including themed branding, requires 48 hours and a reviewed quote. Other custom printing requires 72 hours and a custom quote.','El catering estándar requiere al menos 48 horas antes del inicio de la entrega. La Cajita, incluida la presentación temática, requiere 48 horas y cotización revisada. Otras impresiones personalizadas requieren 72 horas y cotización.')
     : L('Delivery only · '+area+' · '+label+'. Order by '+h12+' '+ampm+' the day before.','Solo entrega · '+area+'. Pide antes de las '+h12+' '+ampm+' del día anterior.');
 
   const win=$('delivWindow');

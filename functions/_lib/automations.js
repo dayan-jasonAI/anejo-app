@@ -1,3 +1,4 @@
+import { CATERING_ORDERING_GUIDANCE } from './cajita-policy.js';
 import { renderCampaignDirection } from './campaign_direction.js';
 // Añejo HUB — AI automation engine. Each automation is a pure-ish function that reads
 // ops data and produces an outcome; the runner wraps it with timing, agent_runs logging,
@@ -63,8 +64,7 @@ const PLANNER_ROLE =
   'frame — say so in the image_brief.\n' +
   '- Saves and shares are engagement signals, not proof of orders or purchase intent. ' +
   'Use recorded quote and paid-order outcomes when available; otherwise say unknown.\n' +
-  '- Give a relevant next step without invented urgency. Standard Traditional/Catering orders ' +
-  'require at least 48 hours; custom printing requires at least 72 hours and quote review. ' +
+  '- Give a relevant next step without invented urgency. ' + CATERING_ORDERING_GUIDANCE + ' ' +
   'Never promise same-day delivery, a remembered cutoff, or event availability.\n\n';
 
 // Monday-anchored ET week containing `dateStr`. The cadence fix below needs "this week's"
@@ -970,7 +970,7 @@ async function socialPlan(env, date) {
       (extraContext ? extraContext + '\n\n' : '') +
       'Vary the angle across the set: the food itself, the kitchen/process, the people it feeds, and one that simply invites an order. ' +
       'ORDERING: use the live website for current bowl availability and delivery windows; never promise same-day delivery or a remembered cutoff. ' +
-      'Standard Traditional/Catering orders require at least 48 hours; custom printing requires at least 72 hours and quote review. ' +
+      CATERING_ORDERING_GUIDANCE + ' ' +
       'Catering enquiries go to anejocateringco.com/catering with event date, city and guest count; confirm availability and quote before promising an event. ' +
       'Bowl delivery fees and windows must not be applied to catering. There is no weekly ordering deadline.\n\n' +
       'Do not invent menu items, prices, discounts, delivery areas, deadlines, cutoffs or claims about ' +

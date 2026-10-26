@@ -65,3 +65,18 @@ test('denied storage does not break language switching', () => {
   const f=fixture({deniedStorage:true}); f.AnejoLang.set('es'); assert.equal(f.AnejoLang.get(),'es');
   f.AnejoLang.set('unexpected'); assert.equal(f.AnejoLang.get(),'en');
 });
+
+test('switching Hub language preserves the actual draft and published caption markup', () => {
+  const page=readFileSync(new URL('../../public/hub/owner/marketing.html',import.meta.url),'utf8');
+  const start=page.indexOf("      (p.status === 'published'");
+  const expression=page.slice(start,page.indexOf('      // Brand Auditor verdict',start)).trim().replace(/\+\s*$/,'');
+  for(const status of ['draft','published']){
+    const html=vm.runInNewContext(expression,{p:{id:'fixture',status,caption:'Ready now'},esc:String});
+    const match=html.match(status==='draft'?/<textarea([^>]*)>([^<]*)<\/textarea>/:/<div([^>]*)>([^<]*)<\/div>/);
+    assert.ok(match);
+    const f=fixture(),attrs=/translate="no"/.test(match[1])?{translate:'no'}:{};
+    const caption=f.add(status==='draft'?'textarea':'div',attrs,match[2]);
+    f.AnejoLang.set('es');assert.equal(caption.textContent,'Ready now');
+    f.AnejoLang.set('en');assert.equal(caption.textContent,'Ready now');
+  }
+});

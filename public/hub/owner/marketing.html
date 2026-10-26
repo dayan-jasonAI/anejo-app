@@ -1557,8 +1557,8 @@
       // which meant it did not exist. A published caption is shown read-only: our copy changing
       // after the fact would disagree with what people actually read.
       (p.status === 'published'
-        ? '<div class="cap">' + esc(p.caption || '(no caption)') + '</div>'
-        : '<textarea id="cap_' + esc(p.id) + '" maxlength="2200" style="width:100%;min-height:96px;padding:10px 12px;border:1px solid var(--line);border-radius:8px;font:inherit;font-size:13.5px;line-height:1.5;resize:vertical">' + esc(p.caption || '') + '</textarea>' +
+        ? '<div class="cap" translate="no">' + esc(p.caption || '(no caption)') + '</div>'
+        : '<textarea translate="no" id="cap_' + esc(p.id) + '" maxlength="2200" style="width:100%;min-height:96px;padding:10px 12px;border:1px solid var(--line);border-radius:8px;font:inherit;font-size:13.5px;line-height:1.5;resize:vertical">' + esc(p.caption || '') + '</textarea>' +
           '<div style="display:flex;justify-content:flex-end;margin-top:4px"><button class="btn ghost" data-editcap="' + esc(p.id) + '" style="font-size:12px;padding:6px 12px">Save caption</button></div>') +
       // Brand Auditor verdict — the score/flags/status the row already carries, so the owner reads
       // WHY a draft is clean or flagged before approving a time.

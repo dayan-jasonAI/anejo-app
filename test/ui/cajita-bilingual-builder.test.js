@@ -180,3 +180,13 @@ test('confirmed defaults and changed flavors survive duplication, language switc
   assert.equal(variants[0].items.find(i => i.id === 'croqueta').flavor, 'ham');
   assert.equal(variants[1].items.find(i => i.id === 'croqueta').flavor, 'chorizo');
 });
+
+test('Cajita notice follows language changes without fixed prices or changing customer configuration',()=>{
+ const f=fixture('es');const before=f.run('JSON.stringify(config)');
+ assert.match(f.get('cajita-ordering-notice').textContent,/al menos 48 horas/);
+ assert.match(f.get('cajita-ordering-notice').textContent,/precio depende de la cantidad/);
+ f.switchLanguage('en');assert.match(f.get('cajita-ordering-notice').textContent,/at least 48 hours/);
+ assert.match(f.get('cajita-ordering-notice').textContent,/pricing depends on quantity/);
+ assert.doesNotMatch(f.get('cajita-ordering-notice').textContent,/72|\$18|\$20|unlimited/);
+ assert.equal(f.run('JSON.stringify(config)'),before);assert.deepEqual(f.requests,[]);
+});
