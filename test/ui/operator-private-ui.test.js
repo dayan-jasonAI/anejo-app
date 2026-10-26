@@ -52,7 +52,7 @@ test('actual MarketingTabs hash router and queue filtering retain typed captions
  let creates=0,mounts=0,route;
  const window={MarketingTabs:{createInstagram(){creates++;},createEmail(){},teachTeam(){},teachTraining(){}},MarketingPhotoLibrary:{mount(){mounts++;}},addEventListener(name,fn){if(name==='hashchange')route=fn;}};
  const location={hash:'#create'};
- vm.runInNewContext(queue+'\n'+router,{window,document,location,URLSearchParams});
+ vm.runInNewContext(queue+'\n'+router,{window,document,location,URLSearchParams,DATA:{archived_view:false},history:{replaceState(_s,_t,url){location.hash=url;}},load(){throw Error('Unexpected archive-view load');}});
  route();assert.equal(creates,1);assert.equal(document.getElementById('lane-instagram').style.display,'');
  location.hash='#photos';route();assert.equal(mounts,1);
  location.hash='#create-instagram';route();assert.equal(creates,1);

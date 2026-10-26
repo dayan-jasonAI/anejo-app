@@ -664,6 +664,7 @@ export const onRequestPost = async ({ request, env }) => {
     const restore = op === 'restore';
     const row = await env.DB.prepare('SELECT status FROM social_posts WHERE id=?').bind(postId).first();
     if (!row) return bad('That post no longer exists.', 404);
+    if (!restore && row.status === 'published') return bad('That is already live on Instagram — delete it in the app, not here.',409);
     if (!restore && row.status === 'archived') return json({ok:true,id:postId,status:'archived'});
     const allowed = restore ? ['archived'] : ['draft','scheduled','failed'];
     if (!allowed.includes(row.status)) return bad(restore ? 'Only removed drafts can be restored.' : 'Only drafts, scheduled or failed posts can be removed. Live and publishing posts are protected.',409);
