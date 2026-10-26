@@ -272,7 +272,7 @@ export async function publishCarousel(env, { items, caption } = {}, opts = {}) {
  *
  * Returns { ok, media_id, permalink } or { ok:false, error }. Never throws.
  */
-export async function publishImage(env, { imageUrl, caption, mediaKey } = {}) {
+export async function publishImage(env, { imageUrl, caption, mediaKey } = {}, opts = {}) {
   if (!igConfigured(env)) return { ok: false, reason: 'not_configured' };
   if (!imageUrl) return { ok: false, error: 'No image to publish.' };
 
@@ -300,6 +300,9 @@ export async function publishImage(env, { imageUrl, caption, mediaKey } = {}) {
   // 2) POLL. Publishing an unfinished container fails, and the wait is Instagram fetching our URL.
   const done = await waitFinished(env, base, creationId);
   if (!done.ok) return { ...done, container_id: creationId };
+
+  // A readiness test proves Meta processed this exact image, then stops before publication.
+  if (opts.publish === false) return { ok: true, dry_run: true, container_id: creationId, status_code: 'FINISHED' };
 
   // 3) publish
   const pub = await graph(env, `/${igId}/media_publish`, { method: 'POST', params: { creation_id: creationId } }, base);

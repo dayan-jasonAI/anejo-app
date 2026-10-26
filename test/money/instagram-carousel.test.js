@@ -133,10 +133,8 @@ test('a dry run builds every container and NEVER calls media_publish', async () 
   } finally { f.restore(); }
 });
 
-test('a dry run on a SINGLE image is refused — publishImage has no dry mode', () => {
-  // Falling through would publish for real: the exact accident a dry run exists to prevent.
-  assert.match(SHARED, /if \(dry && media\.length < 2\)/);
-  assert.ok(SHARED.indexOf('dry && media.length < 2') < SHARED.indexOf('media.length === 1'), 'refused BEFORE the branch');
+test('single image dry runs pass the explicit no-publish option', () => {
+  assert.match(SHARED, /await publishImage[\s\S]*?\{ publish: !dry \}/);
 });
 
 test("the HUB dry_run op takes no claim — a dry run must not move the post's status", () => {
