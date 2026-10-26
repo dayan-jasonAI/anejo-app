@@ -414,7 +414,7 @@ $("preview-bands").onclick = async () => {
     if (sequence !== bandPreviewSequence || JSON.stringify(bandPreviewInput()) !== snapshot) return;
     if (!response.ok || !result.ok || result.preview_only !== true || result.approved !== false || typeof result.html !== "string") throw Error("Preview unavailable");
     const oldFrame = $("band-preview-frame"), frame = oldFrame.cloneNode(false);
-    oldFrame.replaceWith(frame);
+    frame.removeAttribute("srcdoc");
     const loaded = new Promise((resolve, reject) => {
       const timer = setTimeout(() => reject(Error("Preview timed out")), 15000);
       frame.onload = () => { clearTimeout(timer); resolve(); };
@@ -422,6 +422,7 @@ $("preview-bands").onclick = async () => {
     });
     const policy = '<meta http-equiv="Content-Security-Policy" content="default-src \'none\'; img-src https://anejocateringco.com; font-src https://anejocateringco.com; style-src \'unsafe-inline\'; base-uri \'none\'; form-action \'none\'">';
     frame.srcdoc = result.html.replace("</head>", policy + '<style>@media screen{.toolbar{display:none!important}.sheet{margin:0!important}body{background:white}}</style></head>');
+    oldFrame.replaceWith(frame);
     $("band-preview-panel").hidden = false;
     fitBandPreview();
     await loaded;
