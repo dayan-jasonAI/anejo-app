@@ -33,7 +33,7 @@ export async function campaignRow(env,id,owner){const r=await env.DB.prepare('SE
 const mediaKind=key=>/\.jpe?g$/i.test(key)?'image':/\.(mp4|mov)$/i.test(key)?'video':null;
 function assetKey(key){return typeof key==='string'&&/^(studio|marketing-library)\/[A-Za-z0-9_./%-]+\.(jpg|jpeg|mp4|mov)$/i.test(key)&&!key.includes('..')&&!key.includes('%')&&!key.includes('//');}
 const warning=async(post_id,code,detail)=>({id:'cw_'+(await campaignDigest([post_id,code,detail])).slice(0,32),post_id,code,detail});
-function postReviewSnapshot(row,media){return {post_id:row.id,caption:row.caption||'',media_type:row.media_type||null,revision_snapshot:row.revision_snapshot,audit_signature:JSON.stringify([row.audit_status,row.audit_scope,row.audit_snapshot,row.audit_context_snapshot,row.audit_detail_json,row.audit_flags]),media:media.map(m=>({id:m.id,seq:m.seq,key:m.media_key}))};}
+async function postReviewSnapshot(row,media){return {post_id:row.id,caption:row.caption||'',media_type:row.media_type||null,revision_snapshot:row.revision_snapshot,audit_signature:await campaignDigest([row.audit_status,row.audit_scope,row.audit_at,row.audit_snapshot,row.audit_context_snapshot,row.audit_detail_json,row.audit_flags]),audit_token:JSON.stringify([row.audit_status,row.audit_scope,row.audit_at]),media:media.map(m=>({id:m.id,seq:m.seq,key:m.media_key}))};}
 export async function campaignView(env,row,{at=Date.now()}={}){
  const manifest=parse(row.manifest_json);if(!manifest?.slots)fail('campaign_manifest_unavailable',503);
  const source_snapshot=await campaignSourceSnapshot(env);const ids=manifest.slots.map(s=>s.post_id).filter(Boolean);const posts=ids.length?await readRows(env,`SELECT *, ${SOCIAL_AUDIT_SNAPSHOT} AS revision_snapshot, COALESCE(${SOCIAL_AUDIT_CURRENT},0) AS audit_current FROM social_posts WHERE id IN (${ids.map(()=>'?').join(',')})`,...ids):[];
@@ -61,7 +61,7 @@ export async function campaignView(env,row,{at=Date.now()}={}){
    if(!completed&&(!p.audit_current||p.audit_status!=='pass'||p.audit_scope!=='caption_and_media'))warnings.push(await warning(p.id,'audit_not_current_pass','The saved draft does not have a current passing image-and-caption audit. Owner review cannot be represented as a model pass.'));
    for(const f of completed?[]:(parse(p.audit_flags,[])||[])){if(typeof f?.detail==='string')warnings.push(await warning(p.id,String(f.type||'audit_warning'),f.detail.slice(0,1600)));}
    if(!completed&&list.some(m=>mediaKind(m.media_key)==='video'))warnings.push(await warning(p.id,'video_manual_review_required','The image auditor cannot inspect this video. The owner must watch the exact video, including wording and audio, before approval.'));
-   snapshots.push(postReviewSnapshot(p,list));
+   snapshots.push(await postReviewSnapshot(p,list));
   }
   if(!completed&&slot.scheduled_at<=at&&row.state!=='scheduled')local.push({code:'slot_time_passed',detail:'Choose a future publishing time.'});
   if(collisions.some(c=>c.scheduled_at===slot.scheduled_at&&c.id!==slot.post_id))local.push({code:'slot_collision',detail:'Another scheduled post already occupies this minute.'});
@@ -71,6 +71,12 @@ export async function campaignView(env,row,{at=Date.now()}={}){
  const base={campaign_id:row.id,campaign_version:row.version,title:row.title,manifest,source_snapshot,posts:snapshots};const base_hash=await campaignDigest(base);const saved=parse(row.validation_json);const valid=saved?.base_hash===base_hash;const validation=valid?saved:{state:saved?'stale':'pending',cursor:0,total:media.length,errors:[],base_hash,receipts:{}};
  const receipts=validation.receipts||{};for(const slot of slots)for(const item of slot.media){const receipt=receipts[item.id];item.content_type=receipt?.ok?receipt.content_type:null;if(receipt?.ok){item.sha256=receipt.sha256;item.byte_length=receipt.byte_length;}}
  const complete=valid&&validation.state==='complete'&&media.length>0&&media.every(m=>receipts[m.id]?.ok);
+ // A model pass without matching saved image receipts is not an automated acceptance path.
+ if(complete)for(const slot of slots){const p=byPost.get(slot.post_id);if(!slot.completed&&p?.audit_current&&p.audit_status==='pass'&&p.audit_scope==='caption_and_media'){
+  const sources=parse(p.audit_detail_json)?.input_coverage?.slide_sources;
+  const matched=Array.isArray(sources)&&sources.length===slot.media.length&&slot.media.every((m,index)=>{const source=sources[index],receipt=receipts[m.id];return source?.slide===index+1&&source.media_id===m.id&&source.seq===m.seq&&source.key===m.key&&source.sha256===receipt?.sha256&&source.byte_length===receipt?.byte_length;});
+  if(!matched)warnings.push(await warning(p.id,'audit_media_receipt_missing_or_changed','The passing audit lacks matching receipts for these exact validated media bytes. Owner review is separate from automated acceptance.'));
+ }}
  const uniqueWarnings=[...new Map(warnings.map(w=>[w.id,w])).values()];
  const manifest_hash=await campaignDigest({...base,media_receipts:media.map(m=>receipts[m.id]||null)});
  let approval=null;if(row.active_review_id){const r=await env.DB.prepare('SELECT id,owner_id,approved_at,review_mode,manifest_hash FROM social_campaign_reviews WHERE id=? AND campaign_id=?').bind(row.active_review_id,row.id).first();if(r)approval={id:r.id,owner_id:r.owner_id,approved_at:r.approved_at,review_mode:r.review_mode,approved_manifest_hash:r.manifest_hash,scope:'exact_manifest_only'};}
@@ -148,9 +154,10 @@ export async function approveCampaignSchedule(env,owner,b){
  const current=await campaignView(env,await campaignRow(env,row.id,owner));if(current.manifest_hash!==view.manifest_hash||!current.readiness.owner_review_ready)fail('campaign_preview_changed');
  const pendingIds=new Set(view.posts.filter(p=>!p.completed).map(p=>p.post_id));const pendingPosts=view._base.posts.filter(p=>pendingIds.has(p.post_id));if(!pendingPosts.length)fail('campaign_already_completed');
  const reviewId='scr_'+(await campaignDigest([owner,b.request_id])).slice(0,48),at=Date.now();const snapshot={...view._base,manifest_hash:view.manifest_hash,media_receipts:view._validation.receipts,review_mode:b.review_mode,warnings:view.readiness.warnings};
+ if(new TextEncoder().encode(JSON.stringify(snapshot)).length>1500000)fail('campaign_review_snapshot_too_large',413);
  // One materialized predicate checks the whole set before changing any row. There is no partial activation.
- const eligible=`WITH expected AS MATERIALIZED (SELECT json_extract(value,'$.post_id') AS post_id,json_extract(value,'$.revision_snapshot') AS revision_snapshot,json_extract(value,'$.audit_signature') AS audit_signature FROM json_each(?,'$.posts')),
- ready AS MATERIALIZED (SELECT COUNT(*) AS n FROM expected JOIN social_posts ON social_posts.id=expected.post_id WHERE status IN ('draft','failed') AND campaign_cycle_id=? AND ${SOCIAL_AUDIT_SNAPSHOT}=expected.revision_snapshot AND json_array(audit_status,audit_scope,audit_snapshot,audit_context_snapshot,audit_detail_json,audit_flags)=expected.audit_signature ${b.review_mode==='automated_pass'?`AND audit_status='pass' AND audit_scope='caption_and_media' AND ${SOCIAL_AUDIT_CURRENT}`:''})
+ const eligible=`WITH expected AS MATERIALIZED (SELECT json_extract(value,'$.post_id') AS post_id,json_extract(value,'$.revision_snapshot') AS revision_snapshot,json_extract(value,'$.audit_token') AS audit_token FROM json_each(?,'$.posts')),
+ ready AS MATERIALIZED (SELECT COUNT(*) AS n FROM expected JOIN social_posts ON social_posts.id=expected.post_id WHERE status IN ('draft','failed') AND campaign_cycle_id=? AND ${SOCIAL_AUDIT_SNAPSHOT}=expected.revision_snapshot AND json_array(audit_status,audit_scope,audit_at)=expected.audit_token ${b.review_mode==='automated_pass'?`AND audit_status='pass' AND audit_scope='caption_and_media' AND ${SOCIAL_AUDIT_CURRENT}`:''})
  UPDATE social_posts SET status='scheduled',scheduled_at=(SELECT json_extract(value,'$.scheduled_at') FROM json_each(?,'$.slots') WHERE json_extract(value,'$.post_id')=social_posts.id),campaign_review_id=?,auto_audit_required=?,error=NULL,updated_at=?
  WHERE id IN(SELECT post_id FROM expected) AND (SELECT n FROM ready)=? AND EXISTS(SELECT 1 FROM social_campaign_cycles WHERE id=? AND owner_id=? AND version=? AND state IN ('draft','paused') AND manifest_json=? AND validation_json=?) AND ${SOCIAL_AUDIT_CONTEXT}=?`;
  const results=await env.DB.batch([
@@ -180,7 +187,7 @@ export async function verifyCampaignPostReview(env,postId,reviewId,cycleId=null)
  const snapshot=parse(review.snapshot_json);const expected=snapshot?.posts?.find(p=>p.post_id===postId),slot=snapshot?.manifest?.slots?.find(p=>p.post_id===postId);if(!expected||!slot||snapshot.manifest_hash!==review.manifest_hash)fail('Campaign review snapshot unavailable.');
  if(await campaignSourceSnapshot(env)!==snapshot.source_snapshot)fail('Campaign source guidance changed. Review the campaign again.');
  const current=await env.DB.prepare(`SELECT *,${SOCIAL_AUDIT_SNAPSHOT} AS revision_snapshot FROM social_posts WHERE id=?`).bind(postId).first();if(!current||current.campaign_cycle_id!==row.id||current.campaign_review_id!==review.id||current.scheduled_at!==slot.scheduled_at||!['scheduled','publishing'].includes(current.status))fail('Campaign post or publishing time changed.');
- const media=await readRows(env,'SELECT id,seq,media_key FROM social_post_media WHERE post_id=? ORDER BY seq,created_at,id',postId);if(JSON.stringify(postReviewSnapshot(current,media))!==JSON.stringify(expected))fail('Campaign caption, media or audit evidence changed.');for(const item of media){const receipt=snapshot.media_receipts?.[item.id];if(!receipt||receipt.key!==item.media_key)fail('Campaign media receipt unavailable.');await receiptMatches(env,receipt,{bytes:true});}
+ const media=await readRows(env,'SELECT id,seq,media_key FROM social_post_media WHERE post_id=? ORDER BY seq,created_at,id',postId);if(JSON.stringify(await postReviewSnapshot(current,media))!==JSON.stringify(expected))fail('Campaign caption, media or audit evidence changed.');for(const item of media){const receipt=snapshot.media_receipts?.[item.id];if(!receipt||receipt.key!==item.media_key)fail('Campaign media receipt unavailable.');await receiptMatches(env,receipt,{bytes:true});}
  return {ok:true,scope:review.review_mode,review_id:review.id,manifest_hash:review.manifest_hash};
  }catch(error){return {ok:false,error:error instanceof CampaignError?error.code:'Campaign review verification unavailable.'};}
 }

@@ -73,6 +73,48 @@ test('the sweep follows bounded cursor pages and returns all available account h
   } finally { f.restore(); }
 });
 
+test('a terminal after cursor without paging.next is complete and does not fetch another page', async () => {
+  const requested = [];
+  const f = stubFetch((url) => {
+    if (url.includes('/media?')) {
+      const after = new URL(url).searchParams.get('after');
+      requested.push(after);
+      return jsonRes({ data: [MEDIA_LIST.data[0]], paging: { cursors: { after: 'terminal-cursor' } } });
+    }
+    if (url.includes('/insights')) return jsonRes({ data: [] });
+    return jsonRes({ followers_count: 36, media_count: 1 });
+  });
+  try {
+    const r = await sweepAccountInsights(env('tok-terminal-cursor'), { limit: 10, pageSize: 1 });
+    assert.equal(r.rows.length, 1);
+    assert.deepEqual(requested, [null]);
+    assert.deepEqual(r.pagination, { complete: true, truncated: false, pages_fetched: 1, rows_fetched: 1, max_rows: 10 });
+  } finally { f.restore(); }
+});
+
+test('repeated cursors stop safely and duplicate media IDs never create duplicate rows', async () => {
+  const requested = [];
+  const f = stubFetch((url) => {
+    if (url.includes('/media?')) {
+      const after = new URL(url).searchParams.get('after');
+      requested.push(after);
+      if (!after) return jsonRes({ data: [MEDIA_LIST.data[0]], paging: { cursors: { after: 'loop' }, next: 'present' } });
+      return jsonRes({ data: [MEDIA_LIST.data[0], { ...MEDIA_LIST.data[1], id: 'M3' }], paging: { cursors: { after: 'loop' }, next: 'present' } });
+    }
+    if (url.includes('/insights')) return jsonRes({ data: [] });
+    return jsonRes({ followers_count: 36, media_count: 3 });
+  });
+  try {
+    const r = await sweepAccountInsights(env('tok-repeated-cursor'), { limit: 10, pageSize: 1 });
+    assert.deepEqual(r.rows.map(row => row.media_id), ['M1', 'M3']);
+    assert.equal(new Set(r.rows.map(row => row.media_id)).size, r.rows.length);
+    assert.deepEqual(requested, [null, 'loop']);
+    assert.match(r.media_fetch_error, /repeated.*cursor/i);
+    assert.equal(r.pagination.complete, false);
+    assert.equal(r.pagination.truncated, true);
+  } finally { f.restore(); }
+});
+
 test('pagination failure preserves captured rows and reports incomplete history', async () => {
   let page = 0;
   const f = stubFetch((url) => {

@@ -55,14 +55,14 @@ async function mediaInsights(env, base, mediaId) {
  * A permission failure on /insights does not sink the sweep — likes/comments and the account
  * numbers still land, and `insights_error` tells the caller exactly what to fix.
  */
-export async function sweepAccountInsights(env, { limit = 500, pageSize = 100 } = {}) {
+export async function sweepAccountInsights(env, { limit = 100, pageSize = 100 } = {}) {
   if (!igConfigured(env)) return { ok: false, reason: 'not_configured' };
   const target = await resolveTarget(env);
   if (!target.ok) return target;
   const { base, id: igId } = target;
 
   const acct = await graphGet(env, base, `/${igId}`, { fields: 'followers_count,media_count' });
-  const boundedLimit = Math.max(1, Math.min(500, Number(limit) || 500));
+  const boundedLimit = Math.max(1, Math.min(500, Number(limit) || 100));
   const boundedPageSize = Math.max(1, Math.min(100, Number(pageSize) || 100));
   const fields = 'id,caption,media_type,permalink,timestamp,like_count,comments_count';
   let media = await graphGet(env, base, `/${igId}/media`, { fields, limit: String(Math.min(boundedLimit, boundedPageSize)) });
@@ -74,12 +74,16 @@ export async function sweepAccountInsights(env, { limit = 500, pageSize = 100 } 
   let pagesFetched = 0;
   let mediaFetchError = null;
   let hasMore = false;
-  const maxPages = Math.ceil(boundedLimit / boundedPageSize) + 1;
+  const seenMediaIds = new Set();
+  const seenCursors = new Set();
+  const maxPages = Math.ceil(boundedLimit / boundedPageSize);
   while (true) {
     if (pagesFetched >= maxPages) { hasMore = true; break; }
     pagesFetched++;
     for (const m of (page.body && page.body.data) || []) {
       if (rows.length >= boundedLimit) { hasMore = true; break; }
+      if (m?.id == null || seenMediaIds.has(String(m.id))) continue;
+      seenMediaIds.add(String(m.id));
       const ins = await mediaInsights(env, base, m.id);
       if (!ins.ok && !insightsError) insightsError = ins.error;
       const mm = ins.ok ? ins.metrics : {};
@@ -101,10 +105,14 @@ export async function sweepAccountInsights(env, { limit = 500, pageSize = 100 } 
       });
     }
     const after = page.body?.paging?.cursors?.after;
-    const more = !!page.body?.paging?.next || !!after;
+    // Meta can return a terminal `after` cursor without a `next` URL. The cursor is
+    // only a fetch key; `paging.next` is the authoritative indication of another page.
+    const more = !!page.body?.paging?.next;
     if (rows.length >= boundedLimit) { hasMore ||= more; break; }
     if (!more) break;
     if (!after) { mediaFetchError = 'Instagram reported another media page without a cursor; remaining posts were not fetched.'; break; }
+    if (seenCursors.has(String(after))) { mediaFetchError = 'Instagram repeated a media pagination cursor; remaining posts were not fetched.'; hasMore = true; break; }
+    seenCursors.add(String(after));
     page = await graphGet(env, base, `/${igId}/media`, { fields, limit: String(Math.min(boundedPageSize, boundedLimit - rows.length)), after });
     if (!page.ok) { mediaFetchError = page.error; break; }
   }

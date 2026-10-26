@@ -13,7 +13,11 @@ function fixture({empty=false,video=false}={}){
 }
 async function ready(f){let view=await createCampaign(f.env,owner,f.request);for(let i=0;i<20&&!view.readiness.validation_complete;i++)view=await validateCampaignMedia(f.env,await campaignRow(f.env,view.campaign.id,owner));assert.equal(view.readiness.validation_complete,true);return view;}
 function approval(view,request_id='approval-request-test-01'){return {id:view.campaign.id,expected_version:view.campaign.version,expected_manifest_hash:view.manifest_hash,request_id,review_mode:'owner_reviewed_with_warnings',acknowledge_exact_preview:true,acknowledged_warning_ids:view.readiness.warnings.map(w=>w.id)};}
-function markPass(env){env.DB.exec(`UPDATE social_posts SET audit_status='pass',audit_scope='caption_and_media',audit_flags='[]',audit_snapshot=${SOCIAL_AUDIT_SNAPSHOT},audit_context_snapshot=${SOCIAL_AUDIT_CONTEXT},audit_detail_json='{"rubric_version":"${VERSION}"}'`);}
+async function markPass(env){
+ const sha=Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',jpeg)),x=>x.toString(16).padStart(2,'0')).join('');
+ env.DB.exec(`UPDATE social_posts SET audit_status='pass',audit_scope='caption_and_media',audit_flags='[]',audit_snapshot=${SOCIAL_AUDIT_SNAPSHOT},audit_context_snapshot=${SOCIAL_AUDIT_CONTEXT}`);
+ for(const row of env.DB.sqlite.prepare('SELECT id,media_key FROM social_posts').all()){const index=Number(row.id.split('_').at(-1));env.DB.sqlite.prepare('UPDATE social_posts SET audit_detail_json=? WHERE id=?').run(JSON.stringify({rubric_version:VERSION,input_coverage:{slide_sources:[{slide:1,media_id:'sm_'+index,seq:0,key:row.media_key,sha256:sha,byte_length:jpeg.length,library_provenance:null}]}}),row.id);}
+}
 
 test('manifest time conversion survives November DST and bounds days, caps and duplicate slots',()=>{
  const slots=[{slot_id:'a',day_offset:0,time:'11:00',channel:'feed',post_id:null}];const m=normalizeCampaignManifest({start_date:'2026-11-01',slots});assert.equal(new Date(m.slots[0].scheduled_at).toISOString(),'2026-11-01T16:00:00.000Z');
@@ -33,7 +37,7 @@ test('warning review requires exact acknowledgements; separate receipt schedules
  }finally{f.env.DB.sqlite.close();}
 });
 test('strict mode schedules only current passing audits and ties publisher to source and exact byte receipt',async()=>{
- const f=fixture();try{markPass(f.env);const v=await ready(f);assert.equal(v.readiness.warnings.length,0);const b={...approval(v),review_mode:'automated_pass',acknowledged_warning_ids:[]};const out=await approveCampaignSchedule(f.env,owner,b);const review=out.campaign.approval.id;
+ const f=fixture();try{await markPass(f.env);const v=await ready(f);assert.equal(v.readiness.warnings.length,0);const b={...approval(v),review_mode:'automated_pass',acknowledged_warning_ids:[]};const out=await approveCampaignSchedule(f.env,owner,b);const review=out.campaign.approval.id;
  assert.equal((await verifyCampaignPostReview(f.env,'sp_test_0',review)).ok,true);f.objects.set('marketing-library/day0.jpg',new Uint8Array([255,216,255,0]));assert.equal((await verifyCampaignPostReview(f.env,'sp_test_0',review)).ok,false);f.objects.set('marketing-library/day0.jpg',jpeg);
  f.env.DB.exec("UPDATE daily_lunch_config SET version=version+1");assert.equal((await verifyCampaignPostReview(f.env,'sp_test_0',review)).ok,false);
  }finally{f.env.DB.sqlite.close();}
@@ -81,4 +85,21 @@ test('next-cycle generation is disabled by default, claims once and stages actua
 });
 test('unknown generation outcome never retries provider automatically and source races preserve generated output privately',async()=>{
  const {setCampaignGeneration,generateCampaignSlot}=await import('../../functions/_lib/social_campaign_generation.js');for(const sourceRace of [false,true]){const f=fixture({empty:true});let calls=0;try{const v=await createCampaign(f.env,owner,f.request);await setCampaignGeneration(f.env,owner,{id:v.campaign.id,expected_version:1,enabled:true,max_jobs:30,acknowledge_model_cost:true});const b={id:v.campaign.id,expected_version:1,request_id:'unknown-generation-test',slot_id:'day-0'};const generator=async()=>{calls++;if(sourceRace){f.env.DB.exec('UPDATE daily_lunch_config SET version=version+1');return {data:{caption:'Saved for review only',image_brief:'Concept',script:''}};}throw Error('Unknown transport outcome');};const r=await generateCampaignSlot(f.env,owner,b,generator);assert.equal(r.job.state,'unknown');assert.equal(r.job.post_id,null);assert.equal(f.env.DB.one('SELECT COUNT(*) n FROM social_posts').n,0);await generateCampaignSlot(f.env,owner,b,generator);assert.equal(calls,1);}finally{f.env.DB.sqlite.close();}}
+});
+
+test('actual owner API projects exact review fields and rejects nonowners and unvalidated scheduling',async()=>{
+ const {onRequestGet,onRequestPost}=await import('../../functions/api/hub/owner/social-campaigns.js');const {OWNER_COOKIE}=await import('../helpers/sqlite-d1.js');const f=fixture();
+ const call=body=>onRequestPost({env:f.env,request:new Request('https://anejo.test/api/hub/owner/social-campaigns',{method:'POST',headers:{cookie:OWNER_COOKIE,'content-type':'application/json'},body:JSON.stringify(body)})});
+ try{const created=await call({op:'create',...f.request});assert.equal(created.status,200);const v=await created.json();assert.equal(v.posts.length,30);assert.equal(v.posts[0].objective,'Sell lunch');assert.equal(v.campaign.approval,null);assert.equal(v.posts[0].media[0].kind,'image');assert.match(v.manifest_hash,/^[a-f0-9]{64}$/);
+ const list=await (await onRequestGet({env:f.env,request:new Request('https://anejo.test/api/hub/owner/social-campaigns',{headers:{cookie:OWNER_COOKIE}})})).json();assert.equal(list.campaigns[0].slot_count,30);
+ const denied=await onRequestGet({env:f.env,request:new Request('https://anejo.test/api/hub/owner/social-campaigns',{headers:{cookie:'anejo_sess=tok-kitchen'}})});assert.equal(denied.status,403);
+ const schedule=await call({op:'approve_schedule',...approval(v)});assert.equal(schedule.status,409);assert.equal(f.env.DB.one("SELECT COUNT(*) n FROM social_posts WHERE status='scheduled'").n,0);
+ }finally{f.env.DB.sqlite.close();}
+});
+test('existing publisher accepts a genuine owner-warning receipt and refuses replaced bytes before Meta',async()=>{
+ const {publishSocialPost}=await import('../../functions/_lib/social_publish.js');const f=fixture();const real=globalThis.fetch;let providerCalls=0;f.env.IG_ACCESS_TOKEN='test-only';f.env.IG_USER_ID='123';f.env.IG_API_HOST='facebook';f.env.IG_POLL_MS=0;
+ globalThis.fetch=async(url,init)=>{providerCalls++;if(String(url).includes('/media_publish'))return Response.json({id:'public-media-id'});if(init?.method==='POST')return Response.json({id:'container-id'});if(String(url).includes('public-media-id'))return Response.json({permalink:'https://instagram.test/p/fixture'});return Response.json({status_code:'FINISHED'});};
+ try{const v=await ready(f);await approveCampaignSchedule(f.env,owner,approval(v));f.env.DB.exec("UPDATE social_posts SET status='publishing' WHERE id='sp_test_0'");const p=f.env.DB.one("SELECT * FROM social_posts WHERE id='sp_test_0'");const out=await publishSocialPost(f.env,new Request('https://anejo.test'),p);assert.equal(out.ok,true);assert.equal(f.env.DB.one("SELECT status FROM social_posts WHERE id='sp_test_0'").status,'published');assert.ok(providerCalls>0);
+ providerCalls=0;f.env.DB.exec("UPDATE social_posts SET status='publishing' WHERE id='sp_test_1'");f.objects.set('marketing-library/day1.jpg',new Uint8Array([255,216,255,0]));const rejected=await publishSocialPost(f.env,new Request('https://anejo.test'),f.env.DB.one("SELECT * FROM social_posts WHERE id='sp_test_1'"));assert.equal(rejected.ok,false);assert.equal(providerCalls,0);assert.equal(f.env.DB.one("SELECT status FROM social_posts WHERE id='sp_test_1'").status,'failed');
+ }finally{globalThis.fetch=real;f.env.DB.sqlite.close();}
 });

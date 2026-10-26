@@ -851,7 +851,7 @@ async function socialPlan(env, date) {
   }
   const menu = await loadMenu(env);
   const dailyLunch = await loadDailyLunchAuditContext(env);
-  const offerings = (menu.items || []).filter(it => Number.isSafeInteger(it.price_cents) && it.price_cents > 0);
+  const offerings = (menu.items || []).filter(it => Number.isSafeInteger(it.price_cents) && it.price_cents > 0 && (['bowl','drink','meal','appetizer','side','dessert','sauce'].includes(it.kind) || (it.kind==='addon' && /^(traditional_|catering_)/.test(it.id))));
   const onSale = offerings.filter((it) => isAvailable(it) && isOrderable(it));
   const off = offerings.filter((it) => !isAvailable(it));
 
