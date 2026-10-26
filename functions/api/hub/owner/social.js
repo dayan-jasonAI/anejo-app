@@ -34,10 +34,13 @@ export const onRequestGet = async ({ request, env }) => {
   if (ctx instanceof Response) return ctx;
   if (!env.DB) return bad('Database not configured.', 500);
 
+  const archivedView = new URL(request.url).searchParams.get('archived') === '1';
+  const queueScope = archivedView ? "status='archived'" : "status<>'archived'";
+
   let posts = [];
   try {
     const r = await env.DB.prepare(
-      `SELECT id, platform, caption, media_key, media_type, status, scheduled_at, published_at, permalink, error, image_brief, source, ig_media_id, audit_score, audit_flags, audit_at, audit_status, audit_scope, audit_detail_json, COALESCE(${SOCIAL_AUDIT_CURRENT},0) AS audit_current, created_at FROM social_posts ORDER BY created_at DESC LIMIT 60`
+      `SELECT id, platform, caption, media_key, media_type, status, scheduled_at, published_at, permalink, error, image_brief, source, ig_media_id, audit_score, audit_flags, audit_at, audit_status, audit_scope, audit_detail_json, COALESCE(${SOCIAL_AUDIT_CURRENT},0) AS audit_current, created_at FROM social_posts WHERE ${queueScope} ORDER BY created_at DESC LIMIT 60`
     ).all();
     posts = (r && r.results) || [];
   } catch {
@@ -47,7 +50,7 @@ export const onRequestGet = async ({ request, env }) => {
     // has actually run.
     try {
       const r2 = await env.DB.prepare(
-        'SELECT id, platform, caption, media_key, status, scheduled_at, published_at, permalink, error, image_brief, source, ig_media_id, audit_score, audit_flags, audit_at, audit_status, created_at FROM social_posts ORDER BY created_at DESC LIMIT 60'
+        `SELECT id, platform, caption, media_key, status, scheduled_at, published_at, permalink, error, image_brief, source, ig_media_id, audit_score, audit_flags, audit_at, audit_status, created_at FROM social_posts WHERE ${queueScope} ORDER BY created_at DESC LIMIT 60`
       ).all();
       posts = ((r2 && r2.results) || []).map((p) => ({ ...p, media_type: null, audit_current: 0, audit_detail_json: null }));
     } catch { posts = []; }
@@ -64,7 +67,7 @@ export const onRequestGet = async ({ request, env }) => {
     // branding tool can pre-fill the wording box. Own try so a pre-0091 DB still renders slides.
     const m = await env.DB.prepare(
       `SELECT id, post_id, seq, media_key, origin, overlay_headline, overlay_sub FROM social_post_media
-        WHERE post_id IN (SELECT id FROM social_posts ORDER BY created_at DESC LIMIT 60)
+        WHERE post_id IN (SELECT id FROM social_posts WHERE ${queueScope} ORDER BY created_at DESC LIMIT 60)
         ORDER BY seq, created_at`
     ).all();
     const bySlide = {};
@@ -74,7 +77,7 @@ export const onRequestGet = async ({ request, env }) => {
    try {
     const m = await env.DB.prepare(
       `SELECT id, post_id, seq, media_key, origin FROM social_post_media
-        WHERE post_id IN (SELECT id FROM social_posts ORDER BY created_at DESC LIMIT 60)
+        WHERE post_id IN (SELECT id FROM social_posts WHERE ${queueScope} ORDER BY created_at DESC LIMIT 60)
         ORDER BY seq, created_at`
     ).all();
     const bySlide = {};
@@ -84,7 +87,7 @@ export const onRequestGet = async ({ request, env }) => {
     try {
       const m = await env.DB.prepare(
         `SELECT id, post_id, seq, media_key FROM social_post_media
-          WHERE post_id IN (SELECT id FROM social_posts ORDER BY created_at DESC LIMIT 60)
+          WHERE post_id IN (SELECT id FROM social_posts WHERE ${queueScope} ORDER BY created_at DESC LIMIT 60)
           ORDER BY seq, created_at`
       ).all();
       const bySlide = {};
@@ -128,7 +131,7 @@ export const onRequestGet = async ({ request, env }) => {
          FROM post_provenance pp
          LEFT JOIN team_briefs tb ON tb.id = pp.brief_id
          LEFT JOIN market_intel mi ON mi.id = pp.intel_id
-        WHERE pp.post_id IN (SELECT id FROM social_posts ORDER BY created_at DESC LIMIT 60)`
+        WHERE pp.post_id IN (SELECT id FROM social_posts WHERE ${queueScope} ORDER BY created_at DESC LIMIT 60)`
     ).all();
     const byProv = {};
     for (const row of (pr && pr.results) || []) {
@@ -196,6 +199,7 @@ export const onRequestGet = async ({ request, env }) => {
     // every time. OPENAI_API_KEY is live in production, so the tool still works without this.
     reference_gemini_configured: !!env.GEMINI_API_KEY,
     posts,
+    archived_view: archivedView,
     draft_actor: ctx.distinct_id || ctx.email,
   });
 };
@@ -648,16 +652,22 @@ export const onRequestPost = async ({ request, env }) => {
     return json({ ok: true, id: postId, status: 'draft' });
   }
 
-  if (op === 'delete') {
+  // Legacy Delete now means recoverable removal. The scheduler claims only scheduled rows.
+  if (op === 'archive' || op === 'delete' || op === 'restore') {
     const postId = String(b.id || '').trim();
     if (!postId) return bad('Missing id.');
-    // A published post is a real thing on a real profile — deleting our row would just lose the
-    // record of it while the post stays up. Refuse and say so.
-    const row = await env.DB.prepare('SELECT status FROM social_posts WHERE id=?').bind(postId).first().catch(() => null);
+    const restore = op === 'restore';
+    const row = await env.DB.prepare('SELECT status FROM social_posts WHERE id=?').bind(postId).first();
     if (!row) return bad('That post no longer exists.', 404);
-    if (row.status === 'published') return bad('That is already live on Instagram — delete it in the app, not here.', 409);
-    await env.DB.prepare('DELETE FROM social_posts WHERE id=?').bind(postId).run();
-    return json({ ok: true, deleted: postId });
+    if (!restore && row.status === 'archived') return json({ok:true,id:postId,status:'archived'});
+    const allowed = restore ? ['archived'] : ['draft','scheduled','failed'];
+    if (!allowed.includes(row.status)) return bad(restore ? 'Only removed drafts can be restored.' : 'Only drafts, scheduled or failed posts can be removed. Live and publishing posts are protected.',409);
+    const status = restore ? 'draft' : 'archived';
+    const changed = await env.DB.prepare("UPDATE social_posts SET status=?,scheduled_at=NULL,updated_at=? WHERE id=? AND status=?")
+      .bind(status,now(),postId,row.status).run();
+    if (changed.meta?.changes !== 1) return bad('This post changed. Refresh before trying again.',409);
+    await capture(env,{event:restore?'social.post_restored':'social.post_archived',distinct_id:ctx.distinct_id,role:ctx.role,team:ctx.team,properties:{post_id:postId,previous_status:row.status}});
+    return json({ok:true,id:postId,status});
   }
 
   if (op === 'publish') {

@@ -817,7 +817,7 @@
     else Hub.toast('Photo attached, but the list could not refresh. Refresh before adding it again.');
   }
 
-  var WORD = { draft:'Draft', scheduled:'Scheduled', publishing:'Publishing…', published:'Live on Instagram', failed:'Failed' };
+  var WORD = { draft:'Draft', scheduled:'Scheduled', publishing:'Publishing…', published:'Live on Instagram', failed:'Failed', archived:'Removed' };
 
   function when(p) {
     if (p.published_at) return 'Posted ' + new Date(Number(p.published_at)).toLocaleString([], { month:'short', day:'numeric', hour:'numeric', minute:'2-digit' });
@@ -1509,7 +1509,8 @@
         '<p class="hint">' + (diagnostic.reason === 'provider_rejected' ? 'This is a rejected review request, not a verified defect in your design.' : 'This is a rejected auditor observation, not a verified defect in your design.') + '</p></details>';
     }
     body += '<div class="hint">' + (!current ? 'The design or source guidance must be checked again. ' : '') + 'Visual comparison does not prove image or logo provenance. An audit is not permission to publish.</div>';
-    return '<div class="audit ' + status + '"><span class="audit-head">Brand Auditor · ' + label + '</span>' + body + '</div>';
+    return '<div class="audit ' + (current ? status : 'unscored') + '"><span class="audit-head">Brand Auditor · ' + label + '</span>' +
+      '<details class="audit-details"><summary>' + (current ? 'Review findings' : 'Previous audit details') + '</summary>' + body + '</details></div>';
   }
 
   // PROVENANCE on the card — what CAUSED this post, from social.js's batched post_provenance join
@@ -1543,6 +1544,7 @@
   }
 
   function postCard(p) {
+    if (p.status === 'archived') return '<div class="post" data-queue-card="'+esc(p.id)+'" data-queue-status="archived" tabindex="-1"><div class="post-head"><b>Removed draft</b></div><p>'+esc((p.caption || 'Untitled draft').slice(0,160))+'</p><p class="hint">Removed from the active queue. Restoring keeps it unscheduled.</p><button type="button" class="btn ghost" data-restore="'+esc(p.id)+'">Restore draft</button></div>';
     var mtype = p.media_type || null;   // null = legacy/undeclared (migrations/0080) — image/carousel by slide count, as always
     var slideCap = (mtype === 'REELS' || mtype === 'STORIES') ? 1 : 10;   // Meta allows no carousel for either
     var isFeed = mtype !== 'REELS' && mtype !== 'STORIES';   // branding + carousel generation are feed-post concepts only
@@ -1609,7 +1611,7 @@
               mtype === 'REELS' ? 'Publish Reel' :
               mtype === 'STORIES' ? 'Publish to Story' :
               (p.media || []).length > 1 ? 'Publish carousel · ' + (p.media || []).length + ' photos' : 'Publish now') + '</button>' : '') +
-          '<button class="del" data-del="' + esc(p.id) + '">Delete</button>' +
+          '<button class="del" data-del="' + esc(p.id) + '">Remove draft</button>' +
         '</div>') +
       '</div>';
   }
@@ -1720,7 +1722,7 @@
         '</div></div>' +
       '<div class="hub-section" id="post-queue"><h2 tabindex="-1" id="post-queue-title">Posts / Publicaciones</h2>' +
         '<p class="hint">Latest 60 posts returned · Últimas 60 publicaciones devueltas</p><div class="pt-chips queue-filters" role="group" aria-label="Filter posts / Filtrar publicaciones">' +
-        [['drafts','Drafts / Borradores'],['scheduled','Scheduled / Programadas'],['attention','Attention / Atención'],['live','Live / Publicadas'],['all','All / Todas']].map(function (f) { return '<button type="button" data-queue-filter="' + f[0] + '" aria-pressed="false">' + f[1] + '</button>'; }).join('') + '</div><p id="queue-count" class="hint" role="status"></p><p id="queue-empty" hidden>No matching posts in this loaded list. / No hay publicaciones coincidentes en esta lista.</p>' +
+        [['drafts','Drafts / Borradores'],['scheduled','Scheduled / Programadas'],['attention','Attention / Atención'],['live','Live / Publicadas'],['all','All / Todas'],['archived','Removed / Eliminadas']].map(function (f) { return '<button type="button" data-queue-filter="' + f[0] + '" aria-pressed="false">' + f[1] + '</button>'; }).join('') + '</div><p id="queue-count" class="hint" role="status"></p><p id="queue-empty" hidden>No matching posts in this loaded list. / No hay publicaciones coincidentes en esta lista.</p>' +
         (d.posts.length ? d.posts.map(postCard).join('') : '<div class="card"><p class="row-sub">Nothing yet.</p></div>') +
       '</div>';
 
@@ -1732,14 +1734,16 @@
 
   var queueFilter = 'drafts';
   function matchesQueue(status, filter) {
-    return filter === 'all' || (filter === 'drafts' && status === 'draft') ||
+    return (filter === 'all' && status !== 'archived') || (filter === 'archived' && status === 'archived') || (filter === 'drafts' && status === 'draft') ||
       (filter === 'scheduled' && status === 'scheduled') ||
       (filter === 'attention' && (status === 'failed' || status === 'publishing')) ||
       (filter === 'live' && status === 'published');
   }
   window.MarketingTabs.filterQueue = function (filter, postId) {
-    if (!['drafts', 'scheduled', 'attention', 'live', 'all'].includes(filter)) filter = 'drafts';
+    if (!['drafts', 'scheduled', 'attention', 'live', 'all', 'archived'].includes(filter)) filter = 'drafts';
     queueFilter = filter;
+    history.replaceState(null, '', '#create-instagram?filter=' + filter + (postId ? '&post=' + encodeURIComponent(postId) : ''));
+    if ((filter === 'archived') !== Boolean(DATA.archived_view)) { load(); return; }
     var cards = Array.from(document.querySelectorAll('[data-queue-card]'));
     var shown = 0, target = null;
     cards.forEach(function (card) {
@@ -2054,16 +2058,24 @@
       });
     });
 
+    document.querySelectorAll('[data-restore]').forEach(function(b){b.onclick=function(){
+      if(b.disabled)return; b.disabled=true;
+      Hub.api('/api/hub/owner/social',{method:'POST',body:{op:'restore',id:b.getAttribute('data-restore')}}).then(function(r){
+        if(r&&r.ok){Hub.toast('Restored as an unscheduled draft');load();}else{b.disabled=false;Hub.toast((r&&r.error)||'Could not restore');}
+      });
+    };});
+
     Array.prototype.forEach.call(document.querySelectorAll('[data-del]'), function (b) {
       b.addEventListener('click', function () {
-        if (!window.confirm('Delete this post? It has not gone out.')) return;
-        Hub.api('/api/hub/owner/social', { method:'POST', body:{ op:'delete', id:b.getAttribute('data-del') } })
-          .then(function (r) { if (r && r.ok) { Hub.toast('Deleted'); load(); } else Hub.toast((r && r.error) || 'Could not delete'); });
+        if (b.disabled) return;
+        b.disabled = true;
+        Hub.api('/api/hub/owner/social', { method:'POST', body:{ op:'archive', id:b.getAttribute('data-del') } })
+          .then(function (r) { if (r && r.ok) { Hub.toast('Draft removed. Restore it from Removed.'); load(); } else { b.disabled=false; Hub.toast((r && r.error) || 'Could not remove'); } });
       });
     });
   }
 
-  function load() { Owner.get('/api/hub/owner/social').then(function (d) { DATA = d; render(); }); }
+  function load() { Owner.get('/api/hub/owner/social' + (queueFilter === 'archived' ? '?archived=1' : '')).then(function (d) { DATA = d; render(); }); }
   window.MarketingTabs.createInstagram = load;
 })();
 </script>
@@ -2485,7 +2497,7 @@
       if (!t) { Hub.toast('Pick a template first.'); return; }
       if (!window.confirm('Delete the template “' + t.name + '”? Campaigns already sent are not affected.')) return;
       Hub.api('/api/hub/owner/campaigns', { method: 'POST', body: { op: 'template_delete', id: t.id } })
-        .then(function (r) { if (r && r.ok) { Hub.toast('Deleted'); load(); } else Hub.toast((r && r.error) || 'Could not delete'); });
+        .then(function (r) { if (r && r.ok) { Hub.toast('Draft removed. Restore it from Removed.'); load(); } else { b.disabled=false; Hub.toast((r && r.error) || 'Could not remove'); } });
     });
 
     var sv = document.getElementById('f_tplsave');

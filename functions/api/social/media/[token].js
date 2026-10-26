@@ -45,7 +45,7 @@ export const onRequestGet = async ({ env, params }) => {
   // The window is open only while the post needs it. Instagram fetches during 'publishing'; a
   // draft is staged and about to. Once PUBLISHED, Instagram hosts its own copy and has no reason
   // to come back — so the URL stops working and a leaked token ages into uselessness.
-  if (post.status === 'published' || post.status === 'failed') return notFound();
+  if (post.status === 'published' || post.status === 'failed' || post.status === 'archived') return notFound();
 
   const obj = await getMedia(env, post.media_key);
   if (!obj) return notFound();
