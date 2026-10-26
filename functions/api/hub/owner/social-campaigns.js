@@ -1,8 +1,8 @@
 // Owner-private organic editorial cycles. Creating/validating is not public approval.
 import {requireRole} from '../../../_lib/roles.js';
 import {json} from '../../../_lib/util.js';
-import {setCampaignGeneration,generateCampaignSlot} from '../../../_lib/social_campaign_generation.js';
-import {CampaignError,campaignRow,campaignView,publicCampaignView,createCampaign,updateCampaign,importCampaignPosts,validateCampaignMedia,approveCampaignSchedule,pauseCampaign,nextCampaignCycle} from '../../../_lib/social_campaigns.js';
+import {setCampaignGeneration,generateCampaignSlot,reconcileCampaignGeneration,abandonCampaignGeneration} from '../../../_lib/social_campaign_generation.js';
+import {CampaignError,campaignRow,campaignView,publicCampaignView,createCampaign,updateCampaign,importCampaignPosts,stageCampaignCaptions,saveCampaignCaptions,validateCampaignMedia,approveCampaignSchedule,pauseCampaign,nextCampaignCycle} from '../../../_lib/social_campaigns.js';
 const replyError=error=>json({ok:false,error:error instanceof CampaignError?error.code:'campaign_operation_unavailable',review_required:true,...(error instanceof CampaignError&&error.details?{details:error.details}:{})},error instanceof CampaignError?error.status:503);
 async function context(request,env){const owner=await requireRole(request,env,['owner']);if(owner instanceof Response)return owner;if(!env.DB||!owner.distinct_id)return json({ok:false,error:'campaign_owner_context_unavailable'},503);return owner;}
 export async function onRequestGet({request,env}){
@@ -20,12 +20,16 @@ export async function onRequestPost({request,env}){
  if(b.op==='create')result=await createCampaign(env,who,b);
  else if(b.op==='update')result=await updateCampaign(env,who,b);
  else if(b.op==='import_posts')result=await importCampaignPosts(env,who,b);
+ else if(b.op==='stage_captions')result=await stageCampaignCaptions(env,who,b);
+ else if(b.op==='save_captions')result=await saveCampaignCaptions(env,who,b);
  else if(b.op==='validate'){const row=await campaignRow(env,b.id,who);if(row.version!==b.expected_version)throw new CampaignError('campaign_version_changed');result=publicCampaignView(await validateCampaignMedia(env,row));}
  else if(b.op==='approve_schedule')result=await approveCampaignSchedule(env,who,b);
  else if(b.op==='pause')result=await pauseCampaign(env,who,b);
  else if(b.op==='next_cycle')result=await nextCampaignCycle(env,who,b);
  else if(b.op==='set_generation')result=await setCampaignGeneration(env,who,b);
  else if(b.op==='generate_slot')result=await generateCampaignSlot(env,who,b);
+ else if(b.op==='reconcile_generation_job')result=await reconcileCampaignGeneration(env,who,b);
+ else if(b.op==='abandon_generation_job')result=await abandonCampaignGeneration(env,who,b);
  else throw new CampaignError('unknown_operation',400);
  return json(result);
  }catch(error){return replyError(error);}

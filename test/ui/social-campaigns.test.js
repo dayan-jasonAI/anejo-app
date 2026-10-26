@@ -5,7 +5,7 @@ import vm from 'node:vm';
 const code = readFileSync(new URL('../../public/hub/owner/assets/social-campaigns.js', import.meta.url), 'utf8');
 const page = readFileSync(new URL('../../public/hub/owner/social-campaigns.html', import.meta.url), 'utf8');
 function harness(response = { ok: true, campaigns: [] }) {
-  const nodes = Object.fromEntries(['owner-root', 'campaign-feedback', 'campaign-reload'].map(id => [id, { innerHTML: '', textContent: '', setAttribute(k, v) { this[k] = v; }, addEventListener() {} }]));
+  const nodes = Object.fromEntries(['owner-root', 'campaign-feedback', 'campaign-reload', 'campaign-import', 'campaign-plan-file'].map(id => [id, { innerHTML: '', textContent: '', setAttribute(k, v) { this[k] = v; }, addEventListener() {} }]));
   const calls = [], listeners = {};
   const ctx = { Hub: { esc: v => String(v ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])), api: async u => { calls.push(u); return response; } }, Owner: { init(_view, fn) { ctx.start = fn; } }, document: { getElementById: id => nodes[id] }, window: { addEventListener(k, fn) { listeners[k] = fn; } }, location: { origin: 'https://example.test', search: '' }, URL, URLSearchParams, Intl, Date, Object, Array, Number, String };
   vm.runInNewContext(code, ctx);
@@ -65,4 +65,19 @@ test('owner auth, untranslated captions, and review disclosures are present', ()
   assert.match(code, /Dates marked suggested have not been scheduled/);
   assert.match(code, /audit_current === true/);
   assert.match(page, /Loading campaign/);
+});
+test('draft plan import strips file approvals, media, schedule and post membership', () => {
+  const h = harness(), slots = Array.from({ length: 30 }, (_, i) => ({ slot_id: 'day-' + i, day_offset: i, time: '11:15', channel: 'feed', caption: 'Private caption', post_id: 'sp_other', media: ['unsafe'], approval: { approved: true }, status: 'scheduled', scheduled_at: 1 }));
+  const plan = h.api.parseDraftPlan({ title: 'Private plan', proposed_start_date: '2026-11-01', slots, approval: true });
+  assert.equal(plan.slots.length, 30); assert.ok(plan.slots.every(s => s.post_id === null));
+  assert.equal('approval' in plan, false); assert.equal('media' in plan.slots[0], false); assert.equal('scheduled_at' in plan.slots[0], false);
+  assert.throws(() => h.api.parseDraftPlan({ ...plan, slots: slots.slice(0, 29) }), /30/);
+  assert.throws(() => h.api.parseDraftPlan({ ...plan, slots: slots.map(s => ({ ...s, slot_id: 'same' })) }), /unique/);
+  assert.throws(() => h.api.parseDraftPlan({ ...plan, slots: slots.map(s => ({ ...s, caption: ' ' })) }), /complete caption/);
+});
+test('caption save uses exact revision and next cycle makes draft structure only', () => {
+  assert.match(code, /op: 'save_captions'/); assert.match(code, /expected_revision_snapshot: p.expected_revision_snapshot/);
+  assert.match(code, /op: 'stage_captions'/); assert.match(code, /op: 'next_cycle'/);
+  assert.match(code, /select the same unchanged file to resume/);
+  assert.match(code, /media, approvals or schedule/);
 });

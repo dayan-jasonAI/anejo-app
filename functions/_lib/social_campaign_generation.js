@@ -8,6 +8,7 @@ import {loadDailyLunchAuditContext} from './daily_lunch_audit_context.js';
 import {performanceBrief} from './instagram_insights.js';
 import {CampaignError,campaignDigest,campaignRow,campaignView,publicCampaignView,campaignSourceSnapshot,validCampaignRequest} from './social_campaigns.js';
 import {SOCIAL_AUDIT_CONTEXT} from './social_audit.js';
+export const GENERATION_LEASE_MS=10*60*1000;
 const bad=(code,status=409)=>{throw new CampaignError(code,status);};
 const parsed=(text,fallback=null)=>{try{return JSON.parse(text);}catch{return fallback;}};
 export async function setCampaignGeneration(env,owner,b){
@@ -29,11 +30,33 @@ export async function generateCampaignSlot(env,owner,b,generator=askClaudeJson){
  if(!valid){await env.DB.prepare("UPDATE social_campaign_jobs SET state='unknown',error_code='provider_outcome_requires_review',updated_at=? WHERE id=? AND state='claimed'").bind(Date.now(),jobId).run();return jobResult(env,row,await env.DB.prepare('SELECT * FROM social_campaign_jobs WHERE id=?').bind(jobId).first(),false);}
  const postId='sp_camp_'+(await campaignDigest([jobId,'post'])).slice(0,40);slot.post_id=postId;const type=slot.channel==='reel'?'REELS':slot.channel==='story'?'STORIES':null;const output={caption:data.caption,image_brief:data.image_brief,script:data.script,media_produced:false,inference_receipt_id:generated.inputReceipt?.persisted===true?generated.inputReceipt.receipt_id:null};const savedAt=Date.now();
  const results=await env.DB.batch([
- env.DB.prepare(`UPDATE social_campaign_cycles SET manifest_json=?,validation_json=NULL,version=version+1,updated_at=? WHERE id=? AND owner_id=? AND version=? AND state IN ('draft','paused') AND manifest_json=? AND ${SOCIAL_AUDIT_CONTEXT}=?`).bind(JSON.stringify(manifest),savedAt,row.id,owner,row.version,row.manifest_json,source),
+ env.DB.prepare(`UPDATE social_campaign_cycles SET manifest_json=?,validation_json=NULL,version=version+1,updated_at=? WHERE id=? AND owner_id=? AND version=? AND state IN ('draft','paused') AND manifest_json=? AND ${SOCIAL_AUDIT_CONTEXT}=? AND EXISTS(SELECT 1 FROM social_campaign_jobs WHERE id=? AND state='claimed' AND updated_at>?)`).bind(JSON.stringify(manifest),savedAt,row.id,owner,row.version,row.manifest_json,source,jobId,savedAt-GENERATION_LEASE_MS),
  env.DB.prepare("INSERT INTO social_posts(id,platform,caption,media_key,media_type,public_token,status,scheduled_at,image_brief,source,created_by,created_at,updated_at,campaign_cycle_id) SELECT ?,'instagram',?,NULL,?,?,'draft',NULL,?,'campaign',?,?,?,? WHERE changes()=1").bind(postId,data.caption,type,crypto.randomUUID().replaceAll('-',''),data.image_brief,owner,savedAt,savedAt,row.id),
  env.DB.prepare("UPDATE social_campaign_jobs SET state='succeeded',post_id=?,output_json=?,updated_at=? WHERE id=? AND state='claimed' AND EXISTS(SELECT 1 FROM social_posts WHERE id=? AND campaign_cycle_id=?)").bind(postId,JSON.stringify(output),savedAt,jobId,postId,row.id),
  ]);
  if(results[0]?.meta?.changes!==1||results[1]?.meta?.changes!==1||results[2]?.meta?.changes!==1)await env.DB.prepare("UPDATE social_campaign_jobs SET state='unknown',output_json=?,error_code='source_or_campaign_changed_after_generation',updated_at=? WHERE id=? AND state='claimed'").bind(JSON.stringify(output),savedAt,jobId).run();
+ // A late provider response may be retained privately after owner abandonment, never assigned.
+ await env.DB.prepare("UPDATE social_campaign_jobs SET output_json=? WHERE id=? AND state='failed' AND error_code='owner_abandoned_unknown_outcome' AND output_json IS NULL").bind(JSON.stringify(output),jobId).run();
  return jobResult(env,await campaignRow(env,row.id,owner),await env.DB.prepare('SELECT * FROM social_campaign_jobs WHERE id=?').bind(jobId).first(),false);
 }
-async function jobResult(env,row,job,replayed){return {...publicCampaignView(await campaignView(env,await campaignRow(env,row.id,row.owner_id))),operation:{op:'generate_slot',replayed},job:{id:job.id,slot_id:job.slot_id,state:job.state,post_id:job.post_id||null,error:job.error_code||null,output:parsed(job.output_json),created_at:job.created_at,updated_at:job.updated_at,scope:'caption/script draft only; no produced asset, approval, schedule or publication'}};}
+async function jobResult(env,row,job,replayed){return {...publicCampaignView(await campaignView(env,await campaignRow(env,row.id,row.owner_id))),operation:{op:'generate_slot',replayed},job:{id:job.id,slot_id:job.slot_id,state:job.state,lease_expires_at:job.state==='claimed'?job.updated_at+GENERATION_LEASE_MS:null,requires_reconciliation:job.state==='claimed'&&job.updated_at+GENERATION_LEASE_MS<=Date.now(),requires_owner_decision:job.state==='unknown',post_id:job.post_id||null,error:job.error_code||null,output:parsed(job.output_json),created_at:job.created_at,updated_at:job.updated_at,scope:'caption/script draft only; no produced asset, approval, schedule or publication'}};}
+
+// Reconciliation never retries a provider. An unknown charge/result requires an explicit owner decision.
+export async function reconcileCampaignGeneration(env,owner,b){
+ const row=await campaignRow(env,b.id,owner);if(row.version!==b.expected_version)bad('campaign_version_changed');
+ const job=await env.DB.prepare('SELECT * FROM social_campaign_jobs WHERE id=? AND campaign_id=?').bind(b.job_id,row.id).first();if(!job)bad('generation_job_not_found',404);
+ if(job.state==='claimed'){const now=Date.now();if(job.updated_at+GENERATION_LEASE_MS>now)bad('generation_lease_still_active');await env.DB.prepare("UPDATE social_campaign_jobs SET state='unknown',error_code='stale_claim_outcome_unknown',updated_at=? WHERE id=? AND state='claimed' AND updated_at=? AND EXISTS(SELECT 1 FROM social_campaign_cycles WHERE id=? AND owner_id=? AND version=?)").bind(now,job.id,job.updated_at,row.id,owner,row.version).run();}
+ return jobResult(env,row,await env.DB.prepare('SELECT * FROM social_campaign_jobs WHERE id=?').bind(job.id).first(),false);
+}
+export async function abandonCampaignGeneration(env,owner,b){
+ if(!validCampaignRequest(b.request_id)||b.acknowledge_unknown_provider_outcome!==true)bad('explicit_generation_abandonment_required',400);
+ const hash=await campaignDigest(b),prior=await env.DB.prepare('SELECT * FROM social_campaign_actions WHERE owner_id=? AND request_id=?').bind(owner,b.request_id).first();
+ if(prior){if(prior.op!=='abandon_generation_job'||prior.payload_hash!==hash||prior.campaign_id!==b.id)bad('request_key_conflict');const row=await campaignRow(env,b.id,owner);const job=await env.DB.prepare('SELECT * FROM social_campaign_jobs WHERE id=? AND campaign_id=?').bind(b.job_id,row.id).first();if(!job)bad('generation_job_not_found',404);return jobResult(env,row,job,true);}
+ const row=await campaignRow(env,b.id,owner);if(row.version!==b.expected_version)bad('campaign_version_changed');if(!['draft','paused'].includes(row.state))bad('campaign_not_in_review');const at=Date.now();
+ const result=await env.DB.batch([
+ env.DB.prepare("UPDATE social_campaign_jobs SET state='failed',error_code='owner_abandoned_unknown_outcome',updated_at=? WHERE id=? AND campaign_id=? AND state='unknown' AND EXISTS(SELECT 1 FROM social_campaign_cycles WHERE id=? AND owner_id=? AND version=? AND state IN ('draft','paused'))").bind(at,b.job_id,row.id,row.id,owner,row.version),
+ env.DB.prepare("UPDATE social_campaign_cycles SET version=version+1,validation_json=NULL,updated_at=? WHERE id=? AND owner_id=? AND version=? AND changes()=1").bind(at,row.id,owner,row.version),
+ env.DB.prepare("INSERT INTO social_campaign_actions(id,campaign_id,owner_id,request_id,op,payload_hash,result_json,created_at) SELECT ?,?,?,?,'abandon_generation_job',?,?,? WHERE changes()=1").bind('sca_'+await campaignDigest([owner,b.request_id]),row.id,owner,b.request_id,hash,JSON.stringify({job_id:b.job_id,decision:'abandoned; provider charge/result unknown; new generation requires new request and current version',owner,at}),at),
+ ]);if(result[0]?.meta?.changes!==1||result[1]?.meta?.changes!==1||result[2]?.meta?.changes!==1)bad('generation_job_not_unknown_or_changed');
+ return jobResult(env,await campaignRow(env,row.id,owner),await env.DB.prepare('SELECT * FROM social_campaign_jobs WHERE id=?').bind(b.job_id).first(),false);
+}
