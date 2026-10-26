@@ -949,9 +949,8 @@ async function socialPlan(env, date) {
       'intel_id: the market_intel id (copied exactly from a "[id: ...]" tag above) whose finding ' +
       'shaped this post\'s angle, or null if none did. The server checks this id against the intel ' +
       'it actually gave you, so inventing one accomplishes nothing. ' +
-      'day_offset: days from today. hour: local hour to post — the strongest windows for a food ' +
-      'account are 11-13 (lunch decision) and 17-19 (dinner decision) on weekdays, Friday ' +
-      'performs best, weekends are weakest so use 17-19 if you place one there. Spread posts ' +
+      'day_offset: days from today. hour: local hour to post. Use actual dated account evidence when available; ' +
+      'otherwise treat 11-13 and 17-19 as initial test windows, not proven best times. Do not assume a weekday performs better. Spread posts ' +
       'across the week, never two posts in the same hour on the same day — the server also ' +
       'enforces this, but a considered choice beats a corrected one. ' +
       'NEVER name a weekday, date or time of day in the caption unless it matches the day_offset you chose for that same post — ' +

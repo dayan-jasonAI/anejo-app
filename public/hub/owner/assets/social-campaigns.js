@@ -234,7 +234,7 @@
         try { response = await fetch('/api/hub/owner/social-campaign-media-upload', { method: 'POST', credentials: 'same-origin', body: form }); data = await response.json(); }
         catch (_) { throw { unknown: true, message: 'The upload outcome is unknown. No media attachment was requested. Refresh the saved post before starting a new selection.' }; }
         if (response.status === 401 && Hub.sessionLost) Hub.sessionLost(data && data.error);
-        if (!response.ok || !data || !data.ok || !data.media || !data.media.key) throw { unknown: response.status >= 500, message: data && data.error || 'The file could not be uploaded.' };
+        if (!response.ok || !data || !data.ok || !data.media || !data.media.key) throw { unknown: response.status >= 500, message: response.status >= 500 ? 'The upload outcome could not be confirmed.' : response.status === 401 ? 'Sign in again before uploading.' : data && /bytes_mismatch|type_unsupported/.test(data.error || '') ? 'The file could not be verified as a supported JPEG or MP4.' : 'The file could not be uploaded. Check its format and size before choosing again.' };
         draft.items[i].uploaded = data.media;
       }
       draft.phase = 'uploaded'; draft.message = 'Files uploaded. Review the order, then attach them explicitly. The saved post has not changed.';
