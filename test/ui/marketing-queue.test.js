@@ -50,3 +50,9 @@ test('removed view loads separately and All never exposes archived drafts',()=>{
  h.ctx.DATA.archived_view=true;h.ctx.window.MarketingTabs.routeQueue();assert.equal(removed.hidden,false);
  h.ctx.window.MarketingTabs.filterQueue('drafts');assert.equal(h.loads,2);assert.match(h.ctx.location.hash,/filter=drafts/);
 });
+
+test('cold shell navigation is safe before the first queue response',()=>{
+ const h=harness();h.ctx.DATA=null;assert.doesNotThrow(()=>h.ctx.window.MarketingTabs.routeQueue());assert.equal(h.loads,0);
+ h.ctx.location.hash='#create-instagram?filter=archived';assert.doesNotThrow(()=>h.ctx.window.MarketingTabs.routeQueue());assert.equal(h.loads,0);
+ h.ctx.DATA={archived_view:false};h.ctx.window.MarketingTabs.routeQueue();assert.equal(h.loads,1);
+});

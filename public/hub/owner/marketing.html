@@ -1742,6 +1742,7 @@
   window.MarketingTabs.filterQueue = function (filter, postId) {
     if (!['drafts', 'scheduled', 'attention', 'live', 'all', 'archived'].includes(filter)) filter = 'drafts';
     queueFilter = filter;
+    if (!DATA) return; // The shell routes before the first asynchronous queue load resolves.
     history.replaceState(null, '', '#create-instagram?filter=' + filter + (postId ? '&post=' + encodeURIComponent(postId) : ''));
     if ((filter === 'archived') !== Boolean(DATA.archived_view)) { load(); return; }
     var cards = Array.from(document.querySelectorAll('[data-queue-card]'));
