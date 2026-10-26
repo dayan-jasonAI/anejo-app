@@ -167,10 +167,9 @@ test('the food-first carousel guard does not run for REELS/STORIES — a video h
   assert.ok(orderIdx > guardIdx, 'foodFirstOrder must be gated behind the isReel/isStory check');
 });
 
-test('a dry run is refused for a single Reel/Story just like a single image — no separate carve-out needed', () => {
-  // media.length is always 1 for a REEL/STORY post (Meta has no carousel for either), so the
-  // existing `dry && media.length < 2` guard already covers them without a type-specific branch.
-  assert.match(SHARED, /if \(dry && media\.length < 2\)/);
+test('video dry runs are refused before any Reel or Story publish path', () => {
+  assert.match(SHARED, /if \(dry && \(isReel \|\| isStory\)\)/);
+  assert.ok(SHARED.indexOf('dry && (isReel || isStory)') < SHARED.indexOf('res = await publishReel'));
 });
 
 // ---------------------------------------------------------------------------

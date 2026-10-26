@@ -1572,7 +1572,7 @@
       slideStrip(p) +
       coverNote(p) +
       (isFeed ? '<details class="queue-advanced"><summary>Advanced creative tools / Herramientas creativas avanzadas</summary>' +
-        (['draft','failed'].includes(p.status) ? '<button type="button" class="btn ghost" data-dryrun="' + esc(p.id) + '">Test Instagram upload (no publish)</button><p class="hint">Checks saved media processing at Meta. Does not publish or schedule.</p>' : '') +
+        (['draft','failed'].includes(p.status) ? '<button type="button" class="btn ghost" data-dryrun="' + esc(p.id) + '">Test Instagram upload (no publish)</button><p class="hint">Checks saved media processing at Meta. Does not publish or schedule.</p><p data-dryrun-result="' + esc(p.id) + '" role="status" hidden></p>' : '') +
         brandingTool(p) + carouselTool(p) + referenceVariantTool(p) + promptImageTool(p) + '</details>' : '') +
       (p.status === 'published' ? '' : uploadCard(p, mtype, slideCap)) +
       (p.error ? '<div class="row-sub" style="color:var(--crit);margin-top:6px">' + esc(p.error) + '</div>' : '') +
@@ -1812,8 +1812,13 @@
         var pid=b.getAttribute('data-dryrun'), visible=approvalCaption(pid);
         if(visible.caption!==visible.expected_caption){Hub.toast('Save your caption changes before testing');return;}
         b.disabled=true;
-        op({op:'dry_run',id:pid},'Instagram processed the saved media. Nothing was published or scheduled.')
-          .finally(function(){b.disabled=false;});
+        var result=document.querySelector('[data-dryrun-result="'+pid+'"]');
+        result.hidden=false; result.textContent='Testing saved media with Instagram…';
+        Hub.api('/api/hub/owner/social',{method:'POST',body:{op:'dry_run',id:pid}}).then(function(r){
+          result.textContent=r&&r.ok
+            ? 'Instagram processed the saved media. Nothing was published or scheduled. Container: '+r.container_id
+            : 'Upload test failed: '+((r&&r.error)||('HTTP '+((r&&r._status)||'unknown')));
+        }).finally(function(){b.disabled=false;});
       };
     });
     document.querySelectorAll('[data-audit]').forEach(function(b){

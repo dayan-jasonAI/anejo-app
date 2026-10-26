@@ -155,8 +155,7 @@ export function coverStatus(media) {
  *
  * `opts.publish=false` runs the whole container flow at Meta and stops short of media_publish —
  * the dry run. The caller must NOT have claimed the post for a dry run; nothing is written here
- * when dry-running. Reels and Stories have no dry-run mode (see below) — same posture as a single
- * image, which never had one either.
+ * when dry-running. Feed images and carousels support this. Reels and Stories remain refused.
  */
 export async function publishSocialPost(env, request, post, opts = {}) {
   const rejectApproval = async error => {
@@ -235,13 +234,9 @@ export async function publishSocialPost(env, request, post, opts = {}) {
     // add a photo.
   }
 
-  // publishImage/publishReel/publishStory have NO dry mode — falling through would publish for
-  // real, which is the exact accident a dry run exists to prevent. Refuse before the branch, not
-  // after. A Reel or a Story is always media.length===1 (Stories cannot even hold a second slide,
-  // see the 'attach' guard in functions/api/hub/owner/social.js), so this same check already covers
-  // them — no separate refusal needed.
-  if (dry && media.length < 2) {
-    return { ok: false, error: 'Dry run is for carousels (2+ photos) — a single item has nothing new to verify.' };
+  // Video paths still have no dry mode. A single JPEG explicitly supports publish:false.
+  if (dry && (isReel || isStory)) {
+    return { ok: false, error: 'Upload testing currently supports feed photos and carousels only.' };
   }
 
   let res;
@@ -265,7 +260,7 @@ export async function publishSocialPost(env, request, post, opts = {}) {
           imageUrl: publicUrlFor(request, media[0].public_token),
           caption: post.caption,
           mediaKey: media[0].media_key,
-        })
+        }, { publish: !dry })
       : await publishCarousel(env, {
           items: media.map((m) => ({ imageUrl: publicUrlFor(request, m.public_token), mediaKey: m.media_key })),
           caption: post.caption,
