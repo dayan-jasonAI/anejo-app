@@ -210,6 +210,7 @@ function drawScene(animate = false) {
   renderCopy($("scene-theme"), () => themeDisplayName(active()));
 }
 function changed(animate = false) {
+  invalidateBandPreview();
   dirty = true;
   drawVersions();
   drawSummary();
@@ -217,6 +218,7 @@ function changed(animate = false) {
   drawArt();
 }
 function fill() {
+  invalidateBandPreview();
   const v = active();
   drawVersions();
   $("version-name").value = v.name;
@@ -365,6 +367,65 @@ function fillSurface() {
 function drawArt() {
   paintSurface($("artboard"), active(), $("surface").value, assets);
 }
+let bandPreviewSequence = 0, bandPreviewController;
+function invalidateBandPreview() {
+  bandPreviewSequence++;
+  renderCopy($("band-preview-status"), () => "");
+  bandPreviewController?.abort();
+  $("band-preview-panel").hidden = true;
+  $("band-preview-frame").srcdoc = "";
+  $("preview-bands").disabled = false;
+}
+function fitBandPreview() {
+  const shell = $("band-preview-shell"), frame = $("band-preview-frame");
+  const scale = Math.min(1, shell.clientWidth / 1632);
+  if (scale > 0) {
+    frame.style.transform = `scale(${scale})`;
+    shell.style.height = `${1056 * scale}px`;
+  }
+}
+function bandPreviewInput() {
+  const v = active(), preset = v.theme.preset;
+  const theme = preset === "signature" ? "signature" : ["birthday", "quince", "sweet-sixteen", "mother", "valentine", "gender-reveal"].includes(preset) ? "blush" : "ivory";
+  const lines = v.items.filter(i => i.quantity > 0).slice(0,3).map(i => foods.find(f => f.id === i.id)?.name).filter(Boolean);
+  return {theme,title:(v.personalization.labelText || "La Cajita").trim(),lines};
+}
+renderCopy($("preview-bands"), () => t("Preview 11×17 tray bands", "Ver bandas de bandeja 11×17"));
+renderCopy($("band-preview-hint"), () => t("Template layout only: up to three selected dishes. Uploaded artwork stays in your design request; Añejo reviews final printing.", "Solo muestra la plantilla: hasta tres platos seleccionados. Los diseños cargados permanecen en tu solicitud; Añejo revisa la impresión final."));
+renderCopy($("band-preview-title"), () => t("Tray-band template", "Plantilla de banda de bandeja"));
+renderCopy($("close-band-preview"), () => t("Close preview", "Cerrar vista previa"));
+$("close-band-preview").onclick = invalidateBandPreview;
+window.addEventListener("resize", fitBandPreview);
+$("preview-bands").onclick = async () => {
+  if ($("preview-bands").disabled) return;
+  const input = bandPreviewInput();
+  if (input.title.length > 48 || !input.title || !input.lines.length) {
+    say(() => t("For this template, use a label message up to 48 characters and select at least one dish. Your design is unchanged.", "Para esta plantilla, usa un mensaje de hasta 48 caracteres y selecciona al menos un plato. Tu diseño se mantiene igual."), "band-preview-status");
+    return;
+  }
+  invalidateBandPreview();
+  const sequence = bandPreviewSequence, snapshot = JSON.stringify(input);
+  bandPreviewController = new AbortController();
+  $("preview-bands").disabled = true;
+  say(() => t("Preparing the template preview…", "Preparando la vista previa de la plantilla…"), "band-preview-status");
+  try {
+    const response = await fetch("/api/cajita-label-preview", {method:"POST",headers:{"Content-Type":"application/json"},body:snapshot,signal:bandPreviewController.signal});
+    const result = await response.json();
+    if (sequence !== bandPreviewSequence || JSON.stringify(bandPreviewInput()) !== snapshot) return;
+    if (!response.ok || !result.ok || result.preview_only !== true || result.approved !== false || typeof result.html !== "string") throw Error("Preview unavailable");
+    const frame = $("band-preview-frame");
+    const policy = '<meta http-equiv="Content-Security-Policy" content="default-src \'none\'; img-src https://anejocateringco.com; font-src https://anejocateringco.com; style-src \'unsafe-inline\'; base-uri \'none\'; form-action \'none\'">';
+    frame.srcdoc = result.html.replace("</head>", policy + '<style>@media screen{.toolbar{display:none!important}.sheet{margin:0!important}body{background:white}}</style></head>');
+    $("band-preview-panel").hidden = false;
+    fitBandPreview();
+    say(() => t("Template preview ready. This uses the nearest Añejo template, not uploaded artwork or final print approval.", "Plantilla lista. Usa el estilo Añejo más cercano, no los diseños cargados ni una aprobación final de impresión."), "band-preview-status");
+  } catch {
+    if (sequence === bandPreviewSequence) say(() => t("The template preview could not load. Try again; your design is unchanged.", "No se pudo cargar la plantilla. Inténtalo de nuevo; tu diseño se mantiene igual."), "band-preview-status");
+  } finally {
+    if (sequence === bandPreviewSequence) $("preview-bands").disabled = false;
+  }
+};
+
 $("surface").onchange = fillSurface;
 $("layer").onchange = fillLayer;
 $("surface-text").oninput = () => {
