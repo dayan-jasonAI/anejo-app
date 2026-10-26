@@ -1,3 +1,4 @@
+import { CATERING_ORDERING_GUIDANCE } from './cajita-policy.js';
 import { renderCampaignDirection } from './campaign_direction.js';
 // The Añejo Marketing Team Lead — the strategy half of the marketing team. Files under
 // functions/_lib are NOT routed.
@@ -210,7 +211,7 @@ export async function buildSpine(env) {
     macro_portal: 'https://anejocateringco.com/portal',
     macro_calculator: 'https://anejocateringco.com/calculator',
     catering_url: 'https://anejocateringco.com/catering',
-    ordering: 'Bowl orders at /order and weekly plans at /subscribe; the live website is the authority on current availability and cutoffs. Never promise same-day delivery or a remembered hour. Traditional/Catering: minimum 48 hours; custom printing minimum 72 hours and quote review. Ask event date, city and guest count and confirm availability/quote. Do not apply bowl delivery fees or windows to catering.',
+    ordering: 'Bowl orders at /order and weekly plans at /subscribe; the live website is the authority on current availability and cutoffs. Never promise same-day delivery or a remembered hour. ' + CATERING_ORDERING_GUIDANCE + ' Ask event date, city and guest count and confirm availability/quote. Do not apply bowl delivery fees or windows to catering.',
   };
 
   // What the owner taught the team from HUB → Train the team. Its own try/catch because a spine

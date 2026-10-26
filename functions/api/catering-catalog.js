@@ -1,3 +1,4 @@
+import { CAJITA_NOTICE_HOURS, CAJITA_ORDERING_POLICY_VERSION } from '../_lib/cajita-policy.js';
 // GET /api/catering-catalog — what each catering product costs and looks like, right now.
 //
 // The quote form could previously show a customer only one number: a lump subtotal, after they
@@ -110,6 +111,8 @@ export async function onRequestGet({ request, env }) {
     // server minted a link for twice that. A page must never name a price the server will not
     // charge — so this is served, not copied.
     deposit_pct: DEPOSIT_PCT,
+    cajita_notice_hours: CAJITA_NOTICE_HOURS,
+    cajita_notice_policy_version: CAJITA_ORDERING_POLICY_VERSION,
     minimum_notice_hours: 48,
     custom_printing_notice_hours: 72,
   });

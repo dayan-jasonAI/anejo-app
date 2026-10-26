@@ -168,6 +168,7 @@ test('Aña sees available catering catalog without inventing an event quote or s
   assert.doesNotMatch(prompt, /Flat \$5 delivery fee/);
   assert.match(prompt, /item price is not a complete event quote/);
   assert.match(prompt, /do not apply bowl fees\/windows to an event/);
-  assert.match(prompt, /48 hours; custom printing requires at least 72 hours and quote review/);
+  assert.match(prompt, /La Cajita, including seasonal or themed branding, requires at least 48 hours notice/);
+  assert.match(prompt, /Other bespoke custom-printed catering requires at least 72 hours and quote review/);
   assert.doesNotMatch(prompt, /6:00 PM day-before cutoff/);
 });

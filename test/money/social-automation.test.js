@@ -1,3 +1,4 @@
+import { CATERING_ORDERING_GUIDANCE } from '../../functions/_lib/cajita-policy.js';
 // The social loop, running without anyone watching.
 //
 // The account has six posts because writing them is a job nobody has time for. This closes the
@@ -229,8 +230,10 @@ test('a draft caption can be corrected before approval', () => {
 
 test('the planner separates catering notice from live bowl ordering availability', () => {
   assert.match(AUTO, /never promise same-day delivery or a remembered cutoff/);
-  assert.match(AUTO, /Standard Traditional\/Catering orders require at least 48 hours/);
-  assert.match(AUTO, /custom printing requires at least 72 hours and quote review/);
+  assert.match(CATERING_ORDERING_GUIDANCE, /Standard Traditional\/Catering orders require at least 48 hours/);
+  assert.match(AUTO, /CATERING_ORDERING_GUIDANCE/);
+  assert.match(CATERING_ORDERING_GUIDANCE, /La Cajita, including seasonal or themed branding, requires at least 48 hours notice/);
+  assert.match(CATERING_ORDERING_GUIDANCE, /Other bespoke custom-printed catering requires at least 72 hours and quote review/);
   assert.match(AUTO, /Bowl delivery fees and windows must not be applied to catering/);
   assert.doesNotMatch(AUTO, /Same-day delivery is available during opening hours/);
   assert.match(AUTO, /deadlines, cutoffs/);
@@ -279,7 +282,7 @@ test('the page has a real caption editor and a real upload button', () => {
   // claim is now pinned to the DOM it describes — the Create > Instagram tab of marketing.html.
   const PAGE = readFileSync(new URL('../../public/hub/owner/marketing.html', import.meta.url), 'utf8');
   assert.match(PAGE, /data-editcap/, 'a save-caption control exists on the card');
-  assert.match(PAGE, /textarea id="cap_/, 'the caption is a field, not a div, until published');
+  assert.match(PAGE, /textarea(?: translate="no")? id="cap_/, 'the caption is a field, not a div, until published');
   assert.match(PAGE, /data-upload/, 'an upload button exists on imageless cards');
   assert.match(PAGE, /social-upload/, 'and it posts to the upload endpoint');
   assert.match(PAGE, /input type="file" id="mfile" accept="image\/jpeg"/, 'the compose form uploads too');
@@ -288,5 +291,5 @@ test('the page has a real caption editor and a real upload button', () => {
 test('a published caption is read-only', () => {
   // Our copy changing after the fact would disagree with what people actually read.
   const PAGE = readFileSync(new URL('../../public/hub/owner/marketing.html', import.meta.url), 'utf8');
-  assert.match(PAGE, /p\.status === 'published'\s*\? '<div class="cap">/);
+  assert.match(PAGE, /p\.status === 'published'\s*\? '<div class="cap"(?: translate="no")?>/);
 });

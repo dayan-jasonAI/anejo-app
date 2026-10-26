@@ -390,6 +390,7 @@ function bandPreviewInput() {
   const lines = v.items.filter(i => i.quantity > 0).slice(0,3).map(i => foods.find(f => f.id === i.id)?.name).filter(Boolean);
   return {theme,title:(v.personalization.labelText || "La Cajita").trim(),lines};
 }
+renderCopy($("cajita-ordering-notice"), () => t('Plan at least 48 hours ahead for La Cajita, including seasonal branding. Choose your contents; pricing depends on quantity and your reviewed quote.', 'Planea La Cajita con al menos 48 horas de anticipación, incluida la presentación de temporada. Elige el contenido; el precio depende de la cantidad y de tu cotización revisada.'));
 renderCopy($("preview-bands"), () => t("Preview 11×17 tray bands", "Ver bandas de bandeja 11×17"));
 renderCopy($("band-preview-hint"), () => t("Template layout only: up to three selected dishes. Uploaded artwork stays in your design request; Añejo reviews final printing.", "Solo muestra la plantilla: hasta tres platos seleccionados. Los diseños cargados permanecen en tu solicitud; Añejo revisa la impresión final."));
 renderCopy($("band-preview-title"), () => t("Tray-band template", "Plantilla de banda de bandeja"));

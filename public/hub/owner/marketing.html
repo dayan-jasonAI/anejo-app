@@ -1557,8 +1557,8 @@
       // which meant it did not exist. A published caption is shown read-only: our copy changing
       // after the fact would disagree with what people actually read.
       (p.status === 'published'
-        ? '<div class="cap">' + esc(p.caption || '(no caption)') + '</div>'
-        : '<textarea id="cap_' + esc(p.id) + '" maxlength="2200" style="width:100%;min-height:96px;padding:10px 12px;border:1px solid var(--line);border-radius:8px;font:inherit;font-size:13.5px;line-height:1.5;resize:vertical">' + esc(p.caption || '') + '</textarea>' +
+        ? '<div class="cap" translate="no">' + esc(p.caption || '(no caption)') + '</div>'
+        : '<textarea translate="no" id="cap_' + esc(p.id) + '" maxlength="2200" style="width:100%;min-height:96px;padding:10px 12px;border:1px solid var(--line);border-radius:8px;font:inherit;font-size:13.5px;line-height:1.5;resize:vertical">' + esc(p.caption || '') + '</textarea>' +
           '<div style="display:flex;justify-content:flex-end;margin-top:4px"><button class="btn ghost" data-editcap="' + esc(p.id) + '" style="font-size:12px;padding:6px 12px">Save caption</button></div>') +
       // Brand Auditor verdict — the score/flags/status the row already carries, so the owner reads
       // WHY a draft is clean or flagged before approving a time.
@@ -1571,7 +1571,9 @@
       // strip shows it and the arrows change it. All of it locks once the post is live.
       slideStrip(p) +
       coverNote(p) +
-      (isFeed ? '<details class="queue-advanced"><summary>Advanced creative tools / Herramientas creativas avanzadas</summary>' + brandingTool(p) + carouselTool(p) + referenceVariantTool(p) + promptImageTool(p) + '</details>' : '') +
+      (isFeed ? '<details class="queue-advanced"><summary>Advanced creative tools / Herramientas creativas avanzadas</summary>' +
+        (['draft','failed'].includes(p.status) ? '<button type="button" class="btn ghost" data-dryrun="' + esc(p.id) + '">Test Instagram upload (no publish)</button><p class="hint">Checks saved media processing at Meta. Does not publish or schedule.</p>' : '') +
+        brandingTool(p) + carouselTool(p) + referenceVariantTool(p) + promptImageTool(p) + '</details>' : '') +
       (p.status === 'published' ? '' : uploadCard(p, mtype, slideCap)) +
       (p.error ? '<div class="row-sub" style="color:var(--crit);margin-top:6px">' + esc(p.error) + '</div>' : '') +
       (p.permalink ? '<div style="margin-top:8px"><a href="' + esc(p.permalink) + '" target="_blank" rel="noopener">View on Instagram →</a></div>' : '') +
@@ -1804,6 +1806,16 @@
     document.querySelectorAll('[data-library-post]').forEach(function(b){b.onclick=function(){chooseLibrary(function(photo){return attachLibraryPhoto(b.getAttribute('data-library-post'),photo);});};});
     var lib=document.getElementById('mlibrary'); if(lib)lib.onclick=window.MarketingTabs.chooseLibraryPhoto;
     var polish=document.getElementById('mpolish'); if(polish){polish.hidden=!(DATA._pickedPhoto&&!DATA._pickedPhoto.source_key&&!DATA._pickedPhoto.ai_enhanced&&DATA._pickedPhoto.media_key.startsWith('marketing-library/'));polish.onclick=function(){MarketingPhotoEnhance.open({photo:DATA._pickedPhoto,onUse:setComposerPhoto});};}
+    document.querySelectorAll('[data-dryrun]').forEach(function(b){
+      b.onclick=function(){
+        if(b.disabled)return;
+        var pid=b.getAttribute('data-dryrun'), visible=approvalCaption(pid);
+        if(visible.caption!==visible.expected_caption){Hub.toast('Save your caption changes before testing');return;}
+        b.disabled=true;
+        op({op:'dry_run',id:pid},'Instagram processed the saved media. Nothing was published or scheduled.')
+          .finally(function(){b.disabled=false;});
+      };
+    });
     document.querySelectorAll('[data-audit]').forEach(function(b){
       b.onclick=function(){
         var pid=b.getAttribute('data-audit'), visible=approvalCaption(pid);

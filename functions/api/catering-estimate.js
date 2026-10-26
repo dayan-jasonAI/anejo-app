@@ -1,3 +1,4 @@
+import { CAJITA_NOTICE_HOURS, CAJITA_ORDERING_POLICY_VERSION } from '../_lib/cajita-policy.js';
 import { json } from '../_lib/util.js';
 import { loadMenu } from '../_lib/menu.js';
 import { normalizeCateringProducts } from '../_lib/catering-products.js';
@@ -20,5 +21,5 @@ export async function onRequestPost({ request, env }) {
   const estimate = estimateCateringProducts(selection.items, menu, { needsReview: body.needs_review !== false });
   // Fit customization still belongs in the bowl editor; never drop its modifiers in transfer.
   if (selection.items.some(item => item.id.startsWith('fit-'))) estimate.checkout_eligible = false;
-  return reply({ ...estimate, minimum_notice_hours: 48, custom_printing_notice_hours: 72, currency: 'USD' });
+  return reply({ ...estimate, minimum_notice_hours: 48, custom_printing_notice_hours: 72, cajita_notice_hours: CAJITA_NOTICE_HOURS, cajita_notice_policy_version: CAJITA_ORDERING_POLICY_VERSION, currency: 'USD' });
 }
