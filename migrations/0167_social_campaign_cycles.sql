@@ -1,7 +1,7 @@
 -- Organic editorial cycles. An owner preview/review is distinct from a model audit pass.
 CREATE TABLE IF NOT EXISTS social_campaign_cycles (
  id TEXT PRIMARY KEY, owner_id TEXT NOT NULL, request_id TEXT NOT NULL,
- title TEXT NOT NULL, start_date TEXT NOT NULL, end_date TEXT NOT NULL,
+ create_payload_hash TEXT NOT NULL, title TEXT NOT NULL, start_date TEXT NOT NULL, end_date TEXT NOT NULL,
  timezone TEXT NOT NULL DEFAULT 'America/New_York', version INTEGER NOT NULL DEFAULT 1,
  state TEXT NOT NULL DEFAULT 'draft' CHECK(state IN ('draft','scheduled','paused','archived')),
  manifest_json TEXT NOT NULL, validation_json TEXT, active_review_id TEXT,
