@@ -46,7 +46,7 @@
   }
   function title(slot) { return slot.title || slot.topic || (slot.caption || '').split('\n')[0].slice(0, 80) || 'A story still to shape'; }
   function isVideo(slot, media) {
-    return /video|reels/i.test(String((media || {}).content_type || (media || {}).media_type || '')) || /VIDEO|REELS/.test(String(slot.media_type || '').toUpperCase()) || /\.(?:mp4|webm|mov)(?:[?#]|$)/i.test(String((media || {}).key || '') + ' ' + String((media || {}).preview_url || ''));
+    return (media || {}).kind === 'video' || /video|reels/i.test(String((media || {}).content_type || (media || {}).media_type || '')) || /VIDEO|REELS/.test(String(slot.media_type || '').toUpperCase()) || /\.(?:mp4|webm|mov)(?:[?#]|$)/i.test(String((media || {}).key || '') + ' ' + String((media || {}).preview_url || ''));
   }
   function byDate(slots) {
     var dates = {};

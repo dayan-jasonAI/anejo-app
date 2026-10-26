@@ -7,6 +7,7 @@
 // because what states they may claim FROM genuinely differs (a click may retry a failure; the
 // timer only ever takes a scheduled post). Everything after the claim lives here.
 import { now } from './hub.js';
+import { verifyCampaignPostReview } from './social_campaigns.js';
 import { publishImage, publishCarousel, publishReel, publishStory, VIDEO_ONLY } from './instagram.js';
 import { SOCIAL_AUDIT_CURRENT, verifyAuditImageReceipts } from './social_audit.js';
 import { BOWL_ART } from './bowl_art.js';
@@ -170,14 +171,16 @@ export async function publishSocialPost(env, request, post, opts = {}) {
   // Re-read automatic approval evidence immediately before any provider operation.
   // Manual/legacy scheduling remains separate; NULL is not fabricated approval provenance.
   let approval;
-  try { approval = await env.DB.prepare(`SELECT auto_audit_required, audit_status, audit_scope, audit_detail_json, COALESCE(${SOCIAL_AUDIT_CURRENT},0) AS audit_current FROM social_posts WHERE id=?`).bind(post.id).first(); }
+  try { approval = await env.DB.prepare(`SELECT auto_audit_required, campaign_review_id, campaign_cycle_id, audit_status, audit_scope, audit_detail_json, COALESCE(${SOCIAL_AUDIT_CURRENT},0) AS audit_current FROM social_posts WHERE id=?`).bind(post.id).first(); }
   catch {
     // A context source outage may not bypass an automatic requirement. A separate
     // marker read can still establish that an explicitly manual/legacy row is unaffected.
-    try { approval = await env.DB.prepare('SELECT auto_audit_required FROM social_posts WHERE id=?').bind(post.id).first(); } catch { approval = null; }
+    try { approval = await env.DB.prepare('SELECT auto_audit_required, campaign_review_id, campaign_cycle_id FROM social_posts WHERE id=?').bind(post.id).first(); } catch { approval = null; }
     if (!approval || approval.auto_audit_required !== null) return rejectApproval('Automatic audit evidence unavailable.');
   }
   if (!approval) return rejectApproval('Publication approval record unavailable.');
+  const campaignReview=await verifyCampaignPostReview(env,post.id,approval.campaign_review_id,approval.campaign_cycle_id);
+  if(!campaignReview.ok)return rejectApproval(campaignReview.error);
   if (approval?.auto_audit_required && (!approval || !approval.audit_current || approval.audit_status!=='pass' || approval.audit_scope!=='caption_and_media')) {
     return rejectApproval('Automatic audit evidence is stale or unavailable. Re-audit before automatic publication.');
   }

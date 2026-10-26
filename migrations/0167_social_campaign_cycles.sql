@@ -28,5 +28,6 @@ CREATE TABLE IF NOT EXISTS social_campaign_jobs (
  UNIQUE(campaign_id,campaign_version,slot_id), UNIQUE(campaign_id,request_id)
 );
 ALTER TABLE social_posts ADD COLUMN campaign_review_id TEXT;
+ALTER TABLE social_posts ADD COLUMN campaign_cycle_id TEXT;
 CREATE INDEX IF NOT EXISTS idx_social_campaign_owner ON social_campaign_cycles(owner_id,created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_social_campaign_review_post ON social_posts(campaign_review_id,status);

@@ -18,6 +18,7 @@ import { retrieve, formatPassages } from './knowledge.js';
 import { loadBrand, CUSTOMER_FACING_SECTIONS } from './brand_source.js';
 import { loadDailyLunch, dailyOperating, dailyDay, DAILY_PRICE_CENTS, DAILY_GROUP_FREE_DELIVERY_MIN_QTY } from './daily_lunch.js';
 import { etDayParts } from './operating.js';
+import { campaignKeywordReply } from './social_campaign_keywords.js';
 
 // Drafts are cheap and frequent (every unanswered DM and comment), so they ride Haiku; the
 // website chat keeps Sonnet in chat.js. Same knowledge, different cost profile.
@@ -455,14 +456,15 @@ export async function anaCustomerContext(env, question) {
  *                                           is nothing downstream to accidentally send
  *   { ok:false }                          — no key / empty text / API failure; caller retries later
  */
-export async function draftReply(env, { kind = 'dm', text, username, auto = false } = {}) {
+export async function draftReply(env, { kind = 'dm', text, username, auto = false, language = 'en' } = {}) {
+  const msg = String(text || '').trim();
+  if (!msg) return { ok: false, reason: 'empty' };
+  const campaignReply = await campaignKeywordReply(env, { text: msg, language });
+  if (campaignReply) return { ok: true, draft: campaignReply.draft, campaign_keyword: campaignReply.keyword, source_status: campaignReply.source_status };
   if (!env || !env.ANTHROPIC_API_KEY) return { ok: false, reason: 'not_configured' };
   // The $50/week ceiling covers EVERY model call, and a DM backlog at 4 drafts/minute is exactly
   // the kind of quiet spender the ceiling exists for. Gated before any work, like every caller.
   if (!(await budgetGate(env)).ok) return { ok: false, reason: 'budget' };
-  const msg = String(text || '').trim();
-  if (!msg) return { ok: false, reason: 'empty' };
-
   // Prices and rules are read per draft, same as chat.js — loadMenu never throws, it degrades to
   // last-known-good, so the draft always quotes what checkout charges.
   const menu = await loadMenu(env);
