@@ -6,7 +6,7 @@ import { id } from './util.js';
 
 export const INFERENCE_REQUEST_MAX_BYTES = 262144;
 export const INFERENCE_COMPONENTS_MAX_BYTES = 65536;
-const SURFACES = new Set(['team_lead', 'social_plan']);
+const SURFACES = new Set(['team_lead', 'social_plan', 'social_campaign_slot']);
 const COMPONENTS = new Set(['brand', 'training', 'menu', 'briefs', 'intel', 'knowledge', 'operations', 'performance', 'retrospective', 'history', 'product_lines', 'asset_registry']);
 const FIELDS = new Set(['schema', 'source', 'read_status', 'reads', 'rendered_sha256', 'original_chars', 'supplied_chars', 'truncated', 'rules', 'examples', 'documents', 'source_ids', 'id', 'updated_at', 'selection_limit', 'selection_may_be_limited', 'requested_sections', 'strict_sections', 'section_fallback', 'fallback_reason', 'asset_revision', 'content_sha256']);
 const READ_STATES = new Set(['ok', 'empty', 'unavailable', 'partial', 'unknown', 'not_supplied']);

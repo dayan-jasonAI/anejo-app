@@ -24,7 +24,7 @@ CREATE TABLE IF NOT EXISTS social_campaign_actions (
 CREATE TABLE IF NOT EXISTS social_campaign_jobs (
  id TEXT PRIMARY KEY, campaign_id TEXT NOT NULL REFERENCES social_campaign_cycles(id), campaign_version INTEGER NOT NULL,
  slot_id TEXT NOT NULL, request_id TEXT NOT NULL, state TEXT NOT NULL CHECK(state IN ('claimed','succeeded','failed','unknown')),
- post_id TEXT, source_snapshot TEXT NOT NULL, error_code TEXT, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL,
+ post_id TEXT, source_snapshot TEXT NOT NULL, output_json TEXT, error_code TEXT, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL,
  UNIQUE(campaign_id,campaign_version,slot_id), UNIQUE(campaign_id,request_id)
 );
 ALTER TABLE social_posts ADD COLUMN campaign_review_id TEXT;

@@ -1,8 +1,8 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {ownerEnv} from '../helpers/sqlite-d1.js';
-import {createCampaign,campaignRow,campaignView,validateCampaignMedia,approveCampaignSchedule,pauseCampaign,updateCampaign,importCampaignPosts,nextCampaignCycle,verifyCampaignPostReview,normalizeCampaignManifest,CampaignError} from '../../functions/_lib/social_campaigns.js';
-import {SOCIAL_AUDIT_CURRENT,SOCIAL_AUDIT_CONTEXT,SOCIAL_AUDIT_SNAPSHOT} from '../../functions/_lib/social_audit.js';
+import {createCampaign,campaignRow,validateCampaignMedia,approveCampaignSchedule,pauseCampaign,updateCampaign,importCampaignPosts,nextCampaignCycle,verifyCampaignPostReview,normalizeCampaignManifest,CampaignError} from '../../functions/_lib/social_campaigns.js';
+import {SOCIAL_AUDIT_CONTEXT,SOCIAL_AUDIT_SNAPSHOT} from '../../functions/_lib/social_audit.js';
 import {VERSION} from '../../functions/_lib/visual_audit_rubric.js';
 const owner='stf_owner';const jpeg=new Uint8Array([255,216,255,217]);
 function fixture({empty=false,video=false}={}){
@@ -55,4 +55,30 @@ test('bulk import is idempotent, versioned, grouped and draft only; next cycle c
 });
 test('edits use version CAS and invalidate validation; posts cannot be assigned to two campaigns',async()=>{
  const f=fixture();try{const v=await ready(f);await assert.rejects(()=>createCampaign(f.env,owner,{...f.request,request_id:'duplicate-members-test'}),e=>e.code==='campaign_posts_unavailable');const update={id:v.campaign.id,expected_version:1,request_id:'edit-campaign-test-01',title:'Changed title'};const r=await updateCampaign(f.env,owner,update);assert.equal(r.campaign.version,2);assert.equal(r.campaign.validation.state,'pending');await assert.rejects(()=>updateCampaign(f.env,owner,{...update,request_id:'edit-campaign-test-02'}),e=>e.code==='campaign_version_changed');}finally{f.env.DB.sqlite.close();}
+});
+
+test('campaign activation race with archive cannot schedule a partial set',async()=>{
+ const f=fixture();try{const v=await ready(f);const batch=f.env.DB.batch.bind(f.env.DB);let raced=false;f.env.DB.batch=async statements=>{if(!raced&&statements.some(s=>s.sql.includes('WITH expected AS MATERIALIZED'))){raced=true;f.env.DB.exec("UPDATE social_posts SET status='archived' WHERE id='sp_test_0'");}return batch(statements);};
+ await assert.rejects(()=>approveCampaignSchedule(f.env,owner,approval(v)),e=>e.code==='campaign_activation_changed');assert.equal(f.env.DB.one("SELECT COUNT(*) n FROM social_posts WHERE status='scheduled'").n,0);assert.equal(f.env.DB.one('SELECT COUNT(*) n FROM social_campaign_reviews').n,0);
+ }finally{f.env.DB.sqlite.close();}
+});
+test('unapproved campaign members cannot fall through legacy publisher and grouped queue stays separate',async()=>{
+ const {publishSocialPost}=await import('../../functions/_lib/social_publish.js');const {onRequestGet,onRequestPost}=await import('../../functions/api/hub/owner/social.js');const {OWNER_COOKIE}=await import('../helpers/sqlite-d1.js');const f=fixture();const original=globalThis.fetch;let calls=0;globalThis.fetch=async()=>{calls++;throw Error('Provider must not be used');};
+ try{const v=await createCampaign(f.env,owner,f.request);const req=new Request('https://anejo.test/api/hub/owner/social',{headers:{Cookie:OWNER_COOKIE}});const active=await (await onRequestGet({env:f.env,request:req})).json();assert.equal(active.posts.length,0);f.env.IG_ACCESS_TOKEN='test-only';f.env.IG_USER_ID='test-only';
+ for(const op of ['publish','schedule']){const r=await onRequestPost({env:f.env,request:new Request(req.url,{method:'POST',headers:{Cookie:OWNER_COOKIE},body:JSON.stringify({op,id:'sp_test_0',scheduled_at:Date.now()+100000})})});assert.equal(r.status,409);}
+ const result=await publishSocialPost(f.env,new Request('https://anejo.test'),{id:'sp_test_0',caption:'Saved caption 0'});assert.equal(result.ok,false);assert.match(result.error,/approve this campaign/);assert.equal(calls,0);assert.equal(v.campaign.state,'draft');
+ }finally{globalThis.fetch=original;f.env.DB.sqlite.close();}
+});
+test('saved source changes during validation reset receipts and require a fresh validation',async()=>{
+ const f=fixture();try{let v=await createCampaign(f.env,owner,f.request);v=await validateCampaignMedia(f.env,await campaignRow(f.env,v.campaign.id,owner));assert.equal(v.campaign.validation.cursor,3);f.env.DB.exec('UPDATE daily_lunch_config SET version=version+1');await assert.rejects(async()=>validateCampaignMedia(f.env,await campaignRow(f.env,v.campaign.id,owner)),e=>e.code==='campaign_validation_stale');const row=await campaignRow(f.env,v.campaign.id,owner);assert.equal(JSON.parse(row.validation_json).cursor,0);const next=await validateCampaignMedia(f.env,row);assert.equal(next.campaign.validation.cursor,3);}finally{f.env.DB.sqlite.close();}
+});
+
+test('next-cycle generation is disabled by default, claims once and stages actual caption/script only',async()=>{
+ const {setCampaignGeneration,generateCampaignSlot}=await import('../../functions/_lib/social_campaign_generation.js');const f=fixture({empty:true});let calls=0;const generator=async(_env,request)=>{calls++;assert.ok(request.system.includes('Daily lunch advance ordering cutoff'));assert.ok(request.system.includes('no produced media')||request.system.includes('not produced media'));return {data:{caption:'Actual generated caption',image_brief:'Owner review image direction',script:'Voice and scenes for review'}};};
+ try{let v=await createCampaign(f.env,owner,f.request);const b={id:v.campaign.id,expected_version:v.campaign.version,request_id:'generate-slot-test-01',slot_id:'day-0'};await assert.rejects(()=>generateCampaignSlot(f.env,owner,b,generator),e=>e.code==='campaign_generation_disabled');assert.equal(calls,0);await setCampaignGeneration(f.env,owner,{id:v.campaign.id,expected_version:1,enabled:true,max_jobs:30,acknowledge_model_cost:true});const result=await generateCampaignSlot(f.env,owner,b,generator);assert.equal(result.job.state,'succeeded');assert.equal(result.job.output.media_produced,false);assert.equal(result.posts[0].caption,'Actual generated caption');assert.equal(result.posts[0].media.length,0);assert.equal(result.campaign.version,2);assert.equal(f.env.DB.one("SELECT COUNT(*) n FROM social_posts WHERE status='scheduled'").n,0);
+ const replay=await generateCampaignSlot(f.env,owner,b,generator);assert.equal(replay.operation.replayed,true);assert.equal(calls,1);assert.equal(f.env.DB.one('SELECT COUNT(*) n FROM social_posts').n,1);
+ }finally{f.env.DB.sqlite.close();}
+});
+test('unknown generation outcome never retries provider automatically and source races preserve generated output privately',async()=>{
+ const {setCampaignGeneration,generateCampaignSlot}=await import('../../functions/_lib/social_campaign_generation.js');for(const sourceRace of [false,true]){const f=fixture({empty:true});let calls=0;try{const v=await createCampaign(f.env,owner,f.request);await setCampaignGeneration(f.env,owner,{id:v.campaign.id,expected_version:1,enabled:true,max_jobs:30,acknowledge_model_cost:true});const b={id:v.campaign.id,expected_version:1,request_id:'unknown-generation-test',slot_id:'day-0'};const generator=async()=>{calls++;if(sourceRace){f.env.DB.exec('UPDATE daily_lunch_config SET version=version+1');return {data:{caption:'Saved for review only',image_brief:'Concept',script:''}};}throw Error('Unknown transport outcome');};const r=await generateCampaignSlot(f.env,owner,b,generator);assert.equal(r.job.state,'unknown');assert.equal(r.job.post_id,null);assert.equal(f.env.DB.one('SELECT COUNT(*) n FROM social_posts').n,0);await generateCampaignSlot(f.env,owner,b,generator);assert.equal(calls,1);}finally{f.env.DB.sqlite.close();}}
 });

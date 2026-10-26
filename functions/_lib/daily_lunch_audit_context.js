@@ -28,3 +28,9 @@ export async function loadDailyLunchAuditContext(env){
   return {text,price_cents:scheduled.length?DAILY_PRICE_CENTS:null,receipt:{source:'d1_daily_lunch_config',status:'ok',version,updated_at,scheduled_dates:scheduled.length}};
  }catch{return {text:'DAILY LUNCH AUTHORITY UNAVAILABLE: no validated current configuration was read. Do not infer a price, menu, cutoff or orderable date from old campaigns.',price_cents:null,receipt:{source:'d1_daily_lunch_config',status:'unavailable'}};}
 }
+
+// Bounded source receipt for shared Lead/planner inference and private proposal promotion.
+export async function dailyLunchInferenceReceipt(context){
+ const text=String(context?.text||'');const hash=Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(text))),v=>v.toString(16).padStart(2,'0')).join('');
+ return {source:'d1_daily_lunch_config',read_status:context?.receipt?.status==='ok'?'ok':'unavailable',id:'1',updated_at:context?.receipt?.updated_at??null,truncated:false,rendered_sha256:hash};
+}

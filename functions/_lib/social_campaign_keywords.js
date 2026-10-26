@@ -4,7 +4,7 @@ import { loadDailyLunch, dailyOperating, dailyDay, CORPORATE_LUNCH_POLICY } from
 import { etDateOf } from './hub.js';
 import { CAJITA_NOTICE_HOURS } from './cajita-policy.js';
 
-export const CAMPAIGN_TEMPLATE_FAMILY_VERSION = 'social-cta-keywords-v1';
+export const CAMPAIGN_TEMPLATE_FAMILY_VERSION = 'social-cta-keywords-v2';
 export const CAMPAIGN_POLICY_KEY = 'social.campaign_keywords';
 const URLS = {
   lunch: 'https://anejocateringco.com/order?category=daily',
@@ -22,6 +22,7 @@ const COPY = {
     },
     office: `For office lunch, order ${CORPORATE_LUNCH_POLICY.min_qty_per_product}+ of each meal with ${CORPORATE_LUNCH_POLICY.notice_hours} hours’ notice, up to ${CORPORATE_LUNCH_POLICY.max_total_qty} total: ${URLS.office} For more than ${CORPORATE_LUNCH_POLICY.max_total_qty}, custom menus, or recurring service, request a quote: ${URLS.officeQuote}`,
     cajita: `Request a La Cajita quote here: ${URLS.cajita} Please allow at least ${CAJITA_NOTICE_HOURS} hours; the team reviews the quote before confirming details or fulfillment.`,
+    cajita_bilingual: `La Cajita quote / Cotización de La Cajita: ${URLS.cajita} At least ${CAJITA_NOTICE_HOURS} hours / Se requieren al menos ${CAJITA_NOTICE_HOURS} horas; team quote review before confirmation / requiere revisión antes de confirmar.`,
   },
   es: {
     lunch: {
@@ -59,7 +60,14 @@ async function approvedPolicy(env) {
 
 function keyOf(text) {
   const key = String(text || '').trim().toUpperCase();
-  return ['LUNCH', 'OFFICE', 'CAJITA'].includes(key) ? key : null;
+  const exact = {
+    LUNCH: { keyword: 'LUNCH', category: 'lunch', language: 'en' },
+    ALMUERZO: { keyword: 'ALMUERZO', category: 'lunch', language: 'es' },
+    OFFICE: { keyword: 'OFFICE', category: 'office', language: 'en' },
+    OFICINA: { keyword: 'OFICINA', category: 'office', language: 'es' },
+    CAJITA: { keyword: 'CAJITA', category: 'cajita', language: null },
+  };
+  return exact[key] || null;
 }
 
 async function lunchStatus(env, now) {
@@ -75,13 +83,16 @@ async function lunchStatus(env, now) {
  * Returns a deterministic customer-facing draft only for an exact campaign keyword and a
  * read-only, owner-approved app_settings policy matching this compiled template family.
  */
-export async function campaignKeywordReply(env, { text, language = 'en', now = new Date() } = {}) {
-  const key = keyOf(text);
-  if (!key) return null;
+export async function campaignKeywordReply(env, { text, language, now = new Date() } = {}) {
+  const match = keyOf(text);
+  if (!match) return null;
   if (!(await approvedPolicy(env))) return null;
-  const lang = String(language).toLowerCase().startsWith('es') ? 'es' : 'en';
-  const category = key.toLowerCase();
-  const status = key === 'LUNCH' ? await lunchStatus(env, now) : null;
-  const draft = key === 'LUNCH' ? COPY[lang].lunch[status] : COPY[lang][category];
-  return { keyword: key, language: lang, draft, source_status: status || 'policy_source' };
+  const lang = match.language || (language == null ? 'bilingual' : String(language).toLowerCase().startsWith('es') ? 'es' : 'en');
+  const status = match.category === 'lunch' ? await lunchStatus(env, now) : null;
+  const draft = match.category === 'lunch'
+    ? COPY[lang].lunch[status]
+    : match.category === 'cajita' && lang === 'bilingual'
+      ? COPY.en.cajita_bilingual
+      : COPY[lang][match.category];
+  return { keyword: match.keyword, language: lang, draft, source_status: status || 'policy_source' };
 }

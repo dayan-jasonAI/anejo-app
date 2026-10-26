@@ -456,7 +456,7 @@ export async function anaCustomerContext(env, question) {
  *                                           is nothing downstream to accidentally send
  *   { ok:false }                          — no key / empty text / API failure; caller retries later
  */
-export async function draftReply(env, { kind = 'dm', text, username, auto = false, language = 'en' } = {}) {
+export async function draftReply(env, { kind = 'dm', text, username, auto = false, language } = {}) {
   const msg = String(text || '').trim();
   if (!msg) return { ok: false, reason: 'empty' };
   const campaignReply = await campaignKeywordReply(env, { text: msg, language });
