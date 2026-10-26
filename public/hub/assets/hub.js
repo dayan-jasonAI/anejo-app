@@ -196,6 +196,7 @@
       { key: 'program', ico: '🍲', label: 'Program', href: '/hub/kitchen/program.html' },
       { key: 'events', ico: '🎉', label: 'Events', href: '/hub/kitchen/event.html' },
       { key: 'recipes', ico: '📖', label: 'Recipe standards', href: '/hub/kitchen/recipes.html' },
+      { key: 'commissary', ico: '◷', label: 'Commissary visits', href: '/hub/kitchen/commissary.html' },
       { key: 'library', ico: '📚', label: 'Library', href: '/hub/kitchen/library.html' },
       { key: 'mydata', ico: '🔒', label: 'My data', href: '/hub/my-activity.html' }
     ],

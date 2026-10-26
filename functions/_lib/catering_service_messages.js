@@ -7,7 +7,7 @@ const fail=error=>({ok:false,error});
 function resultRows(result){if(result?.success!==true||!Array.isArray(result.results))throw Error('Delivery communication query unavailable.');return result.results;}
 export function serviceCopy(kind,lang='en',event={}){
  const es=lang==='es',done=kind==='completed';
- const address=String(event.address||'').replace(/[\u0000-\u001f\u007f]/g,' ').replace(/\s+/g,' ').trim();
+ const address=String(event.address||'').split('').map(c=>c.charCodeAt(0)<32||c.charCodeAt(0)===127?' ':c).join('').replace(/\s+/g,' ').trim();
  const location=address&&address.length<=300?address:(es?'la ubicación de su evento':'your event location');
  const subject=done?(es?'Gracias por elegir Añejo':'Thank you for choosing Añejo'):(es?'Su catering Añejo está en camino':'Your Añejo catering is on the way');
  const body=done?(es?`Su pedido se ha entregado en ${location}. Gracias por elegir Añejo para su evento. ¡Disfruten! Si necesita algo, responda a este mensaje.`:`Your order has been delivered to ${location}. Thank you for choosing Añejo for your event. Enjoy! If you need anything, reply to this message.`):(es?`Su pedido de catering está en camino a ${location}. Para consultar los detalles o comunicarse con nosotros, visite su cuenta.`:`Your catering order is on its way to ${location}. Visit your account for event details or reply if you need to reach us.`);
