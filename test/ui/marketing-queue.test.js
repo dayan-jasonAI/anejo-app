@@ -9,11 +9,11 @@ function harness() {
   const title = { scrollIntoView() {}, focus() { focused = 'title'; } };
   const buttons = ['drafts','scheduled','attention','live','all','archived'].map((filter) => ({ getAttribute: () => filter, setAttribute(k,v) { this[k] = v; }, classList: { toggle() {} } }));
   const nodes = { 'queue-count': {}, 'queue-empty': {}, 'post-queue-title': title };
-  let loads=0;
-  const ctx = { Array, URLSearchParams, DATA:{archived_view:false},load:()=>{loads++;}, history:{replaceState(_state,_title,url){ctx.location.hash=url;}}, location: { hash: '#create-instagram?filter=drafts&post=d2' }, window: { MarketingTabs: {} }, document: { querySelectorAll: (s) => s === '[data-queue-card]' ? cards : buttons, getElementById: (id) => nodes[id] } };
+  let loads=0;const toasts=[];
+  const ctx = { Array, URLSearchParams, DATA:{archived_view:false},Hub:{toast:x=>toasts.push(x)},load:()=>{loads++;}, history:{replaceState(_state,_title,url){ctx.location.hash=url;}}, location: { hash: '#create-instagram?filter=drafts&post=d2' }, window: { MarketingTabs: {} }, document: { querySelectorAll: (s) => s === '[data-queue-card]' ? cards : buttons, getElementById: (id) => nodes[id] } };
   vm.runInNewContext(code, ctx);
   function add(id, status) { const card = { text: 'unsaved caption', getAttribute: (a) => a === 'data-queue-card' ? id : status, scrollIntoView() {}, focus() { focused = id; } }; cards.push(card); return card; }
-  return { ctx, add, buttons, nodes, get focused() { return focused; },get loads(){return loads;} };
+  return { ctx, add, buttons, nodes,toasts, get focused() { return focused; },get loads(){return loads;} };
 }
 test('deep link focuses requested card after asynchronous queue load', () => {
   const h = harness(); h.ctx.window.MarketingTabs.routeQueue();
@@ -55,4 +55,9 @@ test('cold shell navigation is safe before the first queue response',()=>{
  const h=harness();h.ctx.DATA=null;assert.doesNotThrow(()=>h.ctx.window.MarketingTabs.routeQueue());assert.equal(h.loads,0);
  h.ctx.location.hash='#create-instagram?filter=archived';assert.doesNotThrow(()=>h.ctx.window.MarketingTabs.routeQueue());assert.equal(h.loads,0);
  h.ctx.DATA={archived_view:false};h.ctx.window.MarketingTabs.routeQueue();assert.equal(h.loads,1);
+});
+
+test('switching queue views cannot discard an unsaved caption or composer',()=>{
+ for(const composer of [false,true]){const h=harness();h.ctx.DATA.posts=[{id:'d',caption:'Saved'}];h.nodes[composer?'cap':'cap_d']={value:'Unsaved words'};
+ h.ctx.window.MarketingTabs.filterQueue('archived');assert.equal(h.loads,0);assert.match(h.toasts[0],/Save your draft changes/);assert.doesNotMatch(h.ctx.location.hash,/filter=archived/);assert.equal(h.nodes[composer?'cap':'cap_d'].value,'Unsaved words');}
 });

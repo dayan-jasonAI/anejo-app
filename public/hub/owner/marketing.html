@@ -1741,10 +1741,19 @@
   }
   window.MarketingTabs.filterQueue = function (filter, postId) {
     if (!['drafts', 'scheduled', 'attention', 'live', 'all', 'archived'].includes(filter)) filter = 'drafts';
+    var previousFilter = queueFilter;
     queueFilter = filter;
     if (!DATA) return; // The shell routes before the first asynchronous queue load resolves.
+    var changeView = (filter === 'archived') !== Boolean(DATA.archived_view);
+    if (changeView) {
+      var changedCaption = (DATA.posts || []).some(function(p){var field=document.getElementById('cap_'+p.id);return field && field.value !== (p.caption || '');});
+      var composer=document.getElementById('cap'), image=document.getElementById('mkey');
+      if (changedCaption || (composer && composer.value.trim()) || (image && image.value.trim())) {
+        queueFilter=previousFilter; Hub.toast('Save your draft changes before switching queues.'); return;
+      }
+    }
     history.replaceState(null, '', '#create-instagram?filter=' + filter + (postId ? '&post=' + encodeURIComponent(postId) : ''));
-    if ((filter === 'archived') !== Boolean(DATA.archived_view)) { load(); return; }
+    if (changeView) { load(); return; }
     var cards = Array.from(document.querySelectorAll('[data-queue-card]'));
     var shown = 0, target = null;
     cards.forEach(function (card) {
