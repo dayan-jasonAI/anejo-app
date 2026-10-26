@@ -413,11 +413,19 @@ $("preview-bands").onclick = async () => {
     const result = await response.json();
     if (sequence !== bandPreviewSequence || JSON.stringify(bandPreviewInput()) !== snapshot) return;
     if (!response.ok || !result.ok || result.preview_only !== true || result.approved !== false || typeof result.html !== "string") throw Error("Preview unavailable");
-    const frame = $("band-preview-frame");
+    const oldFrame = $("band-preview-frame"), frame = oldFrame.cloneNode(false);
+    oldFrame.replaceWith(frame);
+    const loaded = new Promise((resolve, reject) => {
+      const timer = setTimeout(() => reject(Error("Preview timed out")), 15000);
+      frame.onload = () => { clearTimeout(timer); resolve(); };
+      frame.onerror = () => { clearTimeout(timer); reject(Error("Preview unavailable")); };
+    });
     const policy = '<meta http-equiv="Content-Security-Policy" content="default-src \'none\'; img-src https://anejocateringco.com; font-src https://anejocateringco.com; style-src \'unsafe-inline\'; base-uri \'none\'; form-action \'none\'">';
     frame.srcdoc = result.html.replace("</head>", policy + '<style>@media screen{.toolbar{display:none!important}.sheet{margin:0!important}body{background:white}}</style></head>');
     $("band-preview-panel").hidden = false;
     fitBandPreview();
+    await loaded;
+    if (sequence !== bandPreviewSequence || JSON.stringify(bandPreviewInput()) !== snapshot) return;
     say(() => t("Template preview ready. This uses the nearest Añejo template, not uploaded artwork or final print approval.", "Plantilla lista. Usa el estilo Añejo más cercano, no los diseños cargados ni una aprobación final de impresión."), "band-preview-status");
   } catch {
     if (sequence === bandPreviewSequence) say(() => t("The template preview could not load. Try again; your design is unchanged.", "No se pudo cargar la plantilla. Inténtalo de nuevo; tu diseño se mantiene igual."), "band-preview-status");
