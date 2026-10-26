@@ -200,7 +200,7 @@ async function runInboxTick(env, observe) {
     if (budget <= 0) break;
     let last = null;
     try {
-      last = await env.DB.prepare('SELECT * FROM messages WHERE thread_id=? ORDER BY created_at DESC LIMIT 1').bind(th.id).first();
+      last = await env.DB.prepare('SELECT * FROM messages WHERE thread_id=? ORDER BY created_at DESC, rowid DESC LIMIT 1').bind(th.id).first();
     } catch { observe('message_read_failed'); continue; }
     if (!last || last.direction !== 'inbound') continue;
 
@@ -215,6 +215,18 @@ async function runInboxTick(env, observe) {
       kind: 'dm', threadId: th.id, igUserId: th.external_id || null, igUsername: th.external_username || null,
       messageId: last.id, text: last.body || '', t,
     }); } catch { /* Aña's draft for this thread must not be held hostage by the sales side-effect */ }
+
+    // An attachment/sticker can arrive without text. There is nothing for the
+    // text model to answer: retrying draftReply('') every minute falsely reports
+    // an offline assistant and never brings the message to a person. Preserve
+    // the inbound and leave one non-sendable owner-review note instead.
+    if (!String(last.body || '').trim()) {
+      try {
+        if (await insertNontextEscalation(env, th.id, last.id, last.body ?? null, t)) escalated += 1;
+        else skipped += 1; // another tick handled it, or a newer message arrived
+      } catch { observe('processing_failed'); }
+      continue;
+    }
 
     budget -= 1;
     const d = await draftReply(env, { kind: 'dm', text: last.body || '', username: th.external_username, auto: autoOk('dm') });
@@ -328,4 +340,20 @@ async function insertEscalation(env, threadId, refId, reason, t) {
     `INSERT INTO messages (id, thread_id, direction, channel, sender_id, sender_role, body, ai_drafted, ref_id, dismissed_at, created_at)
      VALUES (?,?,'outbound','instagram','ana','ana_escalation',?,0,?,?,?)`
   ).bind(id('msg'), threadId, `Aña escalated this to you — ${String(reason || 'needs the owner').slice(0, 200)}. No reply was drafted.`, refId, t, t).run();
+}
+
+// One atomic claim per empty inbound. Do not overtake a newer customer message
+// or duplicate the note when overlapping scheduled checks read the same row.
+// ana_escalation cannot be sent by the owner send endpoint; sent_at stays NULL.
+async function insertNontextEscalation(env, threadId, inboundId, bodySnapshot, t) {
+  const result = await env.DB.prepare(
+    `INSERT INTO messages (id, thread_id, direction, channel, sender_id, sender_role, body, ai_drafted, dismissed_at, created_at, reply_to_message_id)
+     SELECT ?,?,'outbound','instagram','ana','ana_escalation',?,0,?,?,?
+      WHERE EXISTS (SELECT 1 FROM messages WHERE id=? AND thread_id=? AND direction='inbound' AND body IS ?)
+        AND ?=(SELECT id FROM messages WHERE thread_id=? ORDER BY created_at DESC, rowid DESC LIMIT 1)
+        AND NOT EXISTS (SELECT 1 FROM messages WHERE thread_id=? AND sender_role='ana_escalation' AND reply_to_message_id=?)`
+  ).bind(id('msg'), threadId, 'Aña needs your review — this Instagram message has no readable text. Review its content in Instagram. No reply was drafted or sent.', t, t, inboundId,
+    inboundId, threadId, bodySnapshot, inboundId, threadId, threadId, inboundId).run();
+  if (result?.success === false || !Number.isInteger(result?.meta?.changes)) throw Error('Non-text handoff was not saved.');
+  return result.meta.changes === 1;
 }
