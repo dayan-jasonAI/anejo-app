@@ -65,3 +65,9 @@ test('provider diagnosis stays unavailable, bounded and escaped without blaming 
  const html=render(input);assert.match(html,/rejected the visual request \(HTTP 400\)/);assert.match(html,/schema_complexity/);assert.match(html,/req_fixture/);assert.match(html,/not a verified defect/);assert.match(html,/does not prove the underlying cause/);assert.doesNotMatch(html,/class="audit pass"/);
  d.request_id='<img onerror=x>';d.classification='<script>';input.audit_detail_json=JSON.stringify({audit_diagnostic:d});const escaped=render(input);assert.doesNotMatch(escaped,/<img|<script>/);assert.match(escaped,/&lt;img/);
 });
+
+test('large audit findings stay collapsed with historical findings distinguished',()=>{
+ const html=render({...row,audit_current:0,audit_flags:JSON.stringify([{detail:'Historical concern'}])});
+ assert.match(html,/<details class="audit-details"><summary>Previous audit details<\/summary>/);assert.match(html,/Historical concern/);assert.doesNotMatch(html,/<details[^>]* open/);assert.match(html,/class="audit unscored"/);
+ const fresh=render(row);assert.match(fresh,/<summary>Review findings<\/summary>/);assert.match(fresh,/class="audit pass"/);
+});

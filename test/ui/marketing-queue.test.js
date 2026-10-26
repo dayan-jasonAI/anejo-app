@@ -7,12 +7,13 @@ const code = page.slice(page.indexOf("  var queueFilter = 'drafts';"), page.inde
 function harness() {
   let cards = [], focused;
   const title = { scrollIntoView() {}, focus() { focused = 'title'; } };
-  const buttons = ['drafts','scheduled','attention','live','all'].map((filter) => ({ getAttribute: () => filter, setAttribute(k,v) { this[k] = v; }, classList: { toggle() {} } }));
+  const buttons = ['drafts','scheduled','attention','live','all','archived'].map((filter) => ({ getAttribute: () => filter, setAttribute(k,v) { this[k] = v; }, classList: { toggle() {} } }));
   const nodes = { 'queue-count': {}, 'queue-empty': {}, 'post-queue-title': title };
-  const ctx = { Array, URLSearchParams, location: { hash: '#create-instagram?filter=drafts&post=d2' }, window: { MarketingTabs: {} }, document: { querySelectorAll: (s) => s === '[data-queue-card]' ? cards : buttons, getElementById: (id) => nodes[id] } };
+  let loads=0;const toasts=[];
+  const ctx = { Array, URLSearchParams, DATA:{archived_view:false},Hub:{toast:x=>toasts.push(x)},load:()=>{loads++;}, history:{replaceState(_state,_title,url){ctx.location.hash=url;}}, location: { hash: '#create-instagram?filter=drafts&post=d2' }, window: { MarketingTabs: {} }, document: { querySelectorAll: (s) => s === '[data-queue-card]' ? cards : buttons, getElementById: (id) => nodes[id] } };
   vm.runInNewContext(code, ctx);
   function add(id, status) { const card = { text: 'unsaved caption', getAttribute: (a) => a === 'data-queue-card' ? id : status, scrollIntoView() {}, focus() { focused = id; } }; cards.push(card); return card; }
-  return { ctx, add, buttons, nodes, get focused() { return focused; } };
+  return { ctx, add, buttons, nodes,toasts, get focused() { return focused; },get loads(){return loads;} };
 }
 test('deep link focuses requested card after asynchronous queue load', () => {
   const h = harness(); h.ctx.window.MarketingTabs.routeQueue();
@@ -41,4 +42,22 @@ test('a planner suggested date never reads as an approved schedule', () => {
   const c = {}; vm.runInNewContext(page.slice(page.indexOf('  function when(p)'),page.indexOf('  function whenLabel(')),c);
   assert.match(c.when({status:'draft',scheduled_at:Date.now()}),/Suggested time — not scheduled/);
   assert.match(c.when({status:'scheduled',scheduled_at:Date.now()}),/^Scheduled for/);
+});
+
+test('removed view loads separately and All never exposes archived drafts',()=>{
+ const h=harness();const removed=h.add('r','archived');h.ctx.window.MarketingTabs.filterQueue('all');assert.equal(removed.hidden,true);
+ h.ctx.window.MarketingTabs.filterQueue('archived');assert.equal(h.loads,1);assert.match(h.ctx.location.hash,/filter=archived/);
+ h.ctx.DATA.archived_view=true;h.ctx.window.MarketingTabs.routeQueue();assert.equal(removed.hidden,false);
+ h.ctx.window.MarketingTabs.filterQueue('drafts');assert.equal(h.loads,2);assert.match(h.ctx.location.hash,/filter=drafts/);
+});
+
+test('cold shell navigation is safe before the first queue response',()=>{
+ const h=harness();h.ctx.DATA=null;assert.doesNotThrow(()=>h.ctx.window.MarketingTabs.routeQueue());assert.equal(h.loads,0);
+ h.ctx.location.hash='#create-instagram?filter=archived';assert.doesNotThrow(()=>h.ctx.window.MarketingTabs.routeQueue());assert.equal(h.loads,0);
+ h.ctx.DATA={archived_view:false};h.ctx.window.MarketingTabs.routeQueue();assert.equal(h.loads,1);
+});
+
+test('switching queue views cannot discard an unsaved caption or composer',()=>{
+ for(const composer of [false,true]){const h=harness();h.ctx.DATA.posts=[{id:'d',caption:'Saved'}];h.nodes[composer?'cap':'cap_d']={value:'Unsaved words'};
+ h.ctx.window.MarketingTabs.filterQueue('archived');assert.equal(h.loads,0);assert.match(h.toasts[0],/Save your draft changes/);assert.doesNotMatch(h.ctx.location.hash,/filter=archived/);assert.equal(h.nodes[composer?'cap':'cap_d'].value,'Unsaved words');}
 });

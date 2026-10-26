@@ -15,7 +15,7 @@ export const SOCIAL_AUDIT_SNAPSHOT = `json_array(COALESCE(caption,''),COALESCE(i
 // Ordered source version sets, including membership changes from active toggles/deletion.
 // A shared SQL expression permits comparison inside the same conditional write.
 const versions = (table, where) => `(SELECT COALESCE(group_concat(item, ','), '') FROM (SELECT json_array(id,updated_at) AS item FROM ${table} WHERE ${where} ORDER BY id))`;
-export const SOCIAL_AUDIT_CONTEXT = `json_array(${versions('docs', "active=1 AND doc_type='brand'")},${versions('training_rules','active=1')},${versions('training_examples','active=1')},${versions('menu_items','active=1')})`;
+export const SOCIAL_AUDIT_CONTEXT = `json_array(${versions('docs', "active=1 AND doc_type='brand'")},${versions('training_rules','active=1')},${versions('training_examples','active=1')},${versions('menu_items','active=1')},(SELECT json_array(config_json,version,updated_at) FROM daily_lunch_config WHERE id=1),(SELECT COALESCE(group_concat(item, ','),'') FROM (SELECT json_array(key,value,updated_at) AS item FROM app_settings WHERE key LIKE 'ops.%' ORDER BY key)))`;
 export const SOCIAL_AUDIT_CURRENT = `(audit_snapshot=${SOCIAL_AUDIT_SNAPSHOT} AND audit_context_snapshot=${SOCIAL_AUDIT_CONTEXT} AND json_valid(audit_detail_json) AND CASE WHEN json_valid(audit_detail_json) THEN json_extract(audit_detail_json,'$.rubric_version')='${VISUAL_AUDIT_VERSION}' ELSE 0 END)`;
 
 // Audit only bounded declarations relevant to review; never forward arbitrary R2
