@@ -1,21 +1,24 @@
 import {executionQuoteSnapshot} from './catering_execution.js';
 import {emailShell,escHtml,sendEmail} from './email.js';
 import {ensureCateringConversation,sendCateringSms,phoneDigits,cateringSmsOptedOut} from './catering_conversation.js';
-export const SERVICE_TEMPLATE_VERSION='catering-delivery-care-v1';
+export const SERVICE_TEMPLATE_VERSION='catering-delivery-care-v2-neutral';
 const SITE='https://anejocateringco.com';
 const fail=error=>({ok:false,error});
 function resultRows(result){if(result?.success!==true||!Array.isArray(result.results))throw Error('Delivery communication query unavailable.');return result.results;}
-export function serviceCopy(kind,lang='en'){
+export function serviceCopy(kind,lang='en',event={}){
  const es=lang==='es',done=kind==='completed';
- const subject=done?(es?'Gracias por celebrar con Añejo':'Thank you for celebrating with Añejo'):(es?'Su catering Añejo está en camino':'Your Añejo catering is on the way');
- const body=done?(es?'Su pedido se ha entregado. Gracias por dejarnos ser parte de su celebración. ¡Disfruten! Si necesita algo, responda a este mensaje.':'Your order has been delivered. Thank you for letting us be part of your celebration. Enjoy! If you need anything, reply to this message.'):(es?'Su pedido de catering está en camino a su celebración. Para consultar los detalles o comunicarse con nosotros, visite su cuenta.':'Your catering order is on its way to your celebration. Visit your account for event details or reply if you need to reach us.');
+ const address=String(event.address||'').replace(/[\u0000-\u001f\u007f]/g,' ').replace(/\s+/g,' ').trim();
+ const location=address&&address.length<=300?address:(es?'la ubicación de su evento':'your event location');
+ const subject=done?(es?'Gracias por elegir Añejo':'Thank you for choosing Añejo'):(es?'Su catering Añejo está en camino':'Your Añejo catering is on the way');
+ const body=done?(es?`Su pedido se ha entregado en ${location}. Gracias por elegir Añejo para su evento. ¡Disfruten! Si necesita algo, responda a este mensaje.`:`Your order has been delivered to ${location}. Thank you for choosing Añejo for your event. Enjoy! If you need anything, reply to this message.`):(es?`Su pedido de catering está en camino a ${location}. Para consultar los detalles o comunicarse con nosotros, visite su cuenta.`:`Your catering order is on its way to ${location}. Visit your account for event details or reply if you need to reach us.`);
  const url=SITE+'/client/dashboard?catering=1',cta=es?'Ver mi evento':'View my event';
  return {subject,text:body+'\n\n'+cta+': '+url,sms:'Añejo: '+body+' '+url+(es?' Responda STOP para dejar de recibir mensajes.':' Reply STOP to opt out.'),html:emailShell('<h2>'+escHtml(subject)+'</h2><p>'+escHtml(body)+'</p><p><a href="'+url+'" style="color:#1a3d2e">'+cta+'</a></p>')};
 }
 export async function serviceMessageView(env,qid){
  const settings=await env.DB.prepare('SELECT * FROM catering_service_settings WHERE id=1').first();
  const rows=(await env.DB.prepare(`SELECT m.kind,m.channel,m.status,m.provider_id,m.error,m.updated_at,s.status AS carrier_status,r.status AS email_status,r.observed_at AS provider_observed_at FROM catering_service_messages m LEFT JOIN sms_log s ON s.id=m.sms_log_id LEFT JOIN catering_email_receipts r ON r.provider_id=m.provider_id WHERE m.quote_id=? ORDER BY m.created_at,m.channel`).bind(qid).all()).results||[];
- return {ok:true,settings,messages:rows,template_version:SERVICE_TEMPLATE_VERSION,previews:['en','es'].flatMap(lang=>['en_route','completed'].map(kind=>({lang,kind,...serviceCopy(kind,lang)})))};
+ const event=await env.DB.prepare('SELECT address FROM catering_quotes WHERE id=?').bind(qid).first();
+ return {ok:true,settings,messages:rows,template_version:SERVICE_TEMPLATE_VERSION,previews:['en','es'].flatMap(lang=>['en_route','completed'].map(kind=>({lang,kind,...serviceCopy(kind,lang,event||{})})))};
 }
 export async function approveServiceMessages(env,b,{actor,at=Date.now()}={}){
  if(typeof b.enable!=='boolean'||b.reviewed!==true||b.template_version!==SERVICE_TEMPLATE_VERSION)return fail('Review all four rendered email and SMS previews before changing delivery communication.');
@@ -34,14 +37,14 @@ export async function runCateringServiceMessages(env,{at:startedAt=Date.now(),em
  const events=resultRows(await env.DB.prepare(`SELECT q.*,e.status AS execution_status,e.version AS execution_version,e.quote_snapshot,e.delivery_mode,t.recorded_at,t.to_status FROM catering_quotes q JOIN catering_execution e ON e.quote_id=q.id JOIN catering_execution_transitions t ON t.quote_id=e.quote_id AND t.version=e.version AND t.to_status=e.status WHERE q.deposit_status='paid' AND e.status IN ('en_route','completed') AND e.delivery_mode IN ('owner_self','staff_driver') AND t.recorded_at>=? AND t.recorded_at<=? ORDER BY t.recorded_at LIMIT 50`).bind(settings.enabled_at,at).all());
  for(const q of events){
   if(q.quote_snapshot!==executionQuoteSnapshot(q)||q.execution_status==='completed'&&!['paid','waived'].includes(q.balance_status)&&q.balance_cents>0)continue;
-  const copy=serviceCopy(q.execution_status,q.lang),snapshot=JSON.stringify({quote_id:q.id,kind:q.execution_status,version:q.execution_version,delivery_mode:q.delivery_mode,recipient:q.customer_email,phone:q.customer_phone,source_lead_id:q.source_lead_id,lang:q.lang||'en',template_version:SERVICE_TEMPLATE_VERSION,...copy});
+  const copy=serviceCopy(q.execution_status,q.lang,q),snapshot=JSON.stringify({quote_id:q.id,kind:q.execution_status,version:q.execution_version,delivery_mode:q.delivery_mode,recipient:q.customer_email,phone:q.customer_phone,source_lead_id:q.source_lead_id,lang:q.lang||'en',template_version:SERVICE_TEMPLATE_VERSION,...copy});
   for(const channel of ['email','sms'])await env.DB.prepare('INSERT OR IGNORE INTO catering_service_messages(quote_id,kind,channel,transition_version,snapshot_json,created_at,updated_at) VALUES(?,?,?,?,?,?,?)').bind(q.id,q.execution_status,channel,q.execution_version,snapshot,q.recorded_at,at).run();
  }
  const rows=resultRows(await env.DB.prepare("SELECT * FROM catering_service_messages WHERE status='pending' ORDER BY created_at LIMIT 50").all());
  for(const row of rows){
   const at=startedAt+clock()-startedClock;
   const p=JSON.parse(row.snapshot_json),q=await env.DB.prepare('SELECT q.*,e.status AS execution_status,e.version AS execution_version,e.quote_snapshot,e.delivery_mode FROM catering_quotes q JOIN catering_execution e ON e.quote_id=q.id WHERE q.id=?').bind(row.quote_id).first();
-  if(!q||q.deposit_status!=='paid'||q.execution_status!==row.kind||q.execution_version!==row.transition_version||q.customer_email!==p.recipient||q.customer_phone!==p.phone||q.quote_snapshot!==executionQuoteSnapshot(q)||q.delivery_mode!==p.delivery_mode||at-row.created_at>30*60000){await suppress(env,row,'Event changed or notification window elapsed.',at);out.suppressed++;continue;}
+  if(p.template_version!==SERVICE_TEMPLATE_VERSION||!q||q.deposit_status!=='paid'||q.execution_status!==row.kind||q.execution_version!==row.transition_version||q.customer_email!==p.recipient||q.customer_phone!==p.phone||q.quote_snapshot!==executionQuoteSnapshot(q)||q.delivery_mode!==p.delivery_mode||at-row.created_at>30*60000){await suppress(env,row,'Event changed or notification window elapsed.',at);out.suppressed++;continue;}
   const lead=q.source_lead_id?await env.DB.prepare("SELECT id,name,phone,sms_consent FROM leads WHERE id=? AND kind='catering'").bind(q.source_lead_id).first():null;
   if(row.channel==='sms'&&(!lead?.sms_consent||phoneDigits(lead.phone).length!==10||phoneDigits(lead.phone)!==phoneDigits(q.customer_phone)||await cateringSmsOptedOut(env,lead.phone))){await suppress(env,row,'SMS consent, matching phone or opt-in unavailable.',at);out.suppressed++;continue;}
   if(row.channel==='email'&&(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(q.customer_email||'')||await env.DB.prepare('SELECT email FROM email_suppressions WHERE email=?').bind(q.customer_email.trim().toLowerCase()).first())){await suppress(env,row,'Email unavailable or suppressed.',at);out.suppressed++;continue;}

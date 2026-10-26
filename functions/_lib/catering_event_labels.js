@@ -22,8 +22,8 @@ export async function saveLabelDraft(env,b,{actor,at=Date.now()}={}){
  const lines=parse(q.quote_json)?.lines;
  if(!Array.isArray(lines)||!lines.length||lines.some(l=>!String(l.name||'').trim()))return fail('The saved quote needs an itemized menu.');
  const labelNames=lines.map((l,index)=>String(b.label_names?.['l'+index]||l.name||'').trim());
- const wording=String(b.title||q.theme||'A celebration by Añejo').trim();
- if(wording.length>48||labelNames.some(n=>!n||n.length>80))return fail('Use a celebration title under 49 characters and label dish names under 81 characters. Edit Label wording; the quote stays unchanged.');
+ const wording=String(b.title||q.theme||'An event by Añejo').trim();
+ if(wording.length>48||labelNames.some(n=>!n||n.length>80))return fail('Use an event title under 49 characters and label dish names under 81 characters. Edit Label wording; the quote stays unchanged.');
  const snapshot={title:wording,theme:b.theme,lines:lines.map((l,index)=>({name:labelNames[index],source_name:String(l.name||''),qty:String(l.qty||'').slice(0,80)})),website:'https://anejocateringco.com',instagram:'https://instagram.com/anejo.catering.co',phone:'561-778-7474',renderer:'anejo-labels-v1',renderer_fingerprint:await rendererFingerprint()};
  const r=await env.DB.prepare(`INSERT INTO catering_label_drafts(quote_id,theme,quote_updated_at,quote_snapshot,snapshot_json,created_by,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?) ON CONFLICT(quote_id) DO UPDATE SET theme=excluded.theme,quote_updated_at=excluded.quote_updated_at,quote_snapshot=excluded.quote_snapshot,snapshot_json=excluded.snapshot_json,version=catering_label_drafts.version+1,approved_by=NULL,approved_at=NULL,updated_at=excluded.updated_at WHERE catering_label_drafts.version=?`).bind(q.id,b.theme,q.updated_at,JSON.stringify([executionQuoteSnapshot(q),q.customer_name,q.theme,q.colors]),JSON.stringify(snapshot),actor,at,at,b.expected_version||0).run();return r.meta?.changes===1?{ok:true,printed:false}:fail('Draft changed. Reload.');
 }
