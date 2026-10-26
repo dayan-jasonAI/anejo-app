@@ -23,6 +23,7 @@ import { renderCampaignDirection } from './campaign_direction.js';
 // ingredient and its weight, macros, tags) and the whole marketing half of the brief, so the Lead's
 // honesty has something to be honest ABOUT.
 import { budgetGate, recordSpend, weekSpend, WEEKLY_LIMIT_MICRO } from './ai_budget.js';
+import {loadDailyLunchAuditContext,dailyLunchInferenceReceipt} from './daily_lunch_audit_context.js';
 import { loadBrand } from './brand_source.js';
 import { loadMenu, isAvailable, isOrderable } from './menu.js';
 import { BOWL_BY_NAME, BOWL_LABEL, scaledBowlMacros } from './bowlspec.js';
@@ -133,6 +134,8 @@ export async function buildSpine(env) {
   // from, so the Lead can never argue for a campaign around a bowl that is off sale without
   // knowing it is off sale.
   const menu = await loadMenu(env);
+  const dailyLunch=await loadDailyLunchAuditContext(env);
+  const dailyLunchReceipt=await dailyLunchInferenceReceipt(dailyLunch);
   const items = menu.items || [];
   const menuItems = items.filter((it) => it.kind === 'bowl').map(describeItem);
   // Include every non-bowl catalog kind: catering and Traditional are not drinks or add-ons.
@@ -235,9 +238,9 @@ export async function buildSpine(env) {
   return {
     intel,
     brand: brand.text, brand_source: brand.source,
-    input_components: { brand: brand.receipt || { read_status: 'unknown' }, training: trainingReceipt, briefs: briefReceipt, intel: intel.receipt, retrospective: retroReceipt },
+    input_components: { operations:dailyLunchReceipt, brand: brand.receipt || { read_status: 'unknown' }, training: trainingReceipt, briefs: briefReceipt, intel: intel.receipt, retrospective: retroReceipt },
     menu: menuItems, other_items: otherItems,
-    metrics, drafts, budget, briefs, surfaces, training, retro,
+    metrics, drafts, budget, briefs, surfaces, training, retro, daily_lunch:dailyLunch,
     coverage: { ...coverage, menu: { source: menu.source, read_status: menu.source === 'd1' ? 'ok' : 'unavailable', fallback_reason: menu.source === 'd1' ? null : 'empty_or_unavailable' }, intel: intel.receipt, retrospective: retroReceipt, drafts_limit: 20, post_metrics_limit: 25 },
   };
 }
@@ -302,6 +305,7 @@ export function renderSpine(spine) {
     '=== ON THE MENU RIGHT NOW (live prices + the kitchen build; the only items that exist) ===\n' +
     'Ingredient weights are the kitchen spec for a standard 16 oz bowl. Macros are approximate — ' +
     'never present them as precise or medical.\n' + menuLines + otherLines + '\n\n' +
+    (spine.daily_lunch?.text ? spine.daily_lunch.text+'\n\n' : '') +
     // The retrospective sits ABOVE the raw numbers deliberately: §7 step 4 says the next planning
     // session OPENS with how the last one went. Numbers underneath it are the detail behind the
     // verdict, not a second, unreconciled account of the same week.

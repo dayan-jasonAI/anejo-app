@@ -1,0 +1,83 @@
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import vm from 'node:vm';
+const code = readFileSync(new URL('../../public/hub/owner/assets/social-campaigns.js', import.meta.url), 'utf8');
+const page = readFileSync(new URL('../../public/hub/owner/social-campaigns.html', import.meta.url), 'utf8');
+function harness(response = { ok: true, campaigns: [] }) {
+  const nodes = Object.fromEntries(['owner-root', 'campaign-feedback', 'campaign-reload', 'campaign-import', 'campaign-plan-file'].map(id => [id, { innerHTML: '', textContent: '', setAttribute(k, v) { this[k] = v; }, addEventListener() {} }]));
+  const calls = [], listeners = {};
+  const ctx = { Hub: { esc: v => String(v ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])), api: async u => { calls.push(u); return response; } }, Owner: { init(_view, fn) { ctx.start = fn; } }, document: { getElementById: id => nodes[id] }, window: { addEventListener(k, fn) { listeners[k] = fn; } }, location: { origin: 'https://example.test', search: '' }, URL, URLSearchParams, Intl, Date, Object, Array, Number, String };
+  vm.runInNewContext(code, ctx);
+  return { api: ctx.window.CampaignReview, start: () => ctx.start(), nodes, calls, listeners, ctx };
+}
+test('post readiness counts use explicit current API records including unfilled slots', () => {
+  const h = harness();
+  assert.deepEqual({ ...h.api.counts([{ slot_id: 'empty' }, { post_id: 'draft', post_status: 'draft' }, { post_id: 'ready', ready: true }, { post_id: 'audit-failed', ready: true, blockers: ['audit stale'] }, { post_id: 'scheduled', post_status: 'scheduled' }, { post_id: 'published', post_status: 'published' }]) }, { ready: 1, draft: 1, blocked: 2, scheduled: 1, published: 1 });
+});
+test('review export is never approval and scheduling binds the exact current snapshot', () => {
+  assert.doesNotMatch(code, /op:\s*['"](?:publish|publish_now)/);
+  assert.match(code, /approval: null/);
+  assert.match(code, /source_preview_digest: cycle.preview_digest/);
+  assert.match(code, /requires_new_server_preview: dirty\(\)/);
+  assert.match(code, /expected_manifest_hash: cycle.preview_digest/);
+  assert.match(code, /expected_version: state.cycle.version/);
+  assert.match(code, /acknowledge_exact_preview: true/);
+  assert.match(code, /acknowledged_warning_ids: mode/);
+  assert.match(code, /if \(state.busy \|\| state.needsRefresh \|\| dirty\(\) \|\| mediaPending\(\)\) return/);
+});
+test('URLs reject active schemes, invalid origins, and embedded credentials', () => {
+  const h = harness();
+  assert.equal(h.api.safeUrl('javascript:alert(1)'), '');
+  assert.equal(h.api.safeUrl('data:text/html,hello'), '');
+  assert.equal(h.api.safeUrl(''), '');
+  assert.equal(h.api.safeUrl(undefined), '');
+  assert.equal(h.api.safeUrl('https://user:secret@example.test'), '');
+  assert.equal(h.api.safeUrl('/api/hub/media/example'), 'https://example.test/api/hub/media/example');
+});
+test('an approval status alone cannot establish exact current human approval', () => {
+  const h = harness();
+  assert.equal(h.api.approvalCurrent({ state: 'approved', preview_digest: 'current' }), false);
+  const approval = { id: 'a1', owner_id: 'owner', approved_at: Date.now(), scope: 'exact_manifest_only', approved_manifest_hash: 'previous' };
+  assert.equal(h.api.approvalCurrent({ approval, preview_digest: 'current' }), false);
+  approval.approved_manifest_hash = 'current';
+  assert.equal(h.api.approvalCurrent({ approval, preview_digest: 'current' }), true);
+  approval.approved_at = 'invalid';
+  assert.equal(h.api.approvalCurrent({ approval, preview_digest: 'current' }), false);
+});
+test('empty and error states remain distinct after cold navigation', async () => {
+  const empty = harness(); await empty.start();
+  assert.match(empty.nodes['owner-root'].innerHTML, /No campaign has been drafted/);
+  const failed = harness({ ok: false, error: 'Campaign storage unavailable' }); await failed.start();
+  assert.match(failed.nodes['owner-root'].innerHTML, /Campaign could not load/);
+  assert.doesNotMatch(failed.nodes['owner-root'].innerHTML, /No campaign has been drafted/);
+});
+test('unsaved caption suggestions block reload and browser exit without mutating server', async () => {
+  const h = harness(); h.api.state.edits.slot = 'Unsent local caption'; await h.start();
+  assert.equal(h.calls.length, 0); assert.match(h.nodes['campaign-feedback'].textContent, /unsaved caption/);
+  let prevented = false; const event = { preventDefault() { prevented = true; } }; h.listeners.beforeunload(event);
+  assert.equal(prevented, true); assert.equal(event.returnValue, '');
+});
+test('owner auth, untranslated captions, and review disclosures are present', () => {
+  assert.match(code, /Owner.init\('marketing', load\)/);
+  assert.match(code, /translate="no" dir="auto"/);
+  assert.match(page, /aria-live="polite"/);
+  assert.match(code, /Dates marked suggested have not been scheduled/);
+  assert.match(code, /audit_current === true/);
+  assert.match(page, /Loading campaign/);
+});
+test('draft plan import strips file approvals, media, schedule and post membership', () => {
+  const h = harness(), slots = Array.from({ length: 30 }, (_, i) => ({ slot_id: 'day-' + i, day_offset: i, time: '11:15', channel: 'feed', caption: 'Private caption', post_id: 'sp_other', media: ['unsafe'], approval: { approved: true }, status: 'scheduled', scheduled_at: 1 }));
+  const plan = h.api.parseDraftPlan({ title: 'Private plan', proposed_start_date: '2026-11-01', slots, approval: true });
+  assert.equal(plan.slots.length, 30); assert.ok(plan.slots.every(s => s.post_id === null));
+  assert.equal('approval' in plan, false); assert.equal('media' in plan.slots[0], false); assert.equal('scheduled_at' in plan.slots[0], false);
+  assert.throws(() => h.api.parseDraftPlan({ ...plan, slots: slots.slice(0, 29) }), /30/);
+  assert.throws(() => h.api.parseDraftPlan({ ...plan, slots: slots.map(s => ({ ...s, slot_id: 'same' })) }), /unique/);
+  assert.throws(() => h.api.parseDraftPlan({ ...plan, slots: slots.map(s => ({ ...s, caption: ' ' })) }), /complete caption/);
+});
+test('caption save uses exact revision and next cycle makes draft structure only', () => {
+  assert.match(code, /op: 'save_captions'/); assert.match(code, /expected_revision_snapshot: p.expected_revision_snapshot/);
+  assert.match(code, /op: 'stage_captions'/); assert.match(code, /op: 'next_cycle'/);
+  assert.match(code, /select the same unchanged file to resume/);
+  assert.match(code, /media, approvals or schedule/);
+});

@@ -26,7 +26,7 @@ export const onRequestPost = async ({ request, env }) => {
   if (!env.DB) return bad('Database not configured.', 500);
   if (!igConfigured(env)) return json({ ok: true, skipped: 'instagram_not_configured' });
 
-  const sweep = await sweepAccountInsights(env, { limit: 25 });
+  const sweep = await sweepAccountInsights(env, { limit: 500, pageSize: 100 });
   if (!sweep.ok) return bad(sweep.error || 'Could not read the account.', 502);
 
   const t = now();
@@ -41,6 +41,7 @@ export const onRequestPost = async ({ request, env }) => {
   } catch { ourIds = {}; }
 
   let stored = 0;
+  let storageErrors = 0;
   for (const m of sweep.rows) {
     try {
       await env.DB.prepare(
@@ -53,7 +54,7 @@ export const onRequestPost = async ({ request, env }) => {
         m.likes, m.comments, m.reach, m.saved, m.shares, m.views, m.total_interactions, t
       ).run();
       stored += 1;
-    } catch { /* one bad row must not lose the day */ }
+    } catch { storageErrors++; /* one bad row must not lose the day */ }
   }
 
   if (sweep.account) {
@@ -81,11 +82,14 @@ export const onRequestPost = async ({ request, env }) => {
     ok: true,
     date: day,
     posts_captured: stored,
+    posts_storage_errors: storageErrors,
+    media_fetch_error: sweep.media_fetch_error || null,
+    pagination: sweep.pagination,
     followers: sweep.account ? sweep.account.followers : null,
-    // Non-null means likes/comments only — the token predates manage_insights. Named plainly so
-    // the fix is obvious from the response alone.
+    // Provider failure is partial: row-level NULLs remain distinguishable from valid zeroes.
     insights_error: sweep.insights_error || null,
-    hint: sweep.insights_error ? 'Regenerate the token under Instagram → API setup with Instagram business login, then update IG_ACCESS_TOKEN.' : null,
+    insights_status: sweep.insights_error ? 'partial' : 'complete',
+    hint: sweep.insights_error && /permission|#10\b|#200\b/i.test(sweep.insights_error) ? 'Regenerate the token under Instagram → API setup with Instagram business login, then update IG_ACCESS_TOKEN.' : null,
     alerts_raised: alertsRaised,
   });
 };

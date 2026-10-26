@@ -35,7 +35,7 @@ export const onRequestGet = async ({ request, env }) => {
   if (!env.DB) return bad('Database not configured.', 500);
 
   const archivedView = new URL(request.url).searchParams.get('archived') === '1';
-  const queueScope = archivedView ? "status='archived'" : "status<>'archived'";
+  const queueScope = archivedView ? "status='archived'" : "status<>'archived' AND (status='published' OR campaign_cycle_id IS NULL)";
 
   let posts = [];
   try {
@@ -622,8 +622,9 @@ export const onRequestPost = async ({ request, env }) => {
   if (op === 'schedule') {
     const postId = String(b.id || '').trim();
     if (!postId) return bad('Missing id.');
-    const row = await env.DB.prepare('SELECT status FROM social_posts WHERE id=?').bind(postId).first().catch(() => null);
+    const row = await env.DB.prepare('SELECT status,campaign_cycle_id FROM social_posts WHERE id=?').bind(postId).first().catch(() => null);
     if (!row) return bad('That post no longer exists.', 404);
+    if(row.campaign_cycle_id)return bad('Schedule grouped posts from the exact campaign preview.',409);
     if (row.status !== 'draft' && row.status !== 'scheduled' && row.status !== 'failed') {
       return bad('That post is already on its way out.', 409);
     }
@@ -683,6 +684,7 @@ export const onRequestPost = async ({ request, env }) => {
 
     const post = await env.DB.prepare('SELECT * FROM social_posts WHERE id=?').bind(postId).first().catch(() => null);
     if (!post) return bad('That post no longer exists.', 404);
+    if(post.campaign_cycle_id)return bad('Publish grouped posts through their reviewed campaign schedule.',409);
     if (post.status === 'published') return json({ ok: true, already: true, permalink: post.permalink, media_id: post.ig_media_id });
     // A planned post has its words and its timing but no picture yet. Refuse clearly rather than
     // letting Instagram fetch a 404 and reporting that back as a publish failure.

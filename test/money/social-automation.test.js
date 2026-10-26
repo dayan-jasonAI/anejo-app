@@ -66,9 +66,10 @@ test('the planner is built from the LIVE menu, availability included', () => {
   assert.match(planner, /Currently SOLD OUT and must not be mentioned/);
 });
 
-test('with nothing on sale it writes nothing, rather than cheerful copy about an empty menu', () => {
+test('with no catalog offering or explicitly dated daily offer it writes nothing', () => {
   const planner = AUTO.slice(AUTO.indexOf('async function socialPlan'), AUTO.indexOf('const RUNNERS'));
-  assert.match(planner, /if \(!onSale\.length\)/);
+  assert.match(planner, /if \(!onSale\.length && dailyLunch\.price_cents===null\)/);
+  assert.match(planner, /loadDailyLunchAuditContext\(env\)/);
   assert.match(planner, /reason: 'no_menu_available'/);
 });
 

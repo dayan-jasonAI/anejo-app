@@ -1,4 +1,5 @@
 import { CATERING_ORDERING_GUIDANCE } from './cajita-policy.js';
+import {loadDailyLunchAuditContext} from './daily_lunch_audit_context.js';
 import { renderCampaignDirection } from './campaign_direction.js';
 // Añejo HUB — AI automation engine. Each automation is a pure-ish function that reads
 // ops data and produces an outcome; the runner wraps it with timing, agent_runs logging,
@@ -244,7 +245,7 @@ async function rows(env, sql, ...args) {
 
 // Small Claude call that must return JSON. Fully guarded: returns null on any failure
 // (no key, network error, non-JSON answer) so callers always fall back deterministically.
-async function askClaudeJson(env, { system, user, maxTokens = 400, feature = 'automation', receiptComponents }) {
+export async function askClaudeJson(env, { system, user, maxTokens = 400, feature = 'automation', receiptComponents, receiptSurface = 'social_plan' }) {
   if (!env || !env.ANTHROPIC_API_KEY) return null;
   // The $50/week ceiling is HARD: at the limit this refuses exactly like the no-key path,
   // so every caller's deterministic fallback runs and nothing bills into next week.
@@ -254,7 +255,7 @@ async function askClaudeJson(env, { system, user, maxTokens = 400, feature = 'au
       messages: [{ role: 'user', content: user }] });
     let inputReceipt = null;
     if (receiptComponents) {
-      try { inputReceipt = await persistInferenceReceipt(env, { surface: 'social_plan', requestJson, components: receiptComponents }); }
+      try { inputReceipt = await persistInferenceReceipt(env, { surface: receiptSurface, requestJson, components: receiptComponents }); }
       catch { inputReceipt = { persisted: false, reason: 'storage_write_failed' }; }
     }
     const r = await fetch('https://api.anthropic.com/v1/messages', {
@@ -849,13 +850,14 @@ async function socialPlan(env, date) {
     };
   }
   const menu = await loadMenu(env);
-  const offerings = (menu.items || []).filter(it => it.kind === 'bowl' || (it.kind === 'addon' && /^(traditional_|catering_)/.test(it.id)));
+  const dailyLunch = await loadDailyLunchAuditContext(env);
+  const offerings = (menu.items || []).filter(it => Number.isSafeInteger(it.price_cents) && it.price_cents > 0 && (['bowl','drink','meal','appetizer','side','dessert','sauce'].includes(it.kind) || (it.kind==='addon' && /^(traditional_|catering_)/.test(it.id))));
   const onSale = offerings.filter((it) => isAvailable(it) && isOrderable(it));
   const off = offerings.filter((it) => !isAvailable(it));
 
   // Nothing to sell means nothing to post. Better to say so than to generate cheerful copy about
   // an empty menu.
-  if (!onSale.length) {
+  if (!onSale.length && dailyLunch.price_cents===null) {
     return {
       outcome: 'skipped',
       output: { date, reason: 'no_menu_available', items_off: off.length },
@@ -947,9 +949,8 @@ async function socialPlan(env, date) {
       'intel_id: the market_intel id (copied exactly from a "[id: ...]" tag above) whose finding ' +
       'shaped this post\'s angle, or null if none did. The server checks this id against the intel ' +
       'it actually gave you, so inventing one accomplishes nothing. ' +
-      'day_offset: days from today. hour: local hour to post — the strongest windows for a food ' +
-      'account are 11-13 (lunch decision) and 17-19 (dinner decision) on weekdays, Friday ' +
-      'performs best, weekends are weakest so use 17-19 if you place one there. Spread posts ' +
+      'day_offset: days from today. hour: local hour to post. Use actual dated account evidence when available; ' +
+      'otherwise treat 11-13 and 17-19 as initial test windows, not proven best times. Do not assume a weekday performs better. Spread posts ' +
       'across the week, never two posts in the same hour on the same day — the server also ' +
       'enforces this, but a considered choice beats a corrected one. ' +
       'NEVER name a weekday, date or time of day in the caption unless it matches the day_offset you chose for that same post — ' +
@@ -964,7 +965,8 @@ async function socialPlan(env, date) {
       `and so on through 6.\n\n` +
       `Write ${need} posts for the coming week.\n\n` +
       (performance ? performance + '\n\n' : '') +
-      `ON THE MENU RIGHT NOW (these are the only items you may promote):\n${menuLines.join('\n')}\n\n` +
+      `ON THE MENU RIGHT NOW (these are the catalog items you may promote):\n${menuLines.join('\n')}\n\n` +
+      dailyLunch.text + '\nOnly the explicitly dated enabled daily-lunch rows are approved announcements; do not extrapolate unlisted dates or invent next month’s rotation.\n\n' +
       `${soldOutLine}\n\n` +
       `REVIEWED LIBRARY CANDIDATES (metadata only):\n${libraryContext.text}\n\n` +
       (extraContext ? extraContext + '\n\n' : '') +
@@ -980,6 +982,7 @@ async function socialPlan(env, date) {
     feature: 'social_plan',
     receiptComponents: { brand: brand.receipt, training: trainingReceipt, asset_registry: libraryContext.receipt,
       menu: { source_ids: onSale.map(it => it.id), read_status: 'unknown' },
+      operations: { source:'d1_daily_lunch_config',read_status:dailyLunch.receipt.status==='ok'?'ok':'unavailable',id:'1',updated_at:dailyLunch.receipt.updated_at??null },
       briefs: { source_ids: [...briefIds], read_status: campaignReadStatus }, intel: { source_ids: [...intelIds], read_status: 'unknown' } },
   });
 
