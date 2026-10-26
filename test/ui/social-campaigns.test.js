@@ -15,18 +15,35 @@ test('post readiness counts use explicit current API records including unfilled 
   const h = harness();
   assert.deepEqual({ ...h.api.counts([{ slot_id: 'empty' }, { post_id: 'draft', post_status: 'draft' }, { post_id: 'ready', ready: true }, { post_id: 'audit-failed', ready: true, blockers: ['audit stale'] }, { post_id: 'scheduled', post_status: 'scheduled' }, { post_id: 'published', post_status: 'published' }]) }, { ready: 1, draft: 1, blocked: 2, scheduled: 1, published: 1 });
 });
-test('read-only review cannot approve, schedule, or publish', () => {
-  assert.doesNotMatch(code, /method\s*:\s*['"](?:POST|PUT|DELETE|PATCH)|approve_schedule|fetch\(/);
+test('review export is never approval and scheduling binds the exact current snapshot', () => {
+  assert.doesNotMatch(code, /op:\s*['"](?:publish|publish_now)|fetch\(/);
   assert.match(code, /approval: null/);
   assert.match(code, /source_preview_digest: cycle.preview_digest/);
   assert.match(code, /requires_new_server_preview: dirty\(\)/);
+  assert.match(code, /expected_manifest_hash: cycle.preview_digest/);
+  assert.match(code, /expected_version: state.cycle.version/);
+  assert.match(code, /acknowledge_exact_preview: true/);
+  assert.match(code, /acknowledged_warning_ids: mode/);
+  assert.match(code, /if \(state.busy \|\| state.needsRefresh \|\| dirty\(\)\) return/);
 });
 test('URLs reject active schemes, invalid origins, and embedded credentials', () => {
   const h = harness();
   assert.equal(h.api.safeUrl('javascript:alert(1)'), '');
   assert.equal(h.api.safeUrl('data:text/html,hello'), '');
+  assert.equal(h.api.safeUrl(''), '');
+  assert.equal(h.api.safeUrl(undefined), '');
   assert.equal(h.api.safeUrl('https://user:secret@example.test'), '');
   assert.equal(h.api.safeUrl('/api/hub/media/example'), 'https://example.test/api/hub/media/example');
+});
+test('an approval status alone cannot establish exact current human approval', () => {
+  const h = harness();
+  assert.equal(h.api.approvalCurrent({ state: 'approved', preview_digest: 'current' }), false);
+  const approval = { id: 'a1', owner_id: 'owner', approved_at: Date.now(), scope: 'exact_manifest_only', approved_manifest_hash: 'previous' };
+  assert.equal(h.api.approvalCurrent({ approval, preview_digest: 'current' }), false);
+  approval.approved_manifest_hash = 'current';
+  assert.equal(h.api.approvalCurrent({ approval, preview_digest: 'current' }), true);
+  approval.approved_at = 'invalid';
+  assert.equal(h.api.approvalCurrent({ approval, preview_digest: 'current' }), false);
 });
 test('empty and error states remain distinct after cold navigation', async () => {
   const empty = harness(); await empty.start();
