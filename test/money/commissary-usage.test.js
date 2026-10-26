@@ -41,7 +41,7 @@ test('external form is never submitted automatically and reporting requires ende
 });
 test('staff privacy, owner oversight and real monthly totals are separate from plans and active visits',async()=>{
  const env=ownerEnv(),id=await visit(env);await mutateCommissaryUsage(env,finish(id),cook,{at:AT+2*HOUR});await visit(env,owner,AT,'owner-start-001');
- const mine=await commissaryUsageView(env,cook,{month:'2026-10',at:AT+3*HOUR}),all=await commissaryUsageView(env,owner,{month:'2026-10',at:AT+3*HOUR});assert.equal(mine.visits.length,1);assert.equal(mine.totals.actual_hours,2);assert.equal(all.visits.length,2);assert.equal(all.totals.in_progress,1);assert.equal(all.totals.actual_hours,2);
+ const mine=await commissaryUsageView(env,cook,{month:'2026-10',at:AT+3*HOUR}),all=await commissaryUsageView(env,owner,{month:'2026-10',at:AT+3*HOUR});assert.equal(mine.visits.length,1);assert.equal(mine.totals.actual_hours,2);assert.equal(all.visits.length,2);assert.equal(all.totals.in_progress,1);assert.equal(all.totals.actual_hours,2);assert.equal(all.totals.unit,'staff_hours');
  assert.equal((await mutateCommissaryUsage(env,{op:'review',visit_id:id,expected_version:2,request_id:'review-record-001',confirm_actual:true},owner,{at:AT+3*HOUR})).ok,true);assert.equal(env.DB.one('SELECT reviewed_by FROM commissary_visits WHERE id=?',id).reviewed_by,'stf_owner');
  assert.equal((await commissaryUsageView(env,cook,{month:'2026-13'})).ok,false);
 });
@@ -66,4 +66,10 @@ test('HTTP endpoint enforces existing owner/kitchen auth, denies marketing and n
  const env=ownerEnv();assert.equal((await onRequestGet({env,request:new Request('https://example.test/api/hub/kitchen/commissary')})).status,401);
  assert.equal((await onRequestGet({env,request:new Request('https://example.test/api/hub/kitchen/commissary',{headers:{cookie:'anejo_sess=tok-marketing'}})})).status,403);
  const r=await onRequestPost({env,request:new Request('https://example.test/api/hub/kitchen/commissary',{method:'POST',headers:{cookie:OWNER_COOKIE,'Content-Type':'application/json'},body:JSON.stringify(start())})});assert.equal(r.status,200);assert.match(r.headers.get('Cache-Control'),/no-store/);
+});
+
+test('monthly aggregate includes visits beyond the displayed history page',async()=>{
+ const env=ownerEnv();const insert=env.DB.sqlite.prepare("INSERT INTO commissary_visits(id,staff_id,staff_name,started_at,ended_at,services_json,profile_json,created_at,updated_at) VALUES(?,'stf_k','Cook',?,?, '[\"Kitchen Use\"]','{}',?,?)");
+ for(let i=0;i<501;i++)insert.run('cv_bulk_'+i,AT+i*60000,AT+(i+1)*60000,AT,AT);
+ const v=await commissaryUsageView(env,cook,{month:'2026-10',at:AT+10*HOUR});assert.equal(v.visits.length,500);assert.equal(v.history_truncated,true);assert.equal(v.totals.ended_visits,501);assert.equal(v.totals.actual_hours,8.35);
 });

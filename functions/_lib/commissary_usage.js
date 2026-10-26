@@ -28,13 +28,14 @@ export async function commissaryUsageView(env,ctx,{month,at=Date.now()}={}){
  const settings=await env.DB.prepare('SELECT * FROM commissary_usage_settings WHERE id=1').first();
  if(!settings)throw Error('Usage settings unavailable');
  const events=(await env.DB.prepare(`SELECT e.* FROM commissary_usage_events e JOIN commissary_visits v ON v.id=e.visit_id WHERE v.started_at<? AND (v.ended_at IS NULL OR v.ended_at>?)${staff.role==='owner'?'':' AND v.staff_id=?'} ORDER BY e.recorded_at DESC LIMIT 500`).bind(range.end,range.start,...args).all()).results;
- const totalMs=visits.reduce((sum,v)=>sum+(v.ended_at?Math.max(0,Math.min(v.ended_at,range.end)-Math.max(v.started_at,range.start)):0),0);
+ const totals=await env.DB.prepare(`SELECT COUNT(*) AS visit_count,SUM(CASE WHEN ended_at IS NOT NULL THEN 1 ELSE 0 END) AS ended_visits,SUM(CASE WHEN ended_at IS NULL THEN 1 ELSE 0 END) AS in_progress,SUM(CASE WHEN ended_at IS NOT NULL THEN MAX(0,MIN(ended_at,?)-MAX(started_at,?)) ELSE 0 END) AS actual_ms FROM commissary_visits WHERE started_at<? AND (ended_at IS NULL OR ended_at>?)${scope}`).bind(range.end,range.start,range.end,range.start,...args).first();
+ if(!totals)throw Error('Monthly totals unavailable');
  return {ok:true,actor:{id:staff.id,name:staff.name,role:staff.role},month:range.month,observed_at:at,
   form:{url:COMMISSARY_FORM_URL,kind:'actual_use_sign_in',automatically_timestamped:true,hours_fields:false,external_submission_automatic:false},
-  totals:{ended_visits:visits.filter(v=>v.ended_at).length,actual_hours:Math.round(totalMs/36000)/100,in_progress:visits.filter(v=>!v.ended_at).length,scope:staff.role==='owner'?'all_staff':'my_visits'},
-  open_visit:open?visitView(open):null,visits:visits.map(visitView),events:events||[],
+  totals:{ended_visits:totals.ended_visits||0,actual_hours:Math.round((totals.actual_ms||0)/36000)/100,in_progress:totals.in_progress||0,scope:staff.role==='owner'?'all_staff':'my_visits',unit:'staff_hours'},
+  open_visit:open?visitView(open):null,visits:visits.map(visitView),history_truncated:totals.visit_count>visits.length,events:events||[],
   profile:{...parse(settings.profile_json),version:settings.version},services:COMMISSARY_SERVICES,license_types:COMMISSARY_LICENSE_TYPES,
-  planned_reservations_url:'/hub/kitchen/event.html'};
+  planned_reservations_url:'/hub/kitchen/event.html',catering_events:(await env.DB.prepare("SELECT id,customer_name,event_date FROM catering_quotes WHERE deposit_status='paid' AND event_date>=? ORDER BY event_date LIMIT 100").bind(etDateOf(at-30*86400000)).all()).results||[]};
 }
 export async function mutateCommissaryUsage(env,b,ctx,{at=Date.now()}={}){
  const staff=await activeStaff(env,ctx);if(!staff)return fail('An active kitchen or owner account is required.',403);
@@ -46,7 +47,7 @@ export async function mutateCommissaryUsage(env,b,ctx,{at=Date.now()}={}){
  const request=JSON.stringify(b),prior=await env.DB.prepare('SELECT * FROM commissary_usage_receipts WHERE actor_id=? AND request_id=?').bind(staff.id,b.request_id).first();
  if(prior)return prior.request_json===request?{ok:true,replayed:true,visit_id:prior.visit_id}:fail('This request key belongs to a different update.');
  const settings=await env.DB.prepare('SELECT * FROM commissary_usage_settings WHERE id=1').first();if(!settings)throw Error('Usage settings unavailable');
- let old=null,visitId=b.visit_id||null,version=0,after=null,reason=null,sql,args;
+ let old=null,visitId=b.op==='save_profile'?null:b.visit_id||null,version=0,after=null,reason=null,sql,args;
  if(b.op!=='start'&&b.op!=='save_profile'){
   if(!/^cv_[A-Za-z0-9-]{1,80}$/.test(visitId||''))return fail('Choose an actual visit.',400);
   old=await env.DB.prepare('SELECT * FROM commissary_visits WHERE id=?').bind(visitId).first();

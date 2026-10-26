@@ -20,7 +20,7 @@ async function handle({request,env},write){
   if(u.searchParams.get('format')){
    if(!labels||labels.stale)return json({ok:false,error:'Generate current labels before previewing.'},409);
    const f=u.searchParams.get('format');if(!['rounds','bands','tents'].includes(f))return json({ok:false,error:'Unsupported format.'},400);
-   return new Response(renderEventLabels(labels,f),{headers:{'Content-Type':'text/html;charset=utf-8','Cache-Control':'no-store, private','Content-Security-Policy':"default-src 'none'; img-src https://anejocateringco.com; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'; frame-ancestors 'self'"}});
+   return new Response(renderEventLabels(labels,f),{headers:{'Content-Type':'text/html;charset=utf-8','Cache-Control':'no-store, private','Content-Security-Policy':"default-src 'none'; img-src https://anejocateringco.com; style-src 'unsafe-inline'; font-src https://anejocateringco.com; base-uri 'none'; form-action 'none'; frame-ancestors 'self'"}});
   }
   return json({ok:true,owner,calendar:await kitchenCalendarView(env,b.quote_id),communications:owner?await serviceMessageView(env,b.quote_id):null,labels,label_quote_updated_at:q.updated_at,label_items:(JSON.parse(q.quote_json||'{}').lines||[]).map((l,index)=>({key:'l'+index,name:l.name||''})),themes:LABEL_THEMES},200,{'Cache-Control':'no-store, private'});
  }catch{return json({ok:false,error:'Event services unavailable. Your saved records have not been replaced.'},503);}
