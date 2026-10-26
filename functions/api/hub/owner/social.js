@@ -325,6 +325,7 @@ export const onRequestPost = async ({ request, env }) => {
     if (!row) return bad('That post no longer exists.', 404);
     if (row.status === 'published') return bad('That one is already live.', 409);
     if (row.status === 'publishing') return bad('That post is being published right now.', 409);
+    if (row.status === 'archived') return bad('Restore this removed draft before editing it.',409);
     const mediaType = row.media_type || null;
     // Format rule matches the post's declared type, not a blanket JPEG check — a REELS/STORIES
     // draft is allowed a video key. See the 'draft' op above for why each type accepts what it does.
@@ -406,6 +407,7 @@ export const onRequestPost = async ({ request, env }) => {
     if (!row) return bad('That post no longer exists.', 404);
     if (row.status === 'published') return bad('That one is already live — its slides are the public record of what went out.', 409);
     if (row.status === 'publishing') return bad('That post is being published right now.', 409);
+    if (row.status === 'archived') return bad('Restore this removed draft before editing it.',409);
 
     const out = await ensureFoodPhoto(env, { postId, caption: row.caption, imageBrief: row.image_brief });
     if (!out.ok) {
@@ -443,6 +445,7 @@ export const onRequestPost = async ({ request, env }) => {
     if (!row) return bad('That post no longer exists.', 404);
     if (row.status === 'published') return bad('That one is already live — its slides are the public record of what went out.', 409);
     if (row.status === 'publishing') return bad('That post is being published right now.', 409);
+    if (row.status === 'archived') return bad('Restore this removed draft before editing it.',409);
 
     const out = await generateCarouselSlides(env, {
       postId, caption: row.caption, imageBrief: row.image_brief, targetCount: b.count,
@@ -496,6 +499,7 @@ export const onRequestPost = async ({ request, env }) => {
     if (!row) return bad('That post no longer exists.', 404);
     if (row.status === 'published') return bad('That one is already live — its slides are the public record of what went out.', 409);
     if (row.status === 'publishing') return bad('That post is being published right now.', 409);
+    if (row.status === 'archived') return bad('Restore this removed draft before editing it.',409);
 
     // Refused here, before spending anything, for the same reason 'attach' refuses an 11th photo
     // at the moment it's picked rather than after generating one that could never be added.
@@ -606,6 +610,7 @@ export const onRequestPost = async ({ request, env }) => {
     if (!postId) return bad('Missing id.');
     const post = await env.DB.prepare('SELECT * FROM social_posts WHERE id=?').bind(postId).first().catch(() => null);
     if (!post) return bad('That post no longer exists.', 404);
+    if (post.status === 'archived') return bad('Restore this removed draft before testing it.',409);
     // Deliberately NO claim: a dry run must not move the post's status, and the shared path
     // writes nothing in dry mode.
     const res = await publishSocialPost(env, request, post, { publish: false });

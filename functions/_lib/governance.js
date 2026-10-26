@@ -180,7 +180,7 @@ function auditSystemPrompt(menuLines, brand, training, { visual = false } = {}) 
     '=== THE LIVE MENU (available products and their recorded ingredients and prices; broad category wording need not reproduce an exact commercial SKU name) ===\n' +
     menuLines.join('\n') + '\n=== END MENU ===\n\n' +
     'HARD CLAIM RULES — every violation is a flag of type "claim":\n' +
-    '- No invented prices, deadlines or cutoff hours. A dated offer may state the currently configured cutoff supplied in the live authority below; verify the program scope and date. Owner settings can change, so do not present a current cutoff as permanent. Do not substitute standard-order cutoffs for the separate daily-lunch settings.\n' +
+    '- No invented prices, deadlines or cutoff hours. A dated offer may state the currently configured cutoff supplied in the live authority; verify the program scope and date. Owner settings can change, so do not present a current cutoff as permanent. Do not substitute standard-order cutoffs for the separate daily-lunch settings.\n' +
     '- No medical or outcome promises: nothing cures, treats, prevents, or guarantees weight ' +
     'loss or transformation.\n' +
     '- No exact grams or calories — nutrition is approximate ranges only.\n' +
@@ -207,6 +207,7 @@ function auditSystemPrompt(menuLines, brand, training, { visual = false } = {}) 
     'Do not invent narrower rules, required wording, mandatory ingredients, or subjective punctuation bans. ' +
     'A menu collage is explicitly permitted for a catering introduction; mixed formats are expected when the caption offers multiple catering formats. ' +
     'Judge caption/image agreement across the complete carousel, while requiring a cover promising both Cajitas and trays to show both. ' +
+    'A caption listing dated weekly menu entries need not picture every dish unless it explicitly says they are pictured; verify any explicitly featured dish against its image. ' +
     'A question asking for an event city followed by confirmation of availability is not a promise of coverage. ' +
     'A city hashtag alone is discoverability, not a delivery guarantee. Still flag unconditional unsupported service promises. ' +
     'On an Instagram post, message us means Instagram DM; do not require a messaging URL. ' +
@@ -338,7 +339,7 @@ export async function auditDraft(env, { caption, image_brief, images = [] } = {}
         const data = JSON.parse(text);
         if (images.length) {
           const validationContext = { caption: String(caption || '').slice(0,2200), slideCount: images.length,
-            brandText: brand.text, trainingText: training, menuText: menuLinesOf(menu).join('\n'),
+            brandText: brand.text, trainingText: training, menuText,
             images, brandReceipt: brand.receipt, trainingReceipt, emblemReference: emblemReference.metadata };
           const candidate = validateVisualAuditTransport(data, {...validationContext,visualExtractionOnly:true});
           if (!candidate.available) { auditDiagnostic = candidate.diagnostic || {reason:candidate.reason}; throw new Error(candidate.reason); }
@@ -364,7 +365,7 @@ export async function auditDraft(env, { caption, image_brief, images = [] } = {}
             data.observations.product_fidelity=reconciled.data.observations.product_fidelity;
           }
           const validated = validateVisualAuditTransport(data, { caption: String(caption || '').slice(0,2200), slideCount: images.length,
-            brandText: brand.text, trainingText: training, menuText: menuLinesOf(menu).join('\n'),
+            brandText: brand.text, trainingText: training, menuText,
             images, brandReceipt: brand.receipt, trainingReceipt, emblemReference: emblemReference.metadata });
           if (!validated.available) { auditDiagnostic = validated.diagnostic || { reason: validated.reason }; throw new Error(validated.reason); }
           model = { ...validated, coverage: { written_claim_review:writtenClaimReceipt, brand: brand.receipt, training: trainingReceipt, menu: { source: menu.source }, daily_lunch:dailyLunch.receipt, slide_sources: images.map((image,index)=>({slide:index+1,...(image.sourceReceipt || {design_facts:null,reason:'source_receipt_unavailable'})})), emblem_reference: emblemReference.metadata } };

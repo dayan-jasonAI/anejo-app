@@ -20,8 +20,11 @@ export async function loadDailyLunchAuditContext(env){
    'Advance preorders for a future delivery date include free delivery to one address within the configured service area; groups of '+DAILY_GROUP_FREE_DELIVERY_MIN_QTY+' or more meals also qualify. Availability and delivery-area checks still apply.',
    'Explicit enabled, not-sold-out schedule rows follow. These are dated menu announcements, not a promise that checkout remains open after a cutoff or closure. No unlisted date or weekday template is an approved sales date.',
   ];
-  for(const row of scheduled){const product=products.get(row.product_id);lines.push('Delivery date '+row.date+': '+product.name+'; product_id='+product.id+'; $'+(DAILY_PRICE_CENTS/100).toFixed(2)+'.');lines.push('Recorded '+product.name+' description: '+product.description);}
+  const described=new Set();
+  for(const row of scheduled){const product=products.get(row.product_id);lines.push('Delivery date '+row.date+': '+product.name+'; product_id='+product.id+'; $'+(DAILY_PRICE_CENTS/100).toFixed(2)+'.');if(!described.has(product.id)){lines.push('Recorded '+product.name+' description: '+product.description);described.add(product.id);}}
   if(!scheduled.length)lines.push('No enabled, not-sold-out delivery dates are configured. Do not advertise an orderable lunch date.');
-  return {text:lines.join('\n'),price_cents:scheduled.length?DAILY_PRICE_CENTS:null,receipt:{source:'d1_daily_lunch_config',status:'ok',version,updated_at,scheduled_dates:scheduled.length}};
+  const text=lines.join('\n');
+  if(text.length>32000)throw Error('Daily lunch audit authority exceeds bounded context.');
+  return {text,price_cents:scheduled.length?DAILY_PRICE_CENTS:null,receipt:{source:'d1_daily_lunch_config',status:'ok',version,updated_at,scheduled_dates:scheduled.length}};
  }catch{return {text:'DAILY LUNCH AUTHORITY UNAVAILABLE: no validated current configuration was read. Do not infer a price, menu, cutoff or orderable date from old campaigns.',price_cents:null,receipt:{source:'d1_daily_lunch_config',status:'unavailable'}};}
 }

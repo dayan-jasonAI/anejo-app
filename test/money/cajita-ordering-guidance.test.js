@@ -42,6 +42,6 @@ test('compiled brand fallbacks preserve the explicit current Cajita exception fr
  for(const value of [doc,BRAND_CONTEXT,BRAND_BRIEF])assert.ok(value.includes(CATERING_ORDERING_GUIDANCE));
 });
 test('new audit version contains the scoped rule and makes previous audit receipts stale',()=>{
- assert.equal(VERSION,'anejo-visual-19');assert.ok(CRITERIA.find(c=>c.id==='claims').rule.includes(CATERING_ORDERING_GUIDANCE));
- assert.ok(SOCIAL_AUDIT_CURRENT.includes("='anejo-visual-19'"));assert.equal(SOCIAL_AUDIT_CURRENT.includes("='anejo-visual-18'"),false);
+ assert.equal(VERSION,'anejo-visual-20');assert.ok(CRITERIA.find(c=>c.id==='claims').rule.includes(CATERING_ORDERING_GUIDANCE));
+ assert.ok(SOCIAL_AUDIT_CURRENT.includes("='anejo-visual-20'"));assert.equal(SOCIAL_AUDIT_CURRENT.includes("='anejo-visual-18'"),false);
 });
