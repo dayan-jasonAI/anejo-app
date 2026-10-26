@@ -2497,7 +2497,7 @@
       if (!t) { Hub.toast('Pick a template first.'); return; }
       if (!window.confirm('Delete the template “' + t.name + '”? Campaigns already sent are not affected.')) return;
       Hub.api('/api/hub/owner/campaigns', { method: 'POST', body: { op: 'template_delete', id: t.id } })
-        .then(function (r) { if (r && r.ok) { Hub.toast('Draft removed. Restore it from Removed.'); load(); } else { b.disabled=false; Hub.toast((r && r.error) || 'Could not remove'); } });
+        .then(function (r) { if (r && r.ok) { Hub.toast('Deleted'); load(); } else Hub.toast((r && r.error) || 'Could not delete'); });
     });
 
     var sv = document.getElementById('f_tplsave');
