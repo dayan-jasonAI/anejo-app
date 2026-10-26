@@ -42,6 +42,8 @@ const stub = `window.Hub={esc:v=>String(v??'').replace(/[&<>"]/g,c=>({'&':'&amp;
     await page.goto(address + '/hub/owner/social-campaigns.html'); await page.getByText('No campaign has been drafted yet.').waitFor();
     await importPlan();
     assert.equal(await page.locator('[data-slot]').count(), 90);
+    assert.match(await page.locator('.campaign-stats').innerText(), /90\nSaved drafts/);
+    assert.match(await page.locator('.campaign-stats').innerText(), /0\nScheduled/);
     assert.equal(env.DB.one('SELECT COUNT(*) n FROM social_campaign_cycles').n, 1);
     assert.equal(env.DB.one('SELECT COUNT(*) n FROM social_posts').n, 90);
     assert.equal(env.DB.one("SELECT COUNT(*) n FROM social_posts WHERE status='draft' AND scheduled_at IS NULL").n, 90);
