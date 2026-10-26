@@ -9,6 +9,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { sweepAccountInsights, performanceBrief } from '../../functions/_lib/instagram_insights.js';
+import { makeSqliteD1 } from '../helpers/sqlite-d1.js';
 
 const LIB = readFileSync(new URL('../../functions/_lib/instagram_insights.js', import.meta.url), 'utf8');
 const TICK = readFileSync(new URL('../../functions/api/hub/admin/insights-tick.js', import.meta.url), 'utf8');
@@ -47,6 +48,63 @@ test('the sweep reads the ACCOUNT media list — pre-pipeline posts included', a
     assert.equal(r.rows[1].caption, 'old pre-pipeline post');
     assert.equal(r.rows[0].reach, 100);
     assert.equal(r.account.followers, 36);
+  } finally { f.restore(); }
+});
+
+test('the sweep follows bounded cursor pages and returns all available account history', async () => {
+  const requested = [];
+  const posts = Array.from({ length: 30 }, (_, i) => ({ ...MEDIA_LIST.data[0], id: `M${i + 1}`, caption: `campaign ${i + 1}` }));
+  const f = stubFetch((url) => {
+    if (url.includes('/media?')) {
+      const after = new URL(url).searchParams.get('after');
+      requested.push(after);
+      if (!after) return jsonRes({ data: posts.slice(0, 25), paging: { cursors: { after: 'page-2' }, next: 'present' } });
+      return jsonRes({ data: posts.slice(25) });
+    }
+    if (url.includes('/insights')) return jsonRes({ data: [{ name: 'reach', values: [{ value: 10 }] }] });
+    return jsonRes({ followers_count: 36, media_count: 40 });
+  });
+  try {
+    const r = await sweepAccountInsights(env('tok-pagination'), { limit: 500, pageSize: 25 });
+    assert.equal(r.ok, true);
+    assert.equal(r.rows.length, 30);
+    assert.deepEqual(requested, [null, 'page-2']);
+    assert.deepEqual(r.pagination, { complete: true, truncated: false, pages_fetched: 2, rows_fetched: 30, max_rows: 500 });
+  } finally { f.restore(); }
+});
+
+test('pagination failure preserves captured rows and reports incomplete history', async () => {
+  let page = 0;
+  const f = stubFetch((url) => {
+    if (url.includes('/media?')) {
+      if (page++ === 0) return jsonRes({ data: [MEDIA_LIST.data[0]], paging: { cursors: { after: 'next' }, next: 'present' } });
+      return jsonRes({ error: { message: 'temporary provider outage' } }, 503);
+    }
+    if (url.includes('/insights')) return jsonRes({ error: { message: '(#10) permission denied' } }, 403);
+    return jsonRes({ followers_count: 36, media_count: 40 });
+  });
+  try {
+    const r = await sweepAccountInsights(env('tok-page-error'), { limit: 500, pageSize: 1 });
+    assert.equal(r.rows.length, 1);
+    assert.match(r.media_fetch_error, /temporary provider outage/);
+    assert.equal(r.pagination.complete, false);
+    assert.equal(r.rows[0].insights_ok, false);
+    assert.match(r.insights_error, /permission denied/);
+  } finally { f.restore(); }
+});
+
+test('the row ceiling is bounded and explicitly marks omitted remainder', async () => {
+  const f = stubFetch((url) => {
+    if (url.includes('/media?')) return jsonRes({ data: [MEDIA_LIST.data[0]], paging: { cursors: { after: 'next' }, next: 'present' } });
+    if (url.includes('/insights')) return jsonRes({ data: [] });
+    return jsonRes({ followers_count: 36, media_count: 1000 });
+  });
+  try {
+    const r = await sweepAccountInsights(env('tok-cap'), { limit: 1, pageSize: 1 });
+    assert.equal(r.rows.length, 1);
+    assert.equal(r.pagination.complete, false);
+    assert.equal(r.pagination.truncated, true);
+    assert.equal(r.pagination.max_rows, 1);
   } finally { f.restore(); }
 });
 
@@ -112,6 +170,17 @@ test('no data yet means an EMPTY brief — never a scaffold that reads like data
   assert.equal(r2, '');
 });
 
+test('performance brief labels its actual source snapshot date and flags stale data', async () => {
+  const DB = makeSqliteD1();
+  DB.prepare(`INSERT INTO ig_media_metrics (media_id,capture_date,media_type,caption,likes,comments,reach,saved,captured_at) VALUES (?,?,?,?,?,?,?,?,?)`)
+    .bind('stale-1', '2026-01-03', 'IMAGE', 'old source', 2, 1, 20, 0, Date.now()).run();
+  const brief = await performanceBrief({ DB });
+  assert.match(brief, /snapshot 2026-01-03/);
+  assert.match(brief, /stale snapshot/);
+  assert.doesNotMatch(brief, /as of today/i);
+  DB.sqlite.close();
+});
+
 test('the tick is not open to the internet, and no token is a skip', () => {
   assert.match(TICK, /ctEq\(cronKey, env\.CRON_KEY\)/);
   assert.match(TICK, /requireRole\(request, env, \['owner'\]\)/);
@@ -121,4 +190,12 @@ test('the tick is not open to the internet, and no token is a skip', () => {
 test('a published post with no data says so — no fake zeros on the page', () => {
   assert.match(PAGE, /No performance data yet/);
   assert.match(LIB, /if \(!rows\.length\) return ''/);
+});
+
+test('daily tick reports pagination completeness and partial metrics without mislabeling provider errors as permissions', () => {
+  assert.match(TICK, /limit: 500, pageSize: 100/);
+  assert.match(TICK, /media_fetch_error: sweep\.media_fetch_error/);
+  assert.match(TICK, /pagination: sweep\.pagination/);
+  assert.match(TICK, /insights_status: sweep\.insights_error \? 'partial' : 'complete'/);
+  assert.match(TICK, /hint: sweep\.insights_error && \/permission\|#10\\b\|#200\\b\/i\.test\(sweep\.insights_error\)/);
 });

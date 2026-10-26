@@ -55,39 +55,58 @@ async function mediaInsights(env, base, mediaId) {
  * A permission failure on /insights does not sink the sweep — likes/comments and the account
  * numbers still land, and `insights_error` tells the caller exactly what to fix.
  */
-export async function sweepAccountInsights(env, { limit = 25 } = {}) {
+export async function sweepAccountInsights(env, { limit = 500, pageSize = 100 } = {}) {
   if (!igConfigured(env)) return { ok: false, reason: 'not_configured' };
   const target = await resolveTarget(env);
   if (!target.ok) return target;
   const { base, id: igId } = target;
 
   const acct = await graphGet(env, base, `/${igId}`, { fields: 'followers_count,media_count' });
-  const media = await graphGet(env, base, `/${igId}/media`, {
-    fields: 'id,caption,media_type,permalink,timestamp,like_count,comments_count',
-    limit: String(limit),
-  });
+  const boundedLimit = Math.max(1, Math.min(500, Number(limit) || 500));
+  const boundedPageSize = Math.max(1, Math.min(100, Number(pageSize) || 100));
+  const fields = 'id,caption,media_type,permalink,timestamp,like_count,comments_count';
+  let media = await graphGet(env, base, `/${igId}/media`, { fields, limit: String(Math.min(boundedLimit, boundedPageSize)) });
   if (!media.ok) return { ok: false, error: media.error };
 
   const rows = [];
   let insightsError = null;
-  for (const m of (media.body && media.body.data) || []) {
-    const ins = await mediaInsights(env, base, m.id);
-    if (!ins.ok && !insightsError) insightsError = ins.error;
-    const mm = ins.ok ? ins.metrics : {};
-    rows.push({
-      media_id: m.id,
-      media_type: m.media_type || null,
-      caption: String(m.caption || '').slice(0, 300) || null,
-      permalink: m.permalink || null,
-      posted_at: m.timestamp ? Date.parse(m.timestamp) : null,
-      likes: Number.isFinite(m.like_count) ? m.like_count : null,
-      comments: Number.isFinite(m.comments_count) ? m.comments_count : null,
-      reach: mm.reach ?? null,
-      saved: mm.saved ?? null,
-      shares: mm.shares ?? null,
-      views: mm.views ?? null,
-      total_interactions: mm.total_interactions ?? null,
-    });
+  let page = media;
+  let pagesFetched = 0;
+  let mediaFetchError = null;
+  let hasMore = false;
+  const maxPages = Math.ceil(boundedLimit / boundedPageSize) + 1;
+  while (true) {
+    if (pagesFetched >= maxPages) { hasMore = true; break; }
+    pagesFetched++;
+    for (const m of (page.body && page.body.data) || []) {
+      if (rows.length >= boundedLimit) { hasMore = true; break; }
+      const ins = await mediaInsights(env, base, m.id);
+      if (!ins.ok && !insightsError) insightsError = ins.error;
+      const mm = ins.ok ? ins.metrics : {};
+      rows.push({
+        media_id: m.id,
+        media_type: m.media_type || null,
+        caption: String(m.caption || '').slice(0, 300) || null,
+        permalink: m.permalink || null,
+        posted_at: m.timestamp ? Date.parse(m.timestamp) : null,
+        likes: Number.isFinite(m.like_count) ? m.like_count : null,
+        comments: Number.isFinite(m.comments_count) ? m.comments_count : null,
+        reach: mm.reach ?? null,
+        saved: mm.saved ?? null,
+        shares: mm.shares ?? null,
+        views: mm.views ?? null,
+        total_interactions: mm.total_interactions ?? null,
+        insights_ok: ins.ok,
+        insights_error: ins.ok ? null : ins.error,
+      });
+    }
+    const after = page.body?.paging?.cursors?.after;
+    const more = !!page.body?.paging?.next || !!after;
+    if (rows.length >= boundedLimit) { hasMore ||= more; break; }
+    if (!more) break;
+    if (!after) { mediaFetchError = 'Instagram reported another media page without a cursor; remaining posts were not fetched.'; break; }
+    page = await graphGet(env, base, `/${igId}/media`, { fields, limit: String(Math.min(boundedPageSize, boundedLimit - rows.length)), after });
+    if (!page.ok) { mediaFetchError = page.error; break; }
   }
 
   return {
@@ -95,6 +114,8 @@ export async function sweepAccountInsights(env, { limit = 25 } = {}) {
     account: acct.ok ? { followers: acct.body.followers_count ?? null, media_count: acct.body.media_count ?? null } : null,
     rows,
     insights_error: insightsError,   // non-null = likes/comments only; the token needs the new scope
+    media_fetch_error: mediaFetchError,
+    pagination: { complete: !mediaFetchError && !hasMore, truncated: hasMore, pages_fetched: pagesFetched, rows_fetched: rows.length, max_rows: boundedLimit },
   };
 }
 
@@ -105,15 +126,17 @@ export async function sweepAccountInsights(env, { limit = 25 } = {}) {
 export async function performanceBrief(env) {
   if (!env || !env.DB) return '';
   try {
-    const today = etDateOf(Date.now());
     const r = await env.DB.prepare(
-      `SELECT caption, media_type, likes, comments, reach, saved
+      `SELECT capture_date, caption, media_type, likes, comments, reach, saved
          FROM ig_media_metrics
         WHERE capture_date = (SELECT MAX(capture_date) FROM ig_media_metrics)
         ORDER BY COALESCE(reach, likes, 0) DESC LIMIT 8`
     ).all();
     const rows = (r && r.results) || [];
     if (!rows.length) return '';
+    const snapshotDate = String(rows[0].capture_date || 'unknown date');
+    const ageDays = snapshotDate === 'unknown date' ? null : Math.max(0, Math.floor((Date.parse(`${etDateOf(Date.now())}T12:00:00Z`) - Date.parse(`${snapshotDate}T12:00:00Z`)) / 86400000));
+    const freshness = ageDays == null ? 'freshness unknown' : ageDays === 0 ? 'same day' : `${ageDays} day${ageDays === 1 ? '' : 's'} old${ageDays > 1 ? ' — stale snapshot' : ''}`;
     const line = (m, i) => {
       const parts = [];
       if (m.reach != null) parts.push(`reach ${m.reach}`);
@@ -125,7 +148,7 @@ export async function performanceBrief(env) {
     const top = rows.slice(0, 3).map(line).join('\n');
     const bottom = rows.length > 3 ? line(rows[rows.length - 1], rows.length - 1) : '';
     return (
-      `=== HOW RECENT POSTS PERFORMED (as of ${today}) ===\n` +
+      `=== HOW RECENT POSTS PERFORMED (snapshot ${snapshotDate}; ${freshness}) ===\n` +
       `Best performers:\n${top}\n` +
       (bottom ? `Weakest:\n${bottom}\n` : '') +
       `Write toward what the numbers say people respond to — subject, angle and format — without repeating captions verbatim.\n` +
