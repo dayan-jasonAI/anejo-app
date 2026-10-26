@@ -3,17 +3,20 @@
 'use strict';let menu=null,error='',chosenDate=new URLSearchParams(location.search).get('date')||'';
 const node=(tag,text)=>{const e=document.createElement(tag);if(text)e.textContent=text;return e;};
 const clock=value=>{const [h,m]=value.split(':').map(Number);return (h%12||12)+(m?':'+String(m).padStart(2,'0'):'')+(h<12?' a.m.':' p.m.');};
+const preorderOnly=()=>menu?.settings?.same_day_cutoff==='00:00';
+const cutoffCopy=()=>L('Order by '+clock(menu.settings.preorder_cutoff)+' Eastern the day before.','Pide antes de las '+clock(menu.settings.preorder_cutoff)+' (hora del Este) del día anterior.');
 const maxQuantity=()=>menu?.max_qty||50;
 const groupMinimum=()=>menu?.group_free_delivery_min_qty||6;
 const lunchFee=(day,qty)=>day.free_delivery||qty>=groupMinimum()?0:menu.delivery_fee_cents;
 const dateText=date=>new Date(date+'T12:00:00Z').toLocaleDateString(L('en-US','es-US'),{weekday:'long',month:'short',day:'numeric',timeZone:'UTC'});
-const status=day=>day.orderable?(day.free_delivery?L('Preorder · FREE delivery','Preordena · envío GRATIS'):L('Today’s lunch · regular delivery fee','Almuerzo de hoy · tarifa de entrega regular')):({sold_out:L('Sold out','Agotado'),same_day_cutoff:L('Today’s order cutoff has passed.','Ya pasó el cierre de pedidos de hoy.'),preorder_cutoff:L('Preorders are closed. Order on the delivery day before '+clock(menu.settings.same_day_cutoff)+' Eastern, while quantities last.','Preórdenes cerradas. Ordena el día de entrega antes de las '+clock(menu.settings.same_day_cutoff)+' (hora del Este), mientras duren.'),past:L('This date has passed.','Esta fecha ya pasó.')})[day.reason]||L('Unavailable for this date.','No disponible para esta fecha.');
+const status=day=>day.orderable?(day.free_delivery?L('Preorder · FREE delivery','Preordena · envío GRATIS'):L('Today’s lunch · regular delivery fee','Almuerzo de hoy · tarifa de entrega regular')):({sold_out:L('Sold out','Agotado'),same_day_cutoff:preorderOnly()?L('This lunch requires an advance order. Choose another available date.','Este almuerzo requiere un pedido anticipado. Elige otra fecha disponible.'):L('Today’s order cutoff has passed.','Ya pasó el cierre de pedidos de hoy.'),preorder_cutoff:preorderOnly()?L('Ordering has closed for this delivery. Choose another available date.','Los pedidos para esta entrega están cerrados. Elige otra fecha disponible.'):L('Preorders are closed. Order on the delivery day before '+clock(menu.settings.same_day_cutoff)+' Eastern, while quantities last.','Preórdenes cerradas. Ordena el día de entrega antes de las '+clock(menu.settings.same_day_cutoff)+' (hora del Este), mientras duren.'),past:L('This date has passed.','Esta fecha ya pasó.')})[day.reason]||L('Unavailable for this date.','No disponible para esta fecha.');
 window.renderDailyCategory=function(){
+ setDailyFulfillment(false);
  $('categoryNote').textContent=L('One featured lunch each day. $10 per meal. Choose your delivery date.','Un almuerzo especial cada día. $10 por comida. Elige tu fecha de entrega.');
  const root=$('catalog');root.replaceChildren();
  if(!menu){root.append(node('p',error||L('Loading the daily menu…','Cargando el menú diario…')));return;}
  const days=menu.days.filter(d=>d.product_id&&d.enabled&&d.date>=menu.today);
- const heading=node('div');heading.className='daily-shop-offer';heading.append(node('strong',L('Your everyday table. Just $10.','Tu mesa de cada día. Solo $10.')),node('p',L('Preorder by '+clock(menu.settings.preorder_cutoff)+' Eastern the day before for free delivery. Same-day orders close at '+clock(menu.settings.same_day_cutoff)+' Eastern, while quantities last.','Preordena antes de las '+clock(menu.settings.preorder_cutoff)+' (hora del Este) del día anterior con envío gratis. Pedidos del mismo día hasta las '+clock(menu.settings.same_day_cutoff)+', mientras duren.')));root.append(heading);
+ const heading=node('div');heading.className='daily-shop-offer';heading.append(node('strong',L('Your everyday table. Just $10.','Tu mesa de cada día. Solo $10.')),node('p',preorderOnly()?cutoffCopy()+' '+L('Advance orders include free delivery to one address. Same-day ordering is unavailable.','Los pedidos anticipados incluyen envío gratis a una dirección. No hay pedidos para el mismo día.'):L('Preorder by '+clock(menu.settings.preorder_cutoff)+' Eastern the day before for free delivery. Same-day orders close at '+clock(menu.settings.same_day_cutoff)+' Eastern, while quantities last.','Preordena antes de las '+clock(menu.settings.preorder_cutoff)+' (hora del Este) del día anterior con envío gratis. Pedidos del mismo día hasta las '+clock(menu.settings.same_day_cutoff)+', mientras duren.')));root.append(heading);
  if(!days.length){root.append(node('p',L('The next daily lunch has not been scheduled yet. Explore our other menu categories.','El próximo almuerzo diario aún no está programado. Explora las otras categorías.')));return;}
  if(!days.some(d=>d.date===chosenDate))chosenDate=(days.find(d=>d.date===menu.today&&d.orderable)||days.find(d=>d.date>menu.today)||days[0]).date;
  const label=node('label',L('Delivery day','Día de entrega')),select=node('select');label.className='daily-date-field';select.id='daily-shop-date';days.forEach(d=>{const option=node('option',dateText(d.date));option.value=d.date;select.append(option);});select.value=chosenDate;select.onchange=()=>{chosenDate=select.value;renderDailyCategory();};label.append(select);root.append(label);
@@ -34,7 +37,10 @@ window.renderDailyCategory=function(){
 };
 window.clearDailyForOther=function(){if(!dailySelection)return true;if(!confirm(L('Replace your daily lunch order with these menu items?','¿Reemplazar tu almuerzo diario por estos productos?')))return false;dailySelection=null;resetAddressConfirmation();return true;};
 window.setDailyFulfillment=function(active){
- $('fulfillmentLabel').hidden=active;document.querySelector('.modeseg').hidden=active;$('schedFields').hidden=active;$('availBanner').hidden=active;
+ // The daily date picker is authoritative even before a lunch is added. Generic
+ // scheduled-order deadlines/windows belong to the other menu categories.
+ const hide=active||selectedCategory==='daily';
+ $('fulfillmentLabel').hidden=hide;document.querySelector('.modeseg').hidden=hide;$('schedFields').hidden=hide;$('availBanner').hidden=hide;
 };
 window.renderDailyCart=function(){
  if(dailySelection.corporate){window.renderCorporateCart();return;}

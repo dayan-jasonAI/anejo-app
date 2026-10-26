@@ -144,3 +144,20 @@ test('corporate actual checkout charges full mixed order, preserves each kitchen
  }
  }finally{globalThis.Date=RealDate;globalThis.fetch=realFetch;}
 });
+
+test('preorder-only relaunch enforces 10 p.m. Eastern the prior day and rejects all same-day orders',async()=>{
+ const c=config();c.settings={same_day_cutoff:'00:00',preorder_cutoff:'22:00'};
+ c.dates=[{date:'2026-10-28',product_id:'papa',enabled:true,sold_out:false},{date:'2026-11-04',product_id:'papa',enabled:true,sold_out:false}];
+ const env={DB:db(c)};
+ // The same 10 p.m. wall-clock boundary holds before and after daylight saving ends.
+ for(const [date,before,at,midnight] of [
+  ['2026-10-28','2026-10-28T01:59:59Z','2026-10-28T02:00:00Z','2026-10-28T04:00:00Z'],
+  ['2026-11-04','2026-11-04T02:59:59Z','2026-11-04T03:00:00Z','2026-11-04T05:00:00Z']]){
+  const allowed=await validateDailyOrder(env,[{id:'daily_lunch_papa',qty:1}],date,new Date(before));
+  assert.equal(allowed.fee_cents,0);assert.equal(dailyDay(c,date,DEFAULTS,new Date(before)).orderable,true);
+  assert.equal(dailyDay(c,date,DEFAULTS,new Date(at)).reason,'preorder_cutoff');
+  await assert.rejects(()=>validateDailyOrder(env,[{id:'daily_lunch_papa',qty:1}],date,new Date(at)),/preorder_cutoff/);
+  assert.equal(dailyDay(c,date,DEFAULTS,new Date(midnight)).reason,'same_day_cutoff');
+  await assert.rejects(()=>validateDailyOrder(env,[{id:'daily_lunch_papa',qty:1}],date,new Date(midnight)),/same_day_cutoff/);
+ }
+});

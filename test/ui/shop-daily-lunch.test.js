@@ -17,10 +17,10 @@ class Element{
  append(...c){this.children.push(...c);} replaceChildren(...c){this.children=c;} setAttribute(k,v){this[k]=v;} focus(){this.focused=true;}
 }
 const descendants=n=>n.children.flatMap(c=>[c,...descendants(c)]);
-async function harness({confirm=true,failed=false,search='',response=menu}={}){
+async function harness({confirm=true,failed=false,search='',response=menu,spanish=false}={}){
  const ids={},calls=[],mode=new Element();let confirmations=0,resets=0;
  const el=id=>ids[id]||(ids[id]=new Element());
- const ctx={URLSearchParams,document:{getElementById:el,createElement:tag=>new Element(tag),querySelector:()=>mode,querySelectorAll:()=>[]},$:el,L:en=>en,money:n=>'$'+n.toFixed(2),selectedCategory:'daily',bowls:[],addons:{},dailySelection:null,rewardsRedeemPts:0,appliedPromo:null,rewardsFreeDeliv:false,TAX_PCT:7,lastSubtotalCents:0,confirm:()=>{confirmations++;return confirm;},resetAddressConfirmation:()=>{resets++;ctx.addressConfirmed=false;},shopReview(){},applyMode(){ctx.renderCart();},renderCart(){if(ctx.dailySelection)ctx.renderDailyCart();},renderCatalog(){ctx.renderDailyCategory();},fetch:async(url,opts)=>{calls.push({url,opts});return {ok:!failed,json:async()=>structuredClone(response)};},location:{search},mode:'scheduled',addressConfirmed:false,anejoAttr:null,hideAddressCheck(){},loadAvailability(){},sessionStorage:{setItem(){},removeItem(){}}};
+ const ctx={URLSearchParams,document:{getElementById:el,createElement:tag=>new Element(tag),querySelector:()=>mode,querySelectorAll:()=>[]},$:el,L:(en,es)=>spanish?es:en,money:n=>'$'+n.toFixed(2),selectedCategory:'daily',bowls:[],addons:{},dailySelection:null,rewardsRedeemPts:0,appliedPromo:null,rewardsFreeDeliv:false,TAX_PCT:7,lastSubtotalCents:0,confirm:()=>{confirmations++;return confirm;},resetAddressConfirmation:()=>{resets++;ctx.addressConfirmed=false;},shopReview(){},applyMode(){ctx.renderCart();},renderCart(){if(ctx.dailySelection)ctx.renderDailyCart();},renderCatalog(){ctx.renderDailyCategory();},fetch:async(url,opts)=>{calls.push({url,opts});return {ok:!failed,json:async()=>structuredClone(response)};},location:{search},mode:'scheduled',addressConfirmed:false,anejoAttr:null,hideAddressCheck(){},loadAvailability(){},sessionStorage:{setItem(){},removeItem(){}}};
  ctx.window=ctx;vm.createContext(ctx);vm.runInContext(source,ctx);await new Promise(resolve=>setImmediate(resolve));
  return {ctx,el,calls,mode,confirmations:()=>confirmations,resets:()=>resets,all:()=>descendants(el('catalog'))};
 }
@@ -101,4 +101,28 @@ test('after today closes, tomorrow remains visible even when preorder cutoff blo
  assert.equal(h.all().find(e=>e.tagName==='h2').textContent,'Chicken Quesadillas');
  assert.equal(add(h).disabled,true);
  assert.ok(h.all().some(e=>e.textContent.includes('Preorders are closed. Order on the delivery day')));
+});
+
+test('preorder-only lunches use configured 10 p.m. cutoff and never invite a same-day order',async()=>{
+ const response=structuredClone(menu);response.settings={preorder_cutoff:'22:00',same_day_cutoff:'00:00'};
+ response.days=[{date:'2026-10-01',product_id:'papa',name:'Papa Añejo',enabled:true,orderable:false,reason:'same_day_cutoff'},
+ {date:'2026-10-02',product_id:'chicken_quesadillas',name:'Chicken Quesadillas',enabled:true,orderable:false,reason:'preorder_cutoff'}];
+ const h=await harness({response});const text=h.all().map(e=>e.textContent).join(' ');
+ assert.match(text,/Order by 10 p\.m\. Eastern the day before/);
+ assert.match(text,/Same-day ordering is unavailable/);
+ assert.match(text,/Ordering has closed for this delivery\. Choose another available date/);
+ assert.doesNotMatch(text,/Order on the delivery day|close at 12 a\.m\.|7 p\.m\./);
+ assert.equal(add(h).disabled,true);
+ // Generic storefront scheduling is misleading here (it has a separate cutoff),
+ // so daily lunch uses its own date picker before and after adding an item.
+ h.ctx.setDailyFulfillment(false);assert.equal(h.el('schedFields').hidden,true);assert.equal(h.mode.hidden,true);
+ h.ctx.selectedCategory='sides';h.ctx.setDailyFulfillment(false);assert.equal(h.el('schedFields').hidden,false);assert.equal(h.mode.hidden,false);
+});
+
+
+test('Spanish preorder-only guidance follows a changed configured cutoff and keeps the one-address benefit',async()=>{
+ const response=structuredClone(menu);response.settings={preorder_cutoff:'21:30',same_day_cutoff:'00:00'};
+ const h=await harness({response,spanish:true});const text=h.all().map(e=>e.textContent).join(' ');
+ assert.match(text,/Pide antes de las 9:30 p\.m\./);assert.match(text,/No hay pedidos para el mismo día/);assert.match(text,/envío gratis a una dirección/);
+ assert.doesNotMatch(text,/Pedidos del mismo día hasta|10 p\.m\./);
 });
