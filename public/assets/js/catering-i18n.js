@@ -2,6 +2,10 @@
 (function () {
   'use strict';
   var es = {
+    "Preview 11×17 tray bands":"Ver bandas de bandeja 11×17",
+    "Template layout only: up to three selected dishes. Uploaded artwork stays in your design request; Añejo reviews final printing.":"Solo muestra la plantilla: hasta tres platos seleccionados. Los diseños cargados permanecen en tu solicitud; Añejo revisa la impresión final.",
+    "Tray-band template":"Plantilla de banda de bandeja",
+    "Close preview":"Cerrar vista previa",
     // Gourmet presentation showcase: explicit local copy, including image descriptions.
     "The art of gathering":"El arte de compartir",
     "Small bites.":"Pequeños bocados.",

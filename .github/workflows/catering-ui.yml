@@ -9,6 +9,13 @@ on:
       - 'functions/_lib/recipe_authority.js'
       - 'functions/api/hub/kitchen/**'
       - 'scripts/verify-event-*.cjs'
+      - 'scripts/verify-commissary-ui.cjs'
+      - 'scripts/verify-cajita-label-preview-ui.cjs'
+      - 'functions/api/cajita-label-preview.js'
+      - 'src/cajita/builder.js'
+      - 'public/cajita-builder.html'
+      - 'public/assets/js/cajita-builder.js'
+      - 'public/assets/css/cajita-builder.css'
       - 'scripts/verify-kitchen-catering-board-ui.cjs'
       - 'scripts/verify-recipe-authority-ui.cjs'
       - 'public/hub/owner/catering*'
@@ -50,6 +57,9 @@ jobs:
       - run: node scripts/verify-catering-experience-ui.cjs
       - run: node scripts/verify-event-operations-ui.cjs
       - run: node scripts/verify-event-services-ui.cjs
+      - run: node scripts/verify-event-bands-ui.cjs
+      - run: node scripts/verify-commissary-ui.cjs
+      - run: node scripts/verify-cajita-label-preview-ui.cjs
       - run: node scripts/verify-kitchen-catering-board-ui.cjs
       - run: node scripts/verify-recipe-authority-ui.cjs
       - uses: actions/upload-artifact@v4
@@ -61,5 +71,8 @@ jobs:
             /tmp/catering-balance-ui-evidence
             /tmp/event-operations-ui-evidence
             /tmp/event-services-ui-evidence
+            /tmp/event-bands-ui-evidence
+            /tmp/commissary-ui-evidence
+            /tmp/cajita-label-preview-ui-evidence
             /tmp/kitchen-catering-board-ui-evidence
             /tmp/recipe-authority-ui-evidence

@@ -164,8 +164,8 @@ test('the subtotal and discount rows appear only when there is a discount', () =
 // ---------------------------------------------------------------- what Dayan asked to be in it
 
 test('personalization is offered without inventing an active design executor', () => {
-  assert.ok(build('es').html.includes('Personalice su celebración'));
-  assert.ok(build('en').html.includes('Personalize your celebration'));
+  assert.ok(build('es').html.includes('Personalice su evento'));
+  assert.ok(build('en').html.includes('Personalize your event'));
   assert.doesNotMatch(build('en').html,/Our design team is working/);
   assert.match(build('en').html,/pricing and timing will be confirmed separately/);
 });

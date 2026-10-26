@@ -22,6 +22,7 @@
     // also raises a banner on the Orders board, so nobody has to remember to look here.
     { key: 'events',     ico: '🎉', label: 'Events',     href: '/hub/kitchen/event.html' },
     { key: 'recipes', ico: '📖', label: 'Recipe standards', href: '/hub/kitchen/recipes.html' },
+      { key: 'commissary', ico: '◷', label: 'Commissary visits', href: '/hub/kitchen/commissary.html' },
     { key: 'library',    ico: '📚', label: 'Library',    href: '/hub/kitchen/library.html' },
     // Keep LAST. It is a rights surface, not a task surface — nobody opens it during service, so
     // it must not push a task tab out of reach. Mirror any change in hub.js NAVS.kitchen.

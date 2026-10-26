@@ -571,3 +571,12 @@ footer {
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+.band-preview-tools { border-top:1px solid var(--line); margin-top:24px; padding-top:20px; }
+.band-preview-heading { display:flex; justify-content:space-between; align-items:center; gap:12px; }
+.band-preview-heading h3 { font-size:22px; margin:12px 0; }
+#band-preview-shell { position:relative; width:100%; overflow:hidden; border:1px solid var(--line); border-radius:10px; background:white; }
+#band-preview-frame { display:block; width:1632px; height:1056px; border:0; transform-origin:top left; }
+#band-preview-panel[hidden] { display:none; }
+#preview-bands, #close-band-preview { min-height:44px; }
+#preview-bands:focus-visible, #close-band-preview:focus-visible { outline:3px solid var(--gold); outline-offset:3px; }
