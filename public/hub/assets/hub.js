@@ -154,6 +154,17 @@
     return Hub.api('/api/me').then(function (data) {
       Hub._me = data;
       Hub.rememberRole(data && data.authenticated ? Hub.roleFromMe(data) : null);
+      if (data && data.authenticated && Hub.roleFromMe(data) === 'owner') {
+        var mountPlaybook = function () {
+          if (window.AnejoOperatorPlaybooks) window.AnejoOperatorPlaybooks.mount({ role: 'owner', pathname: location.pathname });
+        };
+        if (window.AnejoOperatorPlaybooks) mountPlaybook();
+        else if (!document.getElementById('operator-playbooks-js')) {
+          var help = document.createElement('script');
+          help.id = 'operator-playbooks-js'; help.src = '/hub/assets/operator-playbooks.js?v=20261027';
+          help.onload = mountPlaybook; document.head.appendChild(help);
+        }
+      }
       return data;
     });
   };

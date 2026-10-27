@@ -14,7 +14,7 @@ export function Message({ msg, streaming }: { msg: ChatMessage; streaming: boole
           {isMe ? t('you') : t('souschef')}
           {msg.assistType && !isMe ? <span className="assist-tag"> · {t(msg.assistType)}</span> : null}
         </div>
-        <div className="content">
+        <div className="content" translate="no">
           {isMe ? (
             <p>{msg.text}</p>
           ) : msg.text ? (

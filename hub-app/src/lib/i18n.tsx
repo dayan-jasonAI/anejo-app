@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useCallback, ReactNode } from 'react';
+import { createContext, useContext, useState, useCallback, useEffect, ReactNode } from 'react';
 
 // Lightweight EN/ES — mirrors the rest of Añejo's bilingual UX. Persists choice.
 type Lang = 'en' | 'es';
@@ -109,12 +109,24 @@ interface I18nCtx { lang: Lang; t: (k: string) => string; toggle: () => void; }
 const Ctx = createContext<I18nCtx>({ lang: 'en', t: (k) => k, toggle: () => {} });
 
 export function I18nProvider({ children }: { children: ReactNode }) {
-  const [lang, setLang] = useState<Lang>(() => (localStorage.getItem('anejo:lang') === 'es' ? 'es' : 'en'));
+  const [lang, setLang] = useState<Lang>(() => { try { return localStorage.getItem('anejo:lang') === 'es' ? 'es' : 'en'; } catch { return 'en'; } });
+  useEffect(() => {
+    const update = (event: Event) => {
+      const value = (event as CustomEvent<{lang: Lang}>).detail?.lang;
+      if (value === 'en' || value === 'es') setLang(value);
+    };
+    document.addEventListener('anejo:langchange', update);
+    return () => document.removeEventListener('anejo:langchange', update);
+  }, []);
+  useEffect(() => { document.documentElement.lang = lang; }, [lang]);
   const t = useCallback((k: string) => DICT[k]?.[lang] ?? k, [lang]);
   const toggle = useCallback(() => {
     setLang((l) => {
       const next = l === 'en' ? 'es' : 'en';
-      localStorage.setItem('anejo:lang', next);
+      try { localStorage.setItem('anejo:lang', next); } catch { /* session choice still works */ }
+      const shared = (window as unknown as { AnejoLang?: { set: (value: Lang) => void } }).AnejoLang;
+      if (shared) shared.set(next);
+      else document.dispatchEvent(new CustomEvent('anejo:langchange', { detail: { lang: next } }));
       return next;
     });
   }, []);

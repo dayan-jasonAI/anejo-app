@@ -41,5 +41,16 @@ export async function onRequest(context) {
     return Response.redirect(url.toString(), 301);
   }
   try { if (env.DB && shouldLog(request, url)) context.waitUntil(logView(env, request, url)); } catch (_) {}
-  return next();
+  const response = await next();
+  // A language choice must survive navigating to any Añejo page, including
+  // legacy city/landing pages that predate the shared engine. Never rewrite
+  // API payloads, downloads, email previews, or non-HTML responses.
+  if (request.method !== 'GET' || url.pathname.startsWith('/api/') ||
+      !/text\/html/i.test(response.headers.get('content-type') || '') ||
+      /attachment/i.test(response.headers.get('content-disposition') || '')) return response;
+  return new HTMLRewriter().on('head', {
+    element(element) {
+      element.append('<script src="/assets/js/i18n.js?v=20261027-bilingual" defer data-anejo-language-bootstrap></script>', { html: true });
+    },
+  }).transform(response);
 }

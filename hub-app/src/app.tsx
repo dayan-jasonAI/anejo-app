@@ -55,7 +55,7 @@ export function App() {
           </button>
         ) : null}
         {me?.authed ? <span className="who">{me.name || me.role}</span> : null}
-        <button className="toggle" onClick={toggle} aria-label="Language">
+        <button id="lang-toggle" className="toggle" onClick={toggle} aria-label={lang === 'es' ? 'Cambiar a inglés' : 'Switch to Spanish'}>
           {lang === 'en' ? 'ES' : 'EN'}
         </button>
       </header>
