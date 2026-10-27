@@ -2,6 +2,7 @@
 (function () {
   "use strict";
   var dictionary = {
+    'Vendor · Añejo HUB': 'Proveedor · Añejo HUB',
     'Switch language to English': 'Cambiar idioma a inglés',
     'Añejo Hub · Operations guide': 'Añejo Hub · Guía de operaciones',
     'Owner navigation': 'Navegación de dueña',

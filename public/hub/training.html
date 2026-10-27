@@ -781,7 +781,8 @@ function stopPlay(){ playing=false; seq++; try{ if(tts()) speechSynthesis.cancel
 function togglePlay(){ playing?stopPlay():startPlay(); }
 if(tts()){ try{ speechSynthesis.getVoices(); speechSynthesis.onvoiceschanged=function(){}; }catch(e){} }
 
-function setLang(l){ lang=l; document.getElementById('en').className=l==='en'?'on':''; document.getElementById('es').className=l==='es'?'on':''; document.querySelectorAll('[data-t]').forEach(function(el){ var k=el.getAttribute('data-t'); if(UI[k]) el.textContent=UI[k][l]; }); if(role) render(); else renderLand(); }
+document.addEventListener('anejo:langchange',function(e){var next=e.detail && e.detail.lang==='es'?'es':'en';if(next!==lang)setLang(next);});
+function setLang(l){ lang=l; if(window.AnejoLang && window.AnejoLang.get()!==l) window.AnejoLang.set(l); document.getElementById('en').className=l==='en'?'on':''; document.getElementById('es').className=l==='es'?'on':''; document.querySelectorAll('[data-t]').forEach(function(el){ var k=el.getAttribute('data-t'); if(UI[k]) el.textContent=UI[k][l]; }); if(role) render(); else renderLand(); }
 function go(d){ if(!role) return; var n=MOD[role].length; idx=Math.max(0,Math.min(n-1,idx+d)); render(); }
 
 function renderLand(){

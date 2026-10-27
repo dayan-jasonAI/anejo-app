@@ -23,7 +23,7 @@
       "withSharedEngine": 56,
       "withoutSharedEngine": 21,
       "withAuthoredSpanishCompanion": 0,
-      "withExplicitToggleControl": 44
+      "withExplicitToggleControl": 46
     },
     "studio": {
       "htmlRoutes": 1,
@@ -11076,14 +11076,14 @@
       "route": "/hub/training-card",
       "surface": "hub-excluded",
       "sharedEngine": false,
-      "hasExplicitToggleControl": false,
+      "hasExplicitToggleControl": true,
       "authoredSpanishCompanion": null
     },
     {
       "route": "/hub/training",
       "surface": "hub-excluded",
       "sharedEngine": false,
-      "hasExplicitToggleControl": false,
+      "hasExplicitToggleControl": true,
       "authoredSpanishCompanion": null
     },
     {

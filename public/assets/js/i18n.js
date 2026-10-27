@@ -341,6 +341,7 @@
   var origAttr = {};              // attr -> WeakMap(element -> original value)
   var lastAttr = {};
   var origTitle = document.title;
+  var lastTitle = origTitle;
   var hubObserver = null;         // re-translates dynamically-rendered HUB content
   var OBS_OPTS = { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: ['placeholder', 'aria-label', 'title', 'alt', 'value'] };
   var PATTERNS = [];
@@ -445,7 +446,7 @@
     if (document.body) apply(lang);
   }
   function canonical(s){
-    if (!sourceSpanish) return s;
+    if (!sourceSpanish && lang !== 'es') return s;
     var key = s.trim(), english = ALIASES[key] || EN[key];
     return english === undefined ? s : s.replace(key, english);
   }
@@ -518,9 +519,11 @@
         last.set(e2, e2.getAttribute(attr));
       }
     }
-    var canonicalTitle = canonical(origTitle);
+    if (document.title !== lastTitle) origTitle = document.title;
+    var canonicalTitle = ALIASES[origTitle] || EN[origTitle] || origTitle;
     if (es){ var tv = tr(canonicalTitle); if (tv) document.title = tv; else queue(canonicalTitle); }
     else { document.title = canonicalTitle; }
+    lastTitle = document.title;
     document.documentElement.lang = es ? 'es' : 'en';
     // Submit/reset controls expose their labels through value, not text nodes.
     var buttons = document.querySelectorAll('input[type="submit"],input[type="reset"],input[type="button"]');
@@ -562,6 +565,7 @@
     // Studio owns its React switch; it may mount after this deferred engine.
     if (/^\/studio(?:\/|$)/.test(location.pathname)) return;
     if (document.getElementById('langToggle')) return;
+    if (document.getElementById('en') && document.getElementById('es')) return;
     // HUB pages have their own in-header language toggle (#lang-toggle). Don't add a second,
     // floating pill on top of them — it overlaps their bottom action buttons (e.g. "Start prep").
     if (document.getElementById('lang-toggle')) return;

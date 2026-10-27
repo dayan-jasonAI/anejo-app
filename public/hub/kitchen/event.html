@@ -79,7 +79,8 @@
 
   var lang = 'en';
   try { lang = (window.AnejoLang ? window.AnejoLang.get() : localStorage.getItem('anejo:lang')) === 'es' ? 'es' : 'en'; } catch (e) { lang = 'en'; }
-  var T = lang === 'es' ? {
+  function textForLanguage(){
+    return lang === 'es' ? {
     none: 'No hay eventos reservados en las próximas tres semanas.', guests: 'invitados', days: 'días',
     today: 'HOY', tomorrow: 'MAÑANA', deposit: 'Depósito', balance: 'Saldo', paid: 'pagado', due: 'pendiente',
     plan: 'Plan de producción', timeline: 'Qué se hace y cuándo', shopping: 'Lista de compra',
@@ -109,6 +110,9 @@
     saveRecipe: 'Save draft', confirmRecipe: 'Submit to Dayan', confirming: 'Submitting…',
     confirmed: 'Submitted for Dayan’s review; not yet approved.', loadingRecipe: 'Opening…'
   };
+  }
+  var T = textForLanguage();
+  document.addEventListener('anejo:langchange',function(e){lang=e.detail && e.detail.lang==='es'?'es':'en';T=textForLanguage();});
   var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]; }); };
   var money = function (c) { return '$' + ((c || 0) / 100).toFixed(2); };
   var clock = function (ms) { return new Date(ms).toLocaleTimeString(lang === 'es' ? 'es-US' : 'en-US', { timeZone: 'America/New_York', hour: 'numeric', minute: '2-digit' }); };
