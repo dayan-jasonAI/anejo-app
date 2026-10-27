@@ -39,7 +39,7 @@ function fixture(u,method){const p=u.pathname,b=empty();if(p==='/api/me')return{
  else if(p==='/api/hub/owner/qbo'){Object.assign(b,{connected:false});}
  else if(p==='/api/hub/owner/content'){Object.assign(b,{docs:[],documents:[]});}
  else if(p==='/api/hub/owner/brief-proposals'){Object.assign(b,{versions:[],proposals:[]});}
- else if(p==='/api/hub/owner/marketing-library'){Object.assign(b,{items:[],rules:[],references:[]});}
+ else if(p==='/api/hub/owner/marketing-library'){Object.assign(b,{items:[],photos:[],rules:[],references:[]});}
  else if(p==='/api/hub/owner/team-training'){Object.assign(b,{rules:[],examples:[],training:[]});}
  else if(p==='/api/hub/owner/order-history'){Object.assign(b,{orders:[],total:0});}
  else if(p==='/api/hub/owner/adoption'){Object.assign(b,{totals:{},by_role:[],people:[],actions:[],eod:{expected:0,filed:0,missing:[]}});}
