@@ -1,6 +1,6 @@
 // POST /api/auth/pin-login  { identifier, pin }
 // Verifies a staff PIN, with per-account lockout + per-IP rate limiting, and on success
-// creates a staff session and returns { ok, redirect:'/hub/' } (Set-Cookie attached).
+// creates a staff session and returns { ok, redirect:'/hub/', lang:'en'|'es' } (Set-Cookie attached).
 import { json, bad, now } from '../../_lib/util.js';
 import { limitOr429 } from '../../_lib/ratelimit.js';
 import { createSession, sessionCookie, isSecureRequest } from '../../_lib/session.js';
@@ -85,7 +85,11 @@ export const onRequestPost = async ({ request, env }) => {
   });
 
   return json(
-    { ok: true, redirect: '/hub/', must_change_pin: !!staff.must_change_pin },
+    // The saved staff preference is safe to disclose only after PIN verification. Keep the
+    // response allowlisted to the supported app languages so malformed legacy values fall back
+    // to English rather than being reflected into the browser.
+    { ok: true, redirect: '/hub/', must_change_pin: !!staff.must_change_pin,
+      lang: String(staff.lang || '').trim().toLowerCase() === 'es' ? 'es' : 'en' },
     200,
     { 'Set-Cookie': sessionCookie(sess, undefined, isSecureRequest(request)) }
   );
