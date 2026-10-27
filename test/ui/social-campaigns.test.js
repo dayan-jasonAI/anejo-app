@@ -81,3 +81,8 @@ test('caption save uses exact revision and next cycle makes draft structure only
   assert.match(code, /select the same unchanged file to resume/);
   assert.match(code, /media, approvals or schedule/);
 });
+
+test('same-campaign plan revision preserves stable membership and rejects foreign, replaced or public posts',()=>{
+ const h=harness();const source={campaign_id:'sc_existing',title:'Private revision',proposed_start_date:'2027-03-02',slots:Array.from({length:30},(_,i)=>({slot_id:'s'+i,post_id:'sp_saved_'+i,day_offset:i,time:'11:15',channel:'feed',caption:'Caption '+i,expected_revision_snapshot:'rev'+i,objective:'  Current objective  '}))};const cycle={id:'sc_existing',title:'Private revision',start_date:'2027-03-02',state:'draft',slots:source.slots.map(s=>({...s,post_status:'draft',revision_snapshot:s.expected_revision_snapshot,objective:'Current objective'}))};const parsed=h.api.parseRevisionPlan(source,cycle);assert.equal(parsed.slots[0].post_id,'sp_saved_0');assert.equal(parsed.slots[0].objective,'Current objective');assert.equal(h.api.metadataMatches(parsed,cycle),true);
+ assert.throws(()=>h.api.parseRevisionPlan({...source,campaign_id:'sc_foreign'},cycle),/Open the private/);assert.throws(()=>h.api.parseRevisionPlan({...source,slots:source.slots.map((s,i)=>i? s:{...s,post_id:'sp_replaced'})},cycle),/must match/);assert.throws(()=>h.api.parseRevisionPlan(source,{...cycle,state:'scheduled'}),/private/);assert.throws(()=>h.api.parseRevisionPlan(source,{...cycle,slots:cycle.slots.map((s,i)=>i?s:{...s,post_status:'published'})}),/unscheduled/);
+});
