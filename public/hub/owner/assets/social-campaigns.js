@@ -36,13 +36,13 @@
   function dateLabel(slot, short) {
     var date = new Date(String(slot.date || '') + 'T12:00:00Z');
     if (!Number.isFinite(date.getTime())) return 'Date not set';
-    return new Intl.DateTimeFormat((window.AnejoLang && window.AnejoLang.get() === 'es' ? 'es-US' : 'en-US'), { timeZone: 'UTC', month: 'short', day: 'numeric', weekday: short ? undefined : 'short' }).format(date);
+    return new Intl.DateTimeFormat((typeof window !== 'undefined' && window.AnejoLang && window.AnejoLang.get() === 'es' ? 'es-US' : 'en-US'), { timeZone: 'UTC', month: 'short', day: 'numeric', weekday: short ? undefined : 'short' }).format(date);
   }
   function timeLabel(slot) {
     if (!slot.scheduled_at) return slot.time ? slot.time + ' · suggested' : 'Time not set';
     var time = new Date(Number(slot.scheduled_at));
     if (!Number.isFinite(time.getTime())) return 'Time not set';
-    try { return new Intl.DateTimeFormat((window.AnejoLang && window.AnejoLang.get() === 'es' ? 'es-US' : 'en-US'), { timeZone: state.cycle.timezone, hour: 'numeric', minute: '2-digit', timeZoneName: 'short' }).format(time) + (slot.post_status === 'scheduled' || slot.post_status === 'published' ? '' : ' · suggested'); }
+    try { return new Intl.DateTimeFormat((typeof window !== 'undefined' && window.AnejoLang && window.AnejoLang.get() === 'es' ? 'es-US' : 'en-US'), { timeZone: state.cycle.timezone, hour: 'numeric', minute: '2-digit', timeZoneName: 'short' }).format(time) + (slot.post_status === 'scheduled' || slot.post_status === 'published' ? '' : ' · suggested'); }
     catch (_) { return 'Timezone needs confirmation'; }
   }
   function title(slot) { return slot.title || slot.topic || (slot.caption || '').split('\n')[0].slice(0, 80) || 'A story still to shape'; }
@@ -80,7 +80,7 @@
       filtered.forEach(function (s) { var month = String(s.date || '').slice(0, 7); (months[month] = months[month] || []).push(s); });
       Object.keys(months).sort().forEach(function (month) {
         var date = new Date(month + '-01T12:00:00Z');
-        html += '<p class="campaign-month-label">' + esc(Number.isFinite(date.getTime()) ? new Intl.DateTimeFormat((window.AnejoLang && window.AnejoLang.get() === 'es' ? 'es-US' : 'en-US'), { month: 'long', year: 'numeric', timeZone: 'UTC' }).format(date) : 'Dates to confirm') + '</p>';
+        html += '<p class="campaign-month-label">' + esc(Number.isFinite(date.getTime()) ? new Intl.DateTimeFormat((typeof window !== 'undefined' && window.AnejoLang && window.AnejoLang.get() === 'es' ? 'es-US' : 'en-US'), { month: 'long', year: 'numeric', timeZone: 'UTC' }).format(date) : 'Dates to confirm') + '</p>';
         html += ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(function (d) { return '<span class="campaign-calendar-head" aria-hidden="true">' + d + '</span>'; }).join('');
         // Keep gaps real even when filtering: dates never slide into the wrong weekday.
         var group = byDate(months[month]), last = 0;

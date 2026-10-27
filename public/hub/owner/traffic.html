@@ -46,7 +46,7 @@ async function load(days){
     var r=await fetch('/api/hub/owner/traffic?days='+days,{credentials:'same-origin'});
     if(r.status===401||r.status===403){document.getElementById('total').textContent='Sign in as owner';return;}
     var d=await r.json();
-    document.getElementById('total').textContent=(d.total||0).toLocaleString((window.AnejoLang && window.AnejoLang.get() === 'es' ? 'es-US' : 'en-US'));
+    document.getElementById('total').textContent=(d.total||0).toLocaleString((typeof window !== 'undefined' && window.AnejoLang && window.AnejoLang.get() === 'es' ? 'es-US' : 'en-US'));
     rows(document.getElementById('bySource'),d.by_source,'ref_source');
     rows(document.getElementById('organic'),d.organic,'ref_host');
     rows(document.getElementById('byPath'),d.by_path,'path');

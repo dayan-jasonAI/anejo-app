@@ -176,3 +176,21 @@ button { font-family: inherit; cursor: pointer; }
   animation: spin 0.7s linear infinite;
 }
 @keyframes spin { to { transform: rotate(360deg); } }
+
+/* Let translated controls fit real phone widths rather than widening the grid. */
+.app, .studio, .composer, .composer-inner, .stream, .stream-inner { min-width: 0; }
+.studio { grid-template-columns: minmax(0, 1fr); }
+.input-wrap textarea { min-width: 0; width: 0; }
+.studio-bar { flex-wrap: wrap; }
+@media (max-width: 540px) {
+  .topbar { gap: 8px; padding: 10px 12px; flex-wrap: wrap; }
+  .brand { min-width: 0; gap: 8px; }
+  .brand .sub { max-width: 100px; letter-spacing: 1px; }
+  .who { max-width: 100px; overflow-wrap: anywhere; }
+  .studio-bar { gap: 8px; padding: 12px; }
+  .cp-toggle { min-height: 44px; padding: 9px 12px; }
+  .composer-inner, .stream-inner { padding-left: 12px; padding-right: 12px; }
+  .seg, .toggle { min-height: 44px; }
+  .input-wrap { gap: 6px; padding-left: 10px; }
+  .input-wrap .icon-btn { width: 40px; height: 44px; }
+}

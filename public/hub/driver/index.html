@@ -180,7 +180,7 @@
       if (!sec || !el) return;
       sec.hidden = false;
       el.innerHTML = list.slice(0, 7).map(function (s) {
-        var t = function (ms) { return ms ? new Date(Number(ms)).toLocaleTimeString((window.AnejoLang && window.AnejoLang.get() === 'es' ? 'es-US' : 'en-US'), { hour: 'numeric', minute: '2-digit' }) : ''; };
+        var t = function (ms) { return ms ? new Date(Number(ms)).toLocaleTimeString((typeof window !== 'undefined' && window.AnejoLang && window.AnejoLang.get() === 'es' ? 'es-US' : 'en-US'), { hour: 'numeric', minute: '2-digit' }) : ''; };
         var when = (s.shift_date || '') + (s.start_at ? ' · ' + t(s.start_at) + (s.end_at ? '–' + t(s.end_at) : '') : '');
         return '<div class="row"><div class="row-main"><div class="row-title">' + Hub.esc(when) + '</div>' +
           (s.label ? '<div class="row-sub">' + Hub.esc(s.label) + '</div>' : '') + '</div></div>';

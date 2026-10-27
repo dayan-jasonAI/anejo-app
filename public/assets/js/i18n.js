@@ -559,6 +559,8 @@
   }
 
   function ensureToggle(){
+    // Studio owns its React switch; it may mount after this deferred engine.
+    if (/^\/studio(?:\/|$)/.test(location.pathname)) return;
     if (document.getElementById('langToggle')) return;
     // HUB pages have their own in-header language toggle (#lang-toggle). Don't add a second,
     // floating pill on top of them — it overlaps their bottom action buttons (e.g. "Start prep").
@@ -572,7 +574,10 @@
     document.body.appendChild(b);
   }
   function updateToggle(l){
+    var label = l === 'es' ? 'Cambiar a inglés' : 'Switch to Spanish';
+    var hubToggle = document.getElementById('lang-toggle'); if (hubToggle) hubToggle.setAttribute('aria-label', label);
     var b = document.getElementById('langToggle'); if (!b) return;
+    b.setAttribute('aria-label', label);
     b.querySelector('[data-l="en"]').style.color = l === 'en' ? '#fff' : '#C8BC6E';
     b.querySelector('[data-l="es"]').style.color = l === 'es' ? '#fff' : '#C8BC6E';
   }
@@ -637,7 +642,7 @@
   }
   function loadDictionary(path, id){
     if (!document.createElement || !document.head || document.getElementById(id)) return;
-    var script = document.createElement('script'); script.id = id; script.src = path + '?v=20261027-bilingual';
+    var script = document.createElement('script'); script.id = id; script.async = false; script.src = path + '?v=20261027-bilingual';
     document.head.appendChild(script);
   }
   loadDictionary('/assets/js/public-i18n-coverage.js', 'public-i18n-coverage-js');

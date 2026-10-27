@@ -6,7 +6,7 @@
   var stepLabels={review_quote:'Review quote · first reminder',clarify_questions:'Clarify questions · second reminder',final_checkin:'Final check-in · third reminder'};
   var responseLabels={awaiting_reply:'Awaiting customer reply',replied:'Customer replied',call_requested:'Customer requested a call',changes_requested:'Customer requested changes',declined:'Customer declined'};
   var phases={new:'Needs first contact',contacted:'Contacted · follow-up planned',awaiting_deposit:'Quote sent · deposit pending',booked:'Deposit recorded · booked',lost:'Closed · not proceeding',owner_won:'Owner marked won · payment not verified'};
-  function when(t){return t?new Date(t).toLocaleString((window.AnejoLang && window.AnejoLang.get() === 'es' ? 'es-US' : 'en-US')): 'Not recorded';}
+  function when(t){return t?new Date(t).toLocaleString((typeof window !== 'undefined' && window.AnejoLang && window.AnejoLang.get() === 'es' ? 'es-US' : 'en-US')): 'Not recorded';}
   function localValue(t){if(!t)return '';var d=new Date(t);return new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,16);}
   function card(l){
     var state=l.state||'open',receipt=l.notifications.map(function(n){return esc(n.channel==='hub'?'Owner Hub alert': 'Owner email')+': '+esc(n.status==='accepted'?'accepted — receipt recorded':n.status)+(n.last_error?' · '+esc(n.last_error):'');}).join('<br>');
@@ -104,7 +104,7 @@
   async function load(){
     var r=await Hub.api(endpoint);if(!r?.ok){document.getElementById('status').textContent=r?.error||'Could not load follow-up records.';return;}
     data=r;renderOverview(r.overview);var leads=r.leads||[];leads.sort(function(a,b){return Number(b.followup_overdue)-Number(a.followup_overdue)||b.created_at-a.created_at;});
-    document.getElementById('status').textContent=leads.filter(function(l){return l.followup_overdue;}).length+' follow-ups due · refreshed '+new Date().toLocaleTimeString((window.AnejoLang && window.AnejoLang.get() === 'es' ? 'es-US' : 'en-US'));
+    document.getElementById('status').textContent=leads.filter(function(l){return l.followup_overdue;}).length+' follow-ups due · refreshed '+new Date().toLocaleTimeString((typeof window !== 'undefined' && window.AnejoLang && window.AnejoLang.get() === 'es' ? 'es-US' : 'en-US'));
     document.getElementById('leads').innerHTML=leads.length?leads.map(card).join(''):'<div class="card">No catering inquiries yet.</div>';
     document.getElementById('preview-en').srcdoc=r.template.en.html;document.getElementById('preview-es').srcdoc=r.template.es.html;
     document.getElementById('ack-state').textContent=r.config.ack_enabled?'Enabled for requests received after '+when(r.config.activated_at):'Disabled — awaiting your template review.';

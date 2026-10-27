@@ -61,7 +61,7 @@
   }
   var esc = (Hub && Hub.esc) ? Hub.esc : function (s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]; }); };
 
-  function fmtDate(ms) { try { return new Date(Number(ms)).toLocaleString((window.AnejoLang && window.AnejoLang.get() === 'es' ? 'es-US' : 'en-US')); } catch (e) { return ''; } }
+  function fmtDate(ms) { try { return new Date(Number(ms)).toLocaleString((typeof window !== 'undefined' && window.AnejoLang && window.AnejoLang.get() === 'es' ? 'es-US' : 'en-US')); } catch (e) { return ''; } }
 
   function decide(id, decision, btn) {
     var note = (document.getElementById('note-' + id) || {}).value || '';

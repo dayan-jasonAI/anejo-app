@@ -2,6 +2,11 @@
 (function () {
   "use strict";
   var dictionary = {
+    'Switch language to English': 'Cambiar idioma a inglés',
+    'Añejo Hub · Operations guide': 'Añejo Hub · Guía de operaciones',
+    'Owner navigation': 'Navegación de dueña',
+    'Enable JavaScript to open the guide and verify your access.': 'Activa JavaScript para abrir la guía y verificar tu acceso.',
+    'Loading operations guide…': 'Cargando guía de operaciones…',
   "Sign in again": "Iniciar sesión de nuevo",
   "You have been signed out": "Tu sesión se ha cerrado",
   "Could not load.": "No se pudo cargar.",

@@ -139,7 +139,7 @@
     var p = Number(row && row.deposit_pct);
     return Number.isFinite(p) ? Math.round(p * 100) + '%' : '';
   }
-  function day(ms) { if (!ms) return ''; try { return new Date(ms).toLocaleDateString((window.AnejoLang && window.AnejoLang.get() === 'es' ? 'es-US' : 'en-US')); } catch (e) { return ''; } }
+  function day(ms) { if (!ms) return ''; try { return new Date(ms).toLocaleDateString((typeof window !== 'undefined' && window.AnejoLang && window.AnejoLang.get() === 'es' ? 'es-US' : 'en-US')); } catch (e) { return ''; } }
 
   // ---------- the terms ----------
   // RENDERED FROM THE SNAPSHOT ON THE ROW. `q.terms` is the parsed terms_json that was written
@@ -268,7 +268,7 @@
     try{
       var result=await Hub.api(ENDPOINT,{method:'POST',body:{op:'checkout_status',quote_id:id}});
       if(!result?.ok){host.textContent='Payment status could not be verified. '+(result?.error||'Try the read-only lookup again when the connection is available.');return;}
-      host.textContent='Read-only check · '+new Date().toLocaleString((window.AnejoLang && window.AnejoLang.get() === 'es' ? 'es-US' : 'en-US'))+'\n'+checkoutEvidence(result.source,'Selected quote')+(result.retained?'\n\n'+checkoutEvidence(result.retained,'Retained replacement'):'')+'\n\nThis lookup does not charge, cancel, revise or send a message. Order state alone does not establish payment.';
+      host.textContent='Read-only check · '+new Date().toLocaleString((typeof window !== 'undefined' && window.AnejoLang && window.AnejoLang.get() === 'es' ? 'es-US' : 'en-US'))+'\n'+checkoutEvidence(result.source,'Selected quote')+(result.retained?'\n\n'+checkoutEvidence(result.retained,'Retained replacement'):'')+'\n\nThis lookup does not charge, cancel, revise or send a message. Order state alone does not establish payment.';
     }catch(_error){host.textContent='Payment status could not be verified. No quote, checkout or message was changed.';}finally{button.disabled=false;}
   }
   function wireCheckoutStatus(root){root.querySelectorAll('[data-checkout-status]').forEach(function(button){button.onclick=function(){return checkCheckoutStatus(button.getAttribute('data-checkout-status'),button);};});}
@@ -751,7 +751,7 @@
   // request reached the owner as one email and then existed nowhere a person would look again.
   function changeCard(c) {
     var open = c.status === 'open';
-    var when = c.created_at ? new Date(c.created_at).toLocaleString((window.AnejoLang && window.AnejoLang.get() === 'es' ? 'es-US' : 'en-US')) : '';
+    var when = c.created_at ? new Date(c.created_at).toLocaleString((typeof window !== 'undefined' && window.AnejoLang && window.AnejoLang.get() === 'es' ? 'es-US' : 'en-US')) : '';
     var items = (c.items || []).map(function (i) {
       return '<li>' + esc(String(i.qty)) + ' × ' + esc(i.name) + '</li>';
     }).join('');

@@ -166,7 +166,7 @@
         lines.push('<div style="color:#d64545">✕ ' + esc(f.name) + ' — ' + esc(d.error) + '</div>');
       } else {
         okCount++;
-        var msg = d.indexed + '/' + d.chunks + ' passages · ' + (d.chars||0).toLocaleString((window.AnejoLang && window.AnejoLang.get() === 'es' ? 'es-US' : 'en-US')) + ' chars' +
+        var msg = d.indexed + '/' + d.chunks + ' passages · ' + (d.chars||0).toLocaleString((typeof window !== 'undefined' && window.AnejoLang && window.AnejoLang.get() === 'es' ? 'es-US' : 'en-US')) + ' chars' +
                   (d.extractor ? ' (' + esc(d.extractor) + ')' : '');
         lines.push('<div>' + (d.status === 'ready' ? '✅ ' : '⚠️ ') + esc(label) + ' — ' + msg +
           (d.status !== 'ready' ? ' — ' + esc(d.error || d.status) : '') + '</div>');
@@ -242,7 +242,7 @@
           return '<div class="kb-row"><div style="flex:1">' +
             '<div><strong>' + esc(it.title) + '</strong> <span class="kb-badge ' + cls + '">' + esc(it.status) + '</span>' +
             (it.authority==='regulatory' ? ' <span class="kb-badge b-reg">REGULATORY</span>' : '') + '</div>' +
-            '<div class="kb-meta">' + esc(it.source_kind) + ' · ' + it.chunk_count + ' passages · ' + (it.chars||0).toLocaleString((window.AnejoLang && window.AnejoLang.get() === 'es' ? 'es-US' : 'en-US')) + ' chars' +
+            '<div class="kb-meta">' + esc(it.source_kind) + ' · ' + it.chunk_count + ' passages · ' + (it.chars||0).toLocaleString((typeof window !== 'undefined' && window.AnejoLang && window.AnejoLang.get() === 'es' ? 'es-US' : 'en-US')) + ' chars' +
             (it.error ? ' · <span style="color:#d64545">' + esc(it.error) + '</span>' : '') + '</div>' + eligibility + '</div>' +
             '<button class="btn small" data-del="' + esc(it.id) + '">Remove</button></div>';
         }).join('');
@@ -291,5 +291,6 @@
   load();
 })();
 </script>
+<script src="/hub/assets/hub.js"></script>
 </body>
 </html>

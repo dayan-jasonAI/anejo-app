@@ -69,12 +69,12 @@
   function dayLabel(iso) {
     try {
       var d = new Date(iso + 'T12:00:00Z');
-      return d.toLocaleDateString((window.AnejoLang && window.AnejoLang.get() === 'es' ? 'es-US' : 'en-US'), { weekday: 'short', month: 'numeric', day: 'numeric', timeZone: 'UTC' });
+      return d.toLocaleDateString((typeof window !== 'undefined' && window.AnejoLang && window.AnejoLang.get() === 'es' ? 'es-US' : 'en-US'), { weekday: 'short', month: 'numeric', day: 'numeric', timeZone: 'UTC' });
     } catch (e) { return iso; }
   }
   function fmtTime(ms) {
     if (!ms) return '';
-    try { return new Date(ms).toLocaleTimeString((window.AnejoLang && window.AnejoLang.get() === 'es' ? 'es-US' : 'en-US'), { hour: 'numeric', minute: '2-digit', timeZone: 'America/New_York' }); } catch (e) { return ''; }
+    try { return new Date(ms).toLocaleTimeString((typeof window !== 'undefined' && window.AnejoLang && window.AnejoLang.get() === 'es' ? 'es-US' : 'en-US'), { hour: 'numeric', minute: '2-digit', timeZone: 'America/New_York' }); } catch (e) { return ''; }
   }
   function hhmm(ms) {
     if (!ms) return '';

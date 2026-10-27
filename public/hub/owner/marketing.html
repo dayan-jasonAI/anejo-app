@@ -497,7 +497,7 @@
       previewBox = '<div class="tt-preview-box">' + esc(d.preview.text) + '</div>' +
         '<p class="tt-meta" style="margin-top:8px">' + d.preview.ruleCount + ' ' + (d.preview.ruleCount === 1 ? 'rule' : 'rules') +
         ' · ' + d.preview.exampleCount + ' example' + (d.preview.exampleCount === 1 ? '' : 's') +
-        ' · ' + d.preview.usedChars.toLocaleString((window.AnejoLang && window.AnejoLang.get() === 'es' ? 'es-US' : 'en-US')) + ' / ' + d.preview.maxChars.toLocaleString((window.AnejoLang && window.AnejoLang.get() === 'es' ? 'es-US' : 'en-US')) + ' characters</p>';
+        ' · ' + d.preview.usedChars.toLocaleString((typeof window !== 'undefined' && window.AnejoLang && window.AnejoLang.get() === 'es' ? 'es-US' : 'en-US')) + ' / ' + d.preview.maxChars.toLocaleString((typeof window !== 'undefined' && window.AnejoLang && window.AnejoLang.get() === 'es' ? 'es-US' : 'en-US')) + ' characters</p>';
       if (d.preview.truncated) {
         previewBox += '<div class="tt-warn"><strong data-i18n>Some of your training did not fit.</strong> ' +
           '<span data-i18n>You have ' + d.preview.totalRules + ' rule(s) and ' + d.preview.totalExamples + ' example(s) total, but only the retained rows above fit this Lead/planner preview cap. Remove something you no longer need, or trim what you have.</span></div>';
@@ -820,13 +820,13 @@
   var WORD = { draft:'Draft', scheduled:'Scheduled', publishing:'Publishing…', published:'Live on Instagram', failed:'Failed', archived:'Removed' };
 
   function when(p) {
-    if (p.published_at) return 'Posted ' + new Date(Number(p.published_at)).toLocaleString((window.AnejoLang && window.AnejoLang.get() === 'es' ? 'es-US' : 'en-US'), { month:'short', day:'numeric', hour:'numeric', minute:'2-digit' });
-    if (p.scheduled_at) return (p.status === 'scheduled' ? 'Scheduled for ' : 'Suggested time — not scheduled: ') + new Date(Number(p.scheduled_at)).toLocaleString((window.AnejoLang && window.AnejoLang.get() === 'es' ? 'es-US' : 'en-US'), { month:'short', day:'numeric', hour:'numeric', minute:'2-digit' });
+    if (p.published_at) return 'Posted ' + new Date(Number(p.published_at)).toLocaleString((typeof window !== 'undefined' && window.AnejoLang && window.AnejoLang.get() === 'es' ? 'es-US' : 'en-US'), { month:'short', day:'numeric', hour:'numeric', minute:'2-digit' });
+    if (p.scheduled_at) return (p.status === 'scheduled' ? 'Scheduled for ' : 'Suggested time — not scheduled: ') + new Date(Number(p.scheduled_at)).toLocaleString((typeof window !== 'undefined' && window.AnejoLang && window.AnejoLang.get() === 'es' ? 'es-US' : 'en-US'), { month:'short', day:'numeric', hour:'numeric', minute:'2-digit' });
     return 'Not scheduled';
   }
 
   function whenLabel(ms) {
-    return new Date(Number(ms)).toLocaleString((window.AnejoLang && window.AnejoLang.get() === 'es' ? 'es-US' : 'en-US'), { weekday:'short', month:'short', day:'numeric', hour:'numeric', minute:'2-digit' });
+    return new Date(Number(ms)).toLocaleString((typeof window !== 'undefined' && window.AnejoLang && window.AnejoLang.get() === 'es' ? 'es-US' : 'en-US'), { weekday:'short', month:'short', day:'numeric', hour:'numeric', minute:'2-digit' });
   }
 
   // datetime-local's local-parts trick (see localValue below), but for a plain date field.
@@ -847,7 +847,7 @@
   function expiryBanner(d) {
     var te = d.token_expiry || { status: 'unknown', at: null, days_left: null, swap_doc: 'docs/INSTAGRAM_TOKEN_SWAP.md' };
     var docLink = '<a href="https://github.com/dayan-jasonAI/anejo-app/blob/main/' + te.swap_doc + '" target="_blank" rel="noopener">' + esc(te.swap_doc) + '</a>';
-    var dateStr = te.at ? new Date(Number(te.at)).toLocaleDateString((window.AnejoLang && window.AnejoLang.get() === 'es' ? 'es-US' : 'en-US'), { year:'numeric', month:'long', day:'numeric' }) : '';
+    var dateStr = te.at ? new Date(Number(te.at)).toLocaleDateString((typeof window !== 'undefined' && window.AnejoLang && window.AnejoLang.get() === 'es' ? 'es-US' : 'en-US'), { year:'numeric', month:'long', day:'numeric' }) : '';
     var tpl = EXPIRY_MSG[te.status];
     var body;
     if (tpl == null) {
@@ -2420,7 +2420,7 @@
 
   // ---------- schedule ----------
   function whenLabel(ms) {
-    return new Date(Number(ms)).toLocaleString((window.AnejoLang && window.AnejoLang.get() === 'es' ? 'es-US' : 'en-US'), { weekday:'short', month:'short', day:'numeric', hour:'numeric', minute:'2-digit' });
+    return new Date(Number(ms)).toLocaleString((typeof window !== 'undefined' && window.AnejoLang && window.AnejoLang.get() === 'es' ? 'es-US' : 'en-US'), { weekday:'short', month:'short', day:'numeric', hour:'numeric', minute:'2-digit' });
   }
 
   // Default the picker to the next round hour, local time. datetime-local wants a local-time
@@ -3014,15 +3014,15 @@
     }
     if (heartbeat) {
       var heartbeatAt = Number(heartbeat.completed_at || heartbeat.started_at);
-      if (Number.isFinite(heartbeatAt) && heartbeatAt > 0) schedulerText += ' ' + t('Recorded: ', 'Registro: ') + new Date(heartbeatAt).toLocaleString((window.AnejoLang && window.AnejoLang.get() === 'es' ? 'es-US' : 'en-US'));
+      if (Number.isFinite(heartbeatAt) && heartbeatAt > 0) schedulerText += ' ' + t('Recorded: ', 'Registro: ') + new Date(heartbeatAt).toLocaleString((typeof window !== 'undefined' && window.AnejoLang && window.AnejoLang.get() === 'es' ? 'es-US' : 'en-US'));
       if (heartbeat.error) schedulerText += ' · ' + String(heartbeat.error);
-      if (Number(heartbeat.last_success_at) > 0) schedulerText += ' · ' + t('Last recorded successful run: ', 'Última ejecución satisfactoria registrada: ') + new Date(Number(heartbeat.last_success_at)).toLocaleString((window.AnejoLang && window.AnejoLang.get() === 'es' ? 'es-US' : 'en-US'));
+      if (Number(heartbeat.last_success_at) > 0) schedulerText += ' · ' + t('Last recorded successful run: ', 'Última ejecución satisfactoria registrada: ') + new Date(Number(heartbeat.last_success_at)).toLocaleString((typeof window !== 'undefined' && window.AnejoLang && window.AnejoLang.get() === 'es' ? 'es-US' : 'en-US'));
       if (heartbeat.counts) schedulerText += ' · ' + t('Last run counts (checked/published/failed/missed): ', 'Últimos conteos (revisados/publicados/fallidos/omitidos): ') + ['checked','published','failed','missed'].map(function (key) { return Number(heartbeat.counts[key]) || 0; }).join('/');
     }
     var expiry = d && d.token_expiry;
     var expiryText = expiry && Number(expiry.at) > 0 ? t('Recorded connection expiry: ', 'Vencimiento registrado de la conexión: ') + new Date(Number(expiry.at)).toLocaleString(es ? 'es' : 'en', { timeZoneName: 'short' }) + (expiry.status === 'expired' ? t(' (recorded date has passed; verify current access)', ' (la fecha registrada ya pasó; verifica el acceso actual)') : '') : t('Connection expiry is not recorded.', 'El vencimiento de la conexión no está registrado.');
     return '<div class="hub-section"><div class="card"><h2>' + esc(title) + '</h2><p>' + esc(detail) + '</p><a class="btn gold" href="' + href + '">' + esc(cta) + '</a>' +
-      '<p class="hint" style="margin-top:16px">' + esc(connection) + '</p><p class="hint" data-scheduler-status>' + esc(schedulerText) + '</p><p class="hint">' + esc(expiryText) + '</p><p class="hint">' + esc(t('Checked: ', 'Comprobado: ') + (checkedAt ? new Date(checkedAt).toLocaleString((window.AnejoLang && window.AnejoLang.get() === 'es' ? 'es-US' : 'en-US')) : t('not yet', 'aún no'))) + '</p>' +
+      '<p class="hint" style="margin-top:16px">' + esc(connection) + '</p><p class="hint" data-scheduler-status>' + esc(schedulerText) + '</p><p class="hint">' + esc(expiryText) + '</p><p class="hint">' + esc(t('Checked: ', 'Comprobado: ') + (checkedAt ? new Date(checkedAt).toLocaleString((typeof window !== 'undefined' && window.AnejoLang && window.AnejoLang.get() === 'es' ? 'es-US' : 'en-US')) : t('not yet', 'aún no'))) + '</p>' +
       '<p class="hint">' + esc(t('Based on the latest 60 posts returned. A saved schedule is not proof of a running publisher or a live post.', 'Basado en las últimas 60 publicaciones devueltas. Una programación guardada no prueba que el publicador esté activo ni que la publicación esté en línea.')) + '</p><button class="btn ghost" type="button" id="today-library">Use a library photo / Usar foto de biblioteca</button><button class="btn ghost" type="button" id="next-post-refresh">' + esc(t('Refresh status', 'Actualizar estado')) + '</button></div></div>';
   }
 

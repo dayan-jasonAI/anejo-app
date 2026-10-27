@@ -67,9 +67,9 @@ function when(ts){
 var cursor=null;
 
 function render(d, append){
-  document.getElementById('total').textContent=(d.total||0).toLocaleString((window.AnejoLang && window.AnejoLang.get() === 'es' ? 'es-US' : 'en-US'));
-  document.getElementById('purgeable').textContent=(d.purgeable||0).toLocaleString((window.AnejoLang && window.AnejoLang.get() === 'es' ? 'es-US' : 'en-US'));
-  document.getElementById('kept').textContent=(d.kept||0).toLocaleString((window.AnejoLang && window.AnejoLang.get() === 'es' ? 'es-US' : 'en-US'));
+  document.getElementById('total').textContent=(d.total||0).toLocaleString((typeof window !== 'undefined' && window.AnejoLang && window.AnejoLang.get() === 'es' ? 'es-US' : 'en-US'));
+  document.getElementById('purgeable').textContent=(d.purgeable||0).toLocaleString((typeof window !== 'undefined' && window.AnejoLang && window.AnejoLang.get() === 'es' ? 'es-US' : 'en-US'));
+  document.getElementById('kept').textContent=(d.kept||0).toLocaleString((typeof window !== 'undefined' && window.AnejoLang && window.AnejoLang.get() === 'es' ? 'es-US' : 'en-US'));
   document.getElementById('keptWhy').textContent=d.kept_reason||'';
   var host=document.getElementById('rows');
   var html=(d.rows||[]).map(function(r){

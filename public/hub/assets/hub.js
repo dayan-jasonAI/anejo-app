@@ -151,7 +151,9 @@
   };
 
   Hub.me = function () {
-    return Hub.api('/api/me').then(function (data) {
+    if (Hub._mePending) return Hub._mePending;
+    return Hub._mePending = Hub.api('/api/me').then(function (data) {
+      Hub._mePending = null;
       Hub._me = data;
       // Seed a first visit from the authenticated staff preference. A manual
       // choice on this device wins, including a deliberate switch to English.
@@ -779,6 +781,7 @@
 
   // Auto-mount the universal Account button + unread badge on any page that loads hub.js.
   function autoMount() {
+    if (!Hub._me) Hub.me();
     Hub.mountAccountButton();
     Hub.trainingGate();
     Hub.refreshUnreadBadge();

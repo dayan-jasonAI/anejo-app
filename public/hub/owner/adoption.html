@@ -162,7 +162,7 @@ async function load(days){
   // reconcile with the activity feed and the screen looks broken.
   var sys=d.system_events_excluded||0, tot=d.total_events||0;
   document.getElementById('sysNote').textContent = tot
-    ? (sys.toLocaleString((window.AnejoLang && window.AnejoLang.get() === 'es' ? 'es-US' : 'en-US'))+' of '+tot.toLocaleString((window.AnejoLang && window.AnejoLang.get() === 'es' ? 'es-US' : 'en-US'))+' events in this window were automation (actor_type=system) and are excluded from every number above. Counting them would make adoption look healthy even if nobody signed in.')
+    ? (sys.toLocaleString((typeof window !== 'undefined' && window.AnejoLang && window.AnejoLang.get() === 'es' ? 'es-US' : 'en-US'))+' of '+tot.toLocaleString((typeof window !== 'undefined' && window.AnejoLang && window.AnejoLang.get() === 'es' ? 'es-US' : 'en-US'))+' events in this window were automation (actor_type=system) and are excluded from every number above. Counting them would make adoption look healthy even if nobody signed in.')
     : 'No events recorded in this window.';
 }
 
