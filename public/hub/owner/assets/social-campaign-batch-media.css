@@ -1,0 +1,11 @@
+.campaign-batch-dialog { width: min(640px, calc(100vw - 32px)); }
+.campaign-batch-dialog > p { color: var(--muted, #5c675e); line-height: 1.5; }
+.campaign-batch-dialog label { display: block; margin: 18px 0; color: var(--forest, #1b3a2b); font-size: 16px; }
+.campaign-batch-dialog input[type=file] { display: block; width: 100%; min-height: 48px; margin-top: 8px; font: inherit; }
+.campaign-batch-dialog input::file-selector-button { min-height: 44px; margin-right: 12px; padding: 8px 14px; border: 1px solid #b5bba6; border-radius: 8px; background: #f5f2ec; color: #1b3a2b; font: inherit; }
+.campaign-batch-dialog progress { display: block; width: 100%; height: 12px; accent-color: #1b3a2b; margin-top: 24px; }
+#campaign-batch-status { min-height: 48px; overflow-wrap: anywhere; }
+.campaign-batch-dialog .campaign-action-buttons { display: flex; flex-wrap: wrap; gap: 8px; }
+.campaign-batch-dialog .campaign-button { min-height: 44px; }
+.campaign-batch-dialog :focus-visible { outline: 3px solid #937324; outline-offset: 3px; }
+@media (max-width: 480px) { .campaign-batch-dialog .campaign-action-buttons > button { width: 100%; } }

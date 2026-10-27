@@ -9,12 +9,13 @@
   <link rel="icon" href="/assets/img/favicon.png">
   <link rel="stylesheet" href="/hub/assets/hub.css">
   <link rel="stylesheet" href="/hub/owner/assets/social-campaigns.css?v=2">
+  <link rel="stylesheet" href="/hub/owner/assets/social-campaign-batch-media.css?v=1">
 </head>
 <body>
   <a class="campaign-skip" href="#campaign-main">Skip to campaign</a>
   <header class="hub-bar"><h1>AÑEJO · MARKETING</h1><a class="campaign-back" href="/hub/owner/marketing.html#create-instagram">Marketing</a></header>
   <main id="campaign-main" class="campaign-wrap" tabindex="-1">
-    <div class="campaign-heading"><div><p class="campaign-eyebrow">ORGANIC INSTAGRAM</p><h2>A month at the table.</h2><p class="campaign-intro">The food, the story, and the next reason to order.</p></div><div class="campaign-heading-actions"><button id="campaign-import" type="button" class="campaign-button">Import draft plan</button><button id="campaign-reload" type="button" class="campaign-button">Refresh</button></div></div>
+    <div class="campaign-heading"><div><p class="campaign-eyebrow">ORGANIC INSTAGRAM</p><h2>A month at the table.</h2><p class="campaign-intro">The food, the story, and the next reason to order.</p></div><div class="campaign-heading-actions"><button id="campaign-import" type="button" class="campaign-button">Import / update plan</button><button id="campaign-batch-open" type="button" class="campaign-button" disabled>Attach media batch</button><button id="campaign-reload" type="button" class="campaign-button">Refresh</button></div></div>
     <input id="campaign-plan-file" type="file" accept="application/json,.json" hidden>
     <div id="campaign-feedback" role="status" aria-live="polite" aria-atomic="true"></div>
     <section id="owner-root" aria-busy="true"><p class="campaign-state">Loading campaign…</p></section>
@@ -22,6 +23,7 @@
   <nav id="owner-nav" class="hub-nav" aria-label="Owner navigation"></nav>
   <script src="/hub/assets/hub.js"></script>
   <script src="/hub/owner/assets/owner.js"></script>
-  <script src="/hub/owner/assets/social-campaigns.js?v=2"></script>
+  <script src="/hub/owner/assets/social-campaigns.js?v=3"></script>
+  <script src="/hub/owner/assets/social-campaign-batch-media.js?v=1"></script>
 </body>
 </html>
