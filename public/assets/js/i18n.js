@@ -4,8 +4,8 @@
   // Legacy tags and universal bootstrap share a single engine.
   if (window.AnejoI18n) return;
   var KEY = 'anejo:lang';
-  var lang = 'en';
-  try { lang = localStorage.getItem(KEY) === 'es' ? 'es' : 'en'; } catch (_) { /* private storage: language still works in memory */ }
+  var lang = document.documentElement.lang === 'es' ? 'es' : 'en';
+  try { var savedLang = localStorage.getItem(KEY); if (savedLang === 'es' || savedLang === 'en') lang = savedLang; } catch (_) { /* private storage: language still works in memory */ }
 
   // English -> Spanish. Brand names, bowl names, prices, emails, handles stay as-is (absent from dict).
   var ES = {
@@ -345,6 +345,7 @@
   var OBS_OPTS = { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: ['placeholder', 'aria-label', 'title', 'alt', 'value'] };
   var PATTERNS = [];
   var EN = {};
+  var ALIASES = {};
   var misses = {};
   var sourceSpanish = document.documentElement.lang === 'es';
 
@@ -445,7 +446,7 @@
   }
   function canonical(s){
     if (!sourceSpanish) return s;
-    var key = s.trim(), english = EN[key];
+    var key = s.trim(), english = ALIASES[key] || EN[key];
     return english === undefined ? s : s.replace(key, english);
   }
   function rebuildReverse(){
@@ -458,7 +459,7 @@
       if (c.nodeType === 3){ fn(c); }
       else if (c.nodeType === 1){
         var tag = c.tagName.toLowerCase();
-        if (tag === 'script' || tag === 'style' || tag === 'textarea' || c.hasAttribute('contenteditable') || c.id === 'langToggle' || c.getAttribute('translate') === 'no') continue;
+        if (tag === 'script' || tag === 'style' || tag === 'textarea' || c.getAttribute('contenteditable') !== null || c.id === 'langToggle' || c.getAttribute('translate') === 'no') continue;
         // Translating an option without value otherwise changes submitted data.
         if (tag === 'option' && !c.hasAttribute('value')) c.setAttribute('value', c.textContent.trim());
         walk(c, fn);
@@ -473,7 +474,8 @@
       var raw = t.nodeValue;
       if (!raw || !raw.trim()) return;
       if (!origText.has(t) || (lastText.has(t) && lastText.get(t) !== raw)) origText.set(t, canonical(raw));
-      var orig = origText.get(t);
+      var orig = canonical(origText.get(t));
+      origText.set(t, orig);
       if (es){
         var key = orig.trim();
         var v = tr(key);
@@ -489,7 +491,7 @@
       var el = phs[i];
       if (el.closest('[translate="no"]')) continue;
       if (!origPH.has(el) || (lastPH.has(el) && lastPH.get(el) !== el.getAttribute('placeholder'))) origPH.set(el, canonical(el.getAttribute('placeholder')));
-      var o = origPH.get(el);
+      var o = canonical(origPH.get(el));
       if (es && tr(o) === undefined) queue(o);
       el.setAttribute('placeholder', es ? (tr(o) || o) : o);
       lastPH.set(el, el.getAttribute('placeholder'));
@@ -505,7 +507,7 @@
         var store = origAttr[attr] || (origAttr[attr] = new WeakMap());
         var last = lastAttr[attr] || (lastAttr[attr] = new WeakMap());
         if (!store.has(e2) || (last.has(e2) && last.get(e2) !== e2.getAttribute(attr))) store.set(e2, canonical(e2.getAttribute(attr)));
-        var ov = store.get(e2);
+        var ov = canonical(store.get(e2));
         if (!ov || !ov.trim()) continue;
         if (es){
           var av = tr(ov.trim());
@@ -575,6 +577,25 @@
     b.querySelector('[data-l="es"]').style.color = l === 'es' ? '#fff' : '#C8BC6E';
   }
 
+  function bindLanguageLinks(){
+    if (!document.querySelectorAll) return;
+    var links = document.querySelectorAll('a[href]');
+    for (var li = 0; li < links.length; li++) {
+      var link = links[li], label = link.textContent.trim();
+      var target = link.getAttribute('hreflang');
+      if (target !== 'en' && target !== 'es') {
+        if (/^(Español|Spanish|ES)$/.test(label)) target = 'es';
+        else if (/^(English|Inglés|EN)$/.test(label)) target = 'en';
+        else continue;
+      }
+      // A language link names its destination language, not a translatable CTA.
+      link.setAttribute('translate', 'no');
+      if (link.getAttribute('data-language-bound')) continue;
+      link.setAttribute('data-language-bound', target);
+      link.addEventListener('click', function(){ setLang(this.getAttribute('data-language-bound')); });
+    }
+  }
+
   function setLang(l){
     lang = l === 'es' ? 'es' : 'en';
     try { localStorage.setItem(KEY, lang); } catch (_) { /* in-memory preference remains usable */ }
@@ -583,7 +604,11 @@
   }
 
   window.AnejoLang = { get: function(){ return lang; }, set: setLang };
-  window.AnejoI18n = { extendPatterns: extendPatterns, missing: function(){ return Object.keys(misses).filter(function(k){ return tr(k) === undefined; }); }, refresh: function(){ apply(lang); }, extend: extend,
+  function extendAliases(aliases){
+    Object.keys(aliases || {}).forEach(function(k){ if (typeof aliases[k] === 'string') ALIASES[k] = aliases[k]; });
+    if (document.body) apply(lang);
+  }
+  window.AnejoI18n = { extendAliases: extendAliases, extendPatterns: extendPatterns, missing: function(){ return Object.keys(misses).filter(function(k){ return tr(k) === undefined; }); }, refresh: function(){ apply(lang); }, extend: extend,
     text: function(english){ return lang === 'es' ? (tr(String(english)) || english) : english; } };
 
   // Native dialogs are outside the DOM observer. Translate their UI copy while
@@ -598,6 +623,7 @@
 
   rebuildReverse();
   function init(){
+    bindLanguageLinks();
     ensureToggle();
     // Drain any HUB dictionary that registered before this engine loaded.
     if (window.__hubI18nQueue){
@@ -605,6 +631,7 @@
       window.__hubI18nQueue = null;
     }
     if (window.__anejoI18nPatterns) { extendPatterns(window.__anejoI18nPatterns); window.__anejoI18nPatterns = null; }
+    if (window.__anejoI18nAliases) { extendAliases(window.__anejoI18nAliases); window.__anejoI18nAliases = null; }
     startHubObserver();
     apply(lang);
   }

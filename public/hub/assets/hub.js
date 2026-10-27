@@ -153,6 +153,15 @@
   Hub.me = function () {
     return Hub.api('/api/me').then(function (data) {
       Hub._me = data;
+      // Seed a first visit from the authenticated staff preference. A manual
+      // choice on this device wins, including a deliberate switch to English.
+      if (data && data.authenticated && window.AnejoLang) {
+        try {
+          var savedLanguage = window.localStorage.getItem('anejo:lang');
+          var staffLanguage = data.staff && data.staff.lang;
+          if (savedLanguage !== 'en' && savedLanguage !== 'es' && (staffLanguage === 'es' || staffLanguage === 'en')) window.AnejoLang.set(staffLanguage);
+        } catch (_) { /* storage unavailable: retain the current session choice */ }
+      }
       Hub.rememberRole(data && data.authenticated ? Hub.roleFromMe(data) : null);
       if (data && data.authenticated && Hub.roleFromMe(data) === 'owner' && !/\/operations-guide(?:\.html)?$/.test(location.pathname)) {
         var mountPlaybook = function () {

@@ -38,6 +38,18 @@ export function App() {
     });
   }, [me?.authed, booted, resume, startNew]);
 
+  useEffect(() => {
+    if (!me?.authed || me.role !== 'owner') return;
+    const mount = () => {
+      const help = (window as unknown as { AnejoOperatorPlaybooks?: { mount: (options: {role: string; pathname: string}) => void } }).AnejoOperatorPlaybooks;
+      help?.mount({role: 'owner', pathname: location.pathname});
+    };
+    if (document.getElementById('operator-playbooks-js')) { mount(); return; }
+    const script = document.createElement('script');
+    script.id = 'operator-playbooks-js'; script.src = '/hub/assets/operator-playbooks.js?v=20261027';
+    script.onload = mount; document.head.appendChild(script);
+  }, [me?.authed, me?.role]);
+
   const demo = me && !me.authed;
 
   return (

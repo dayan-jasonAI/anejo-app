@@ -1,3 +1,4 @@
+/* global URL, console, process, __dirname, Buffer, document, innerWidth, window, AnejoLang, AnejoI18n, AnejoOperatorPlaybooks */
 /* Isolated localhost instruction fixture; no real account or business API. */
 const fs=require('node:fs'),path=require('node:path'),http=require('node:http'),crypto=require('node:crypto'),assert=require('node:assert/strict');const{chromium}=require('playwright');
 const repo=path.resolve(__dirname,'../..'),pub=path.join(repo,'public'),out=process.env.ANEJO_PLAYBOOK_PROOFS||path.resolve(repo,'../anejo-deliverables/arianne-playbooks-2026-10-27');

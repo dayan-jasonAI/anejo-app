@@ -1,3 +1,5 @@
+/* global URL, console, process, __dirname, Buffer, document, innerWidth, window, AnejoLang, AnejoI18n, AnejoOperatorPlaybooks */
+/* global AnejoI18n, AnejoLang, document */
 /* Owned synthetic UI only: no client sessions, live database or provider calls. */
 const { chromium } = require('playwright');
 const fs=require('node:fs'),http=require('node:http'),path=require('node:path'),assert=require('node:assert/strict');
