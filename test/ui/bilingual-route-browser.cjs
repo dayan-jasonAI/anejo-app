@@ -10,7 +10,7 @@ function fixture(u,method){const p=u.pathname,b=empty();if(p==='/api/me')return{
  if(method!=='GET')return{status:503,kind:'unsupported local write blocked',data:{ok:false,error:'This local audit does not execute business actions.'}};
  let known=true;
  if(p==='/api/hub/owner/overview')b.tiles={orders_open:0,deliveries_today:0,on_shift:0,tickets_open:0,expenses_pending:0,temp_excursions_today:0};
- else if(p==='/api/hub/kitchen/commissary'){Object.assign(b,{actor:{id:'fixture-owner',role:'owner'},profile:{},form:{url:'https://example.invalid/fixture-form'},open_visit:null,month:'2026-10',services:[],visits:[],events:[],totals:{actual_hours:0,ended_visits:0,in_progress:0}});}
+ else if(p==='/api/hub/kitchen/commissary'){Object.assign(b,{actor:{id:'fixture-owner',role:'owner'},profile:{},form:{url:'https://example.invalid/fixture-form'},open_visit:null,month:'2026-10',services:[],license_types:[],visits:[],events:[],totals:{actual_hours:0,ended_visits:0,in_progress:0}});}
  else if(p==='/api/hub/owner/timesheet'){Object.assign(b,{week_start:'2026-10-26',week_end:'2026-11-01',prev_week:'2026-10-19',next_week:'2026-11-02',totals:{},staff:[]});}
  else if(p==='/api/hub/owner/deliveries/today'){Object.assign(b,{rollup:{route_count:0,done:0,pending:0,failed:0,on_time_pct:null},routes:[]});}
  else if(p==='/api/hub/owner/catering-service'){Object.assign(b,{leads:[],overview:null,config:{ack_enabled:false},template:{en:{html:'<!doctype html><html><body><p>Synthetic private English template.</p></body></html>'},es:{html:'<!doctype html><html><body><p>Plantilla sintética privada.</p></body></html>'}}});}
