@@ -84,6 +84,9 @@
 <script>
   var T={
     sub:{en:'Daily Lunch Count',es:'Conteo de Almuerzos'},
+    missingCode:{en:'This link is missing its code. Please use the link Añejo gave your office.',es:'A este enlace le falta el código. Usa el enlace que Añejo le envió a tu oficina.'},
+    invalidLink:{en:'This link is not valid. Please contact Añejo.',es:'Este enlace no es válido. Comunícate con Añejo.'},
+    loadError:{en:'Could not load. Check your connection and try again.',es:'No se pudo cargar. Revisa tu conexión e inténtalo de nuevo.'},
     delivery:{en:'Delivery',es:'Entrega'},
     howmany:{en:'How many lunches today?',es:'¿Cuántos almuerzos hoy?'},
     allerg:{en:'Allergies or special notes (optional)',es:'Alergias o notas especiales (opcional)'},
@@ -150,7 +153,7 @@
   };
   var MONTHS={en:['January','February','March','April','May','June','July','August','September','October','November','December'],
              es:['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre']};
-  var lang='en', token=(new URLSearchParams(location.search)).get('t')||'', ctx=null;
+  var lang='en', token=(new URLSearchParams(location.search)).get('t')||'', ctx=null, statusKey=null;
   var app=document.getElementById('app');
   function tr(k,subs){ var s=(T[k]&&T[k][lang])||k; if(subs)for(var x in subs)s=s.replace('{'+x+'}',subs[x]); return s; }
   // (no money() helper — this page must never render an amount; see monthCard)
@@ -170,15 +173,19 @@
   }
   function startLink(){ return token?'<p class="fine"><a href="/start/'+encodeURIComponent(token)+'" style="color:var(--gold-deep);font-weight:700;text-decoration:underline">'+esc(tr('firstWeek'))+'</a></p>':''; }
 
-  function setLang(l){ lang=l; document.getElementById('en').className=l==='en'?'on':''; document.getElementById('es').className=l==='es'?'on':''; document.getElementById('h-sub').textContent=tr('sub'); if(ctx)render(); }
+  function reflectLang(l){ lang=l==='es'?'es':'en'; document.getElementById('en').className=lang==='en'?'on':''; document.getElementById('es').className=lang==='es'?'on':''; document.getElementById('h-sub').textContent=tr('sub'); if(statusKey)app.textContent=tr(statusKey); else if(ctx)render(); }
+  function setLang(l){ reflectLang(l); if(window.AnejoLang&&window.AnejoLang.get()!==lang)window.AnejoLang.set(lang); }
+  function syncSharedLang(e){ if(e&&e.detail&&e.detail.lang)reflectLang(e.detail.lang); }
+  document.addEventListener('anejo:i18nready',syncSharedLang);
+  document.addEventListener('anejo:langchange',syncSharedLang);
 
   function load(){
-    if(!token){ app.innerHTML='This link is missing its code. Please use the link Añejo gave your office.'; return; }
+    if(!token){ statusKey='missingCode'; app.textContent=tr(statusKey); return; }
     fetch('/api/contract/site?t='+encodeURIComponent(token)).then(function(r){return r.json();}).then(function(d){
       ctx=d;
-      if(!d||!d.ok){ app.className='state'; app.innerHTML='This link is not valid. Please contact Añejo.'; return; }
+      if(!d||!d.ok){ statusKey='invalidLink'; app.className='state'; app.textContent=tr(statusKey); return; }
       render();
-    }).catch(function(){ app.className='state'; app.innerHTML='Could not load. Check your connection and try again.'; });
+    }).catch(function(){ statusKey='loadError'; app.className='state'; app.textContent=tr(statusKey); });
   }
 
   function render(){

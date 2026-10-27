@@ -1866,7 +1866,9 @@
 };
   Object.assign(es, {
     "· Palm Beach County, FL": "· Palm Beach County, FL",
-    "— see": "— consulta"
+    "— see": "— consulta",
+    "We use essential cookies to keep you signed in, and — with your OK — analytics to improve the site. See our": "Usamos cookies esenciales para mantener tu sesión iniciada y, con tu permiso, analítica para mejorar el sitio. Consulta nuestra",
+    "Chat with Añejo": "Chatea con Añejo"
   });
 
   if (window.AnejoI18n && typeof window.AnejoI18n.extendAliases === 'function') {
