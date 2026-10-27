@@ -41,6 +41,8 @@
   .whatsnew ul{margin:0;padding-left:19px;font-size:14.5px;line-height:1.55}
   .whatsnew li{margin-bottom:6px}
   .whatsnew .wn-done{margin:10px 0 0;font-size:12.5px;font-weight:700;color:var(--green)}
+  .owner-guide-callout{background:#eef3ee;border-color:#9db2a5;border-left-color:var(--green)}
+  .owner-guide-callout a{display:inline-flex;align-items:center;min-height:44px;margin-top:10px;padding:10px 14px;border-radius:9px;background:var(--green);color:#fffdf8;text-decoration:none;font-size:14px;font-weight:700}
   /* module */
   .stage{flex:1;padding:16px 16px 30px}
   .modhead{display:flex;align-items:center;gap:10px;margin-bottom:10px}
@@ -92,12 +94,13 @@
 
   <div class="land" id="land">
     <h2 data-t="choose">Choose your training</h2>
-    <p data-t="chooseSub">Pick your role. Each tutorial covers exactly what you need — your screen, what's expected of you, and what kicks off your work. The Owner walkthrough covers the whole system end to end.</p>
+    <p data-t="chooseSub">Pick your role. Tutorials introduce screens and routines. The Owner operations guide links to current Hub workflows; the older narrated tour remains reference material.</p>
     <div class="pick" id="pick"></div>
     <p style="margin-top:20px;text-align:center"><a href="/hub/training-card?role=all" style="color:var(--gold-700);font-size:13.5px;font-weight:700;text-decoration:none">🗂 <span data-t="binder">Print all-roles binder (PDF)</span></a></p>
   </div>
 
   <div class="stage" id="stage" style="display:none">
+    <aside class="whatsnew owner-guide-callout" id="owner-guide-callout" style="display:none"></aside>
     <div class="whatsnew" id="whatsnew" style="display:none"></div>
     <div class="modhead"><span class="badge" id="mod-badge"></span></div>
     <div class="prog" id="prog"></div>
@@ -115,13 +118,16 @@
 <script>
 /* ============ content ============
    Each step: k kicker, t title, m mock(optional), x TRIGGER, y YOU DO, z THEN(downstream), n note(optional).
-   Staff roles add _es variants (t2,x2,y2,z2). Owner module is English (management). */
+   Staff roles add _es variants (t2,x2,y2,z2). The owner operations guide is bilingual; the older owner module remains English reference material. */
 var UI = {
   all:{en:'All',es:'Todo'}, card:{en:'Card',es:'Tarjeta'}, binder:{en:'Print all-roles binder (PDF)',es:'Imprimir manual de todos los roles (PDF)'}, back:{en:'Back',es:'Atrás'}, next:{en:'Next',es:'Siguiente'}, finish:{en:'Finish',es:'Terminar'},
   play:{en:'Play narrated tour',es:'Reproducir tour narrado'}, pause:{en:'Pause narration',es:'Pausar narración'},
   step:{en:'Step',es:'Paso'}, of:{en:'of',es:'de'}, choose:{en:'Choose your training',es:'Elige tu capacitación'},
-  chooseSub:{en:"Pick your role. Each tutorial covers exactly what you need — your screen, what's expected of you, and what kicks off your work. The Owner walkthrough covers the whole system end to end.",
-             es:'Elige tu rol. Cada tutorial cubre justo lo que necesitas — tu pantalla, lo que se espera de ti, y qué inicia tu trabajo. El recorrido del Dueño cubre todo el sistema de principio a fin.'},
+  chooseSub:{en:"Pick your role. Tutorials introduce screens and routines. The Owner operations guide links to current Hub workflows; the older narrated tour remains reference material.",
+             es:'Elige tu rol. Los tutoriales presentan pantallas y rutinas. La guía de operaciones de la dueña enlaza a los flujos actuales del Hub; el recorrido narrado anterior queda como material de referencia.'},
+  ownerGuideTitle:{en:'Current owner operations guide',es:'Guía actual de operaciones de la dueña'},
+  ownerGuideBody:{en:'The bilingual guide links to current Hub screens. The older narrated owner module below is English-only reference material.',es:'La guía bilingüe enlaza a pantallas actuales del Hub. El módulo narrado anterior de abajo está solo en inglés y queda como referencia.'},
+  ownerGuideLink:{en:'Open bilingual guide',es:'Abrir guía bilingüe'},
   trig:{en:'Trigger',es:'Qué lo inicia'}, you:{en:'You do',es:'Tú haces'}, then:{en:'Then (automatic)',es:'Luego (automático)'},
   finishing:{en:'Saving…',es:'Guardando…'}, done:{en:'✓ Completed',es:'✓ Completado'},
   whatsnew:{en:"What's new",es:'Lo nuevo'},
@@ -130,7 +136,7 @@ var UI = {
   doneMsg:{en:'Training completed — thank you! Your owner can see this in the compliance view.',es:'Capacitación completada — ¡gracias! Tu dueño puede verlo en el panel de cumplimiento.'}
 };
 var ROLES = [
-  { key:'owner',   ic:'◎',  full:true, en:'Owner — full end-to-end', es:'Dueño — todo de principio a fin', den:'The entire system: order & subscription flow, dispatch, staff, finance, the AI Ops agent, automations, alerts.', des:'Todo el sistema: pedidos y suscripciones, despacho, personal, finanzas, el agente AI Ops, automatizaciones, alertas.' },
+  { key:'owner',   ic:'◎',  full:true, en:'Owner — operations guide + narrated tour', es:'Dueña — guía de operaciones + tour narrado', den:'Start with the current bilingual operations guide. The narrated owner tour below is older reference material; verify actions in the current Hub.', des:'Empieza con la guía bilingüe actual. El recorrido narrado de la dueña es material de referencia anterior; verifica las acciones en el Hub actual.' },
   { key:'kitchen', ic:'🍳', en:'Kitchen', es:'Cocina', den:'Your board, per-bowl prep with PIN, inventory, checklists, Creative Studio, EOD.', des:'Tu tablero, preparación por bowl con PIN, inventario, listas, Creative Studio, EOD.' },
   { key:'driver',  ic:'🚚', en:'Driver', es:'Conductor', den:'Accept a run, confirm pickup, deliver with proof, report problems, expenses, EOD.', des:'Aceptar una ruta, confirmar recogida, entregar con prueba, reportar problemas, gastos, EOD.' },
   { key:'marketing', ic:'📈', en:'Marketing expert', es:'Experta en marketing', den:'The marketing workspace, the daily run, affiliates, the site’s own words, and how you send Dayan what you find.', des:'El espacio de marketing, la ronda diaria, afiliados, los textos del sitio, y cómo le envías a Dayan lo que encuentras.' },
@@ -140,10 +146,13 @@ var ROLES = [
 function S(o){ return o; }
 var MOD = {
   owner: [
-    S({k:'Welcome',t:'The HUB is your whole back office',m:'<div class="m-nav"><span class="on"><i>◎</i>Overview</span><span><i>🧑‍🤝‍🧑</i>Customers</span><span><i>🚚</i>Deliveries</span><span><i>👥</i>Staff</span><span><i>💵</i>Finance</span></div>',
-      x:'You sign in at anejocateringco.com/login with your owner PIN.',
-      y:'Use the bottom bar to move between Overview, Customers, Deliveries, Kitchen, Staff, Finance and Comms — plus AI Ops, Content and Schedule.',
-      z:'Every page reads the same live data that flows in from your public site + Square. You never enter orders by hand.'}),
+    S({k:'Welcome',t:'Your owner operations guide',m:'<div class="m-nav"><span class="on"><i>◎</i>Overview</span><span><i>🚚</i>Deliveries</span><span><i>🍳</i>Kitchen</span><span><i>💵</i>Finance</span><span><i>📈</i>Marketing</span></div>',
+      x:'You are opening the owner area of Añejo Hub.',
+      y:'Use the bilingual guide above to open the current daily routes for requests, kitchen, deliveries, finance, marketing, and end of day.',
+      z:'The narrated owner lessons below are older English reference material. Use the guide above for the current daily route.',
+      t2:'Tu guía de operaciones para la dueña', x2:'Estás en el área de dueña de Añejo Hub.',
+      y2:'Usa la guía bilingüe de arriba para abrir las rutas actuales de solicitudes, cocina, entregas, finanzas, marketing y cierre del día.',
+      z2:'Las lecciones narradas de abajo son material anterior de referencia en inglés. Usa la guía de arriba para la rutina diaria actual.'}),
     S({k:'The big picture',t:'How one order flows, end to end',
       x:'A customer checks out on the public site (Square handles payment) — or you take a manual order.',
       y:'Nothing — you just watch it move. But know the path so you can spot a stuck order.',
@@ -548,6 +557,13 @@ function renderWhatsNew(){
 function render(){
   var scenes=MOD[role], n=scenes.length, sc=scenes[idx];
   renderWhatsNew();
+  var ownerGuide=document.getElementById('owner-guide-callout');
+  if(ownerGuide){
+    if(role==='owner'){
+      ownerGuide.innerHTML='<div class="wn-k">'+UI.ownerGuideTitle[lang]+'</div><p style="margin:6px 0 0;font-size:14px;line-height:1.5">'+UI.ownerGuideBody[lang]+'</p><a href="/hub/owner/operations-guide.html">'+UI.ownerGuideLink[lang]+'</a>';
+      ownerGuide.style.display='block';
+    }else{ownerGuide.style.display='none';ownerGuide.innerHTML='';}
+  }
   document.getElementById('mod-badge').textContent = (ROLES.filter(function(r){return r.key===role;})[0]||{})[lang] || role;
   document.getElementById('prog').innerHTML = scenes.map(function(_,i){ return '<div class="dot '+(i<idx?'done':i===idx?'cur':'')+'"></div>'; }).join('');
   document.getElementById('scene').innerHTML =

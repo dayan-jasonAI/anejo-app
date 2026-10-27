@@ -27,6 +27,13 @@
     }
   }
   #feed-toggle { margin-top: 8px; }
+  .owner-guide-entry{display:flex;align-items:center;gap:14px;margin:0 0 20px;padding:15px 17px;background:#fffdf8;border-left:4px solid var(--gold);text-decoration:none;color:var(--green);transition:background-color .18s ease,border-color .18s ease}
+  .owner-guide-entry:hover{background:#fff8e9;border-left-color:var(--green)}
+  .owner-guide-entry img{width:36px;height:36px;object-fit:contain;flex:0 0 auto}
+  .owner-guide-entry strong{display:block;font-family:'Cormorant Garamond',Georgia,serif;font-size:22px;font-weight:600;line-height:1.05}
+  .owner-guide-entry small{display:block;margin-top:4px;color:#405349;font-size:13px;line-height:1.4}
+  .owner-guide-entry .guide-arrow{margin-left:auto;font-size:22px;color:var(--gold-dark)}
+  @media(prefers-reduced-motion:reduce){.owner-guide-entry{transition:none}}
 </style>
 </head>
 <body>
@@ -49,6 +56,10 @@
 <script src="/hub/owner/assets/readiness.js"></script>
 <script>
 (function () {
+  if (window.AnejoI18n) window.AnejoI18n.extend({
+    'Run the business':'Dirige el negocio',
+    'Seven practical operating stops, in English and Spanish.':'Siete pasos prácticos de operación, en inglés y español.'
+  });
   Hub.boot();
   var lt = document.getElementById('lang-toggle');
   if (lt && window.AnejoLang) {
@@ -91,6 +102,10 @@
     var root = document.getElementById('owner-root');
     root.className = '';
     root.innerHTML =
+      '<section class="hub-section"><a class="card owner-guide-entry" href="/hub/owner/operations-guide.html">' +
+        '<img src="/assets/img/emblem.png" alt="" aria-hidden="true">' +
+        '<span><strong data-i18n>Run the business</strong><small data-i18n>Seven practical operating stops, in English and Spanish.</small></span>' +
+        '<span class="guide-arrow" aria-hidden="true">›</span></a></section>' +
       '<div id="event-panel" class="hub-section"></div>' +
       '<div id="ready-panel" class="hub-section"></div>' +
       '<div class="hub-section"><h2 data-i18n>At a glance</h2><div id="tiles" class="card-grid"><div class="hub-loading">…</div></div></div>' +
