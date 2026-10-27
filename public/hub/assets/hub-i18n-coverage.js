@@ -1579,7 +1579,26 @@
   "How many NEW feed (grid) posts the planner tops up to each week. 2026 research on food accounts: 3-5 posts/week is the sweet spot — average reach PER POST starts falling once an account crosses roughly 5/week, so posting more can mean fewer people see each one.": "Cantidad de publicaciones NUEVAS del feed que el planificador procura completar cada semana. Según la investigación de 2026 sobre cuentas de comida citada por este panel, el intervalo recomendado es de 3 a 5 publicaciones semanales; al superar aproximadamente 5, el alcance medio POR PUBLICACIÓN comienza a bajar, por lo que publicar más puede reducir la audiencia de cada una.",
   "Default hour(s), Eastern Time, the planner snaps a drafted post onto for each weekday. Research behind these: the weekday lunch-decision window, 11:00–13:00 ET, is the strongest slot — it lands while someone is deciding what to eat TODAY. A secondary evening window, 17:00–19:00 ET, catches the dinner-decision crowd the same way. Friday out-performs every other day; Tuesday–Thursday are strong; weekends are the weakest days for FEED reach specifically — even so, evening is still the best hour of a weak weekend day. Hours must be 8–19 (8 AM–7 PM); anything outside that range is dropped, and a day left with none reverts to its researched default.": "Horarios predeterminados, en hora del Este, que el planificador asigna a los borradores por día de la semana. La investigación citada aquí favorece la franja de decisión del almuerzo entre semana, de 11:00 a 13:00 ET, cuando la gente decide qué comer HOY. La franja secundaria de 17:00 a 19:00 ET busca la decisión de cena. El viernes obtiene mejores resultados; de martes a jueves también son fuertes. Los fines de semana tienen menor alcance del FEED, aunque se prefiere la tarde-noche. Las horas deben estar entre 8 y 19; se descartan las demás. Si un día queda sin horarios, recupera el valor predeterminado basado en esa investigación.",
   "owner · lead · kitchen": "propietario · líder · cocina",
-  ": kitchen": ": cocina"
+  ": kitchen": ": cocina",
+  "No paid receipt costs imported yet.": "Aún no se han importado costos de compras pagadas.",
+  "No prepared menu items were returned.": "No se recibieron artículos preparados del menú.",
+  "Create production plan": "Crear plan de producción",
+  "Enter and confirm actual recipe quantities and packaging for one finished item. A photo does not set these amounts.": "Ingresa y confirma las cantidades reales de receta y envases para un producto terminado. Una foto no determina estas cantidades.",
+  "Menu item": "Artículo del menú",
+  "Ingredient and packaging amounts": "Cantidades de ingredientes y envases",
+  "Add at least one of each. Values are required and have no suggested quantity.": "Agrega al menos uno de cada tipo. Los valores son obligatorios y no tienen una cantidad sugerida.",
+  "Add requirement": "Agregar requisito",
+  "Stock count freshness (hours)": "Vigencia del conteo de existencias (horas)",
+  "Assign kitchen staff (optional)": "Asignar personal de cocina (opcional)",
+  "I reviewed the recipe, packaging, exact units, current count basis, target, and batch limits.": "Revisé la receta, los envases, las unidades exactas, la base del conteo actual, el objetivo y los límites del lote.",
+  "Save reviewed plan": "Guardar plan revisado",
+  "Meal name": "Nombre de la comida",
+  "Description": "Descripción",
+  "Add a menu item": "Agregar artículo al menú",
+  "Drinks and add-ons work the moment you save them — they are priced straight from this row.": "Las bebidas y los complementos quedan disponibles al guardarlos; sus precios se toman directamente de esta fila.",
+  "Price ($)": "Precio ($)",
+  "Show on the website right away": "Mostrar en la web de inmediato",
+  "Ids are permanent — they are how orders, receipts and the kitchen refer to this item. Lowercase letters, numbers and underscores.": "Los ID son permanentes: identifican este artículo en pedidos, recibos y cocina. Usa letras minúsculas, números y guiones bajos."
 };
   if (window.AnejoI18n && typeof window.AnejoI18n.extend === "function") window.AnejoI18n.extend(dictionary);
   else (window.__hubI18nQueue = window.__hubI18nQueue || []).push(dictionary);
