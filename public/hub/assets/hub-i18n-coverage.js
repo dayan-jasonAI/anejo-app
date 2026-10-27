@@ -1598,7 +1598,31 @@
   "Drinks and add-ons work the moment you save them — they are priced straight from this row.": "Las bebidas y los complementos quedan disponibles al guardarlos; sus precios se toman directamente de esta fila.",
   "Price ($)": "Precio ($)",
   "Show on the website right away": "Mostrar en la web de inmediato",
-  "Ids are permanent — they are how orders, receipts and the kitchen refer to this item. Lowercase letters, numbers and underscores.": "Los ID son permanentes: identifican este artículo en pedidos, recibos y cocina. Usa letras minúsculas, números y guiones bajos."
+  "Ids are permanent — they are how orders, receipts and the kitchen refer to this item. Lowercase letters, numbers and underscores.": "Los ID son permanentes: identifican este artículo en pedidos, recibos y cocina. Usa letras minúsculas, números y guiones bajos.",
+  "Menu & prices": "Menú y precios",
+  "Disabled — awaiting your template review.": "Desactivado · pendiente de tu revisión de la plantilla.",
+  "On-time": "A tiempo",
+  "No routes today.": "No hay rutas hoy.",
+  "No deliveries today.": "No hay entregas hoy.",
+  "Feed posts per week": "Publicaciones del feed por semana",
+  "0 pauses the planner. 14 is a hard ceiling. Shipped default: 3/week.": "0 pausa el planificador. El máximo es 14. Valor predeterminado: 3 por semana.",
+  "Recorded, not automated.": "Registrado, no automatizado.",
+  "These numbers record your Story targets; changing them does not create drafts or publish. Prepare Stories in Marketing or the campaign workspace, review the exact media, then schedule or publish. Check the saved result for provider acceptance.": "Estas cifras registran tus objetivos de historias; cambiarlas no crea borradores ni publica. Prepara las historias en Marketing o en el espacio de campañas, revisa el contenido exacto y después programa o publica. Consulta el resultado guardado para comprobar la aceptación del proveedor.",
+  "Stories per day — min": "Historias al día · mínimo",
+  "Stories per day — max": "Historias al día · máximo",
+  "Save cadence": "Guardar frecuencia",
+  "Why nothing will send yet:": "Por qué todavía no se enviará nada:",
+  "Discovered (7 days)": "Descubiertos (7 días)",
+  "Awaiting your approval": "Pendiente de tu aprobación",
+  "Sent today": "Enviados hoy",
+  "With a valid contact": "Con un contacto válido",
+  "Each runs once, inside its caps. Switch the scheduled versions on in Settings.": "Cada tarea se ejecuta una vez, dentro de sus límites. Activa las versiones programadas en Ajustes.",
+  "Automated discovery: no approved source in this release — load organizations with": "Búsqueda automática: esta versión no tiene una fuente aprobada; carga organizaciones con",
+  "Research next batch": "Investigar próximo lote",
+  "Draft due follow-ups": "Crear borradores de seguimientos pendientes",
+  "Send approved emails now": "Enviar ahora los correos aprobados",
+  "Terms, Privacy and Refund. Leave one empty to keep the version that ships with the site — clearing your text restores it rather than publishing a blank page.": "Términos, Privacidad y Reembolsos. Deja un campo vacío para conservar la versión original del sitio; borrar tu texto la restaura en lugar de publicar una página vacía.",
+  "Reports filed": "Reportes enviados"
 };
   if (window.AnejoI18n && typeof window.AnejoI18n.extend === "function") window.AnejoI18n.extend(dictionary);
   else (window.__hubI18nQueue = window.__hubI18nQueue || []).push(dictionary);
