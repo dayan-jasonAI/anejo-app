@@ -95,7 +95,7 @@
 
   D.fmtTime = function (ms) {
     if (!ms) return '—';
-    try { return new Date(ms).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }); } catch (e) { return '—'; }
+    try { return new Date(ms).toLocaleTimeString((window.AnejoLang && window.AnejoLang.get() === 'es' ? 'es-US' : 'en-US'), { hour: '2-digit', minute: '2-digit' }); } catch (e) { return '—'; }
   };
 
   window.Driver = D;

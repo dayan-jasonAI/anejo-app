@@ -70,7 +70,7 @@
   var id=(new URLSearchParams(location.search)).get('id')||'';
   var money=Hub.money, esc=Hub.esc;
   function fmtDate(s){ return s||''; }
-  function fmtWhen(ms){ return ms ? new Date(ms).toLocaleString() : ''; }
+  function fmtWhen(ms){ return ms ? new Date(ms).toLocaleString((window.AnejoLang && window.AnejoLang.get() === 'es' ? 'es-US' : 'en-US')) : ''; }
 
   // Send / mark-paid. Without these an invoice sits at 'open' forever — the printable page was
   // the end of the road. Both are owner-only server-side; this is just the trigger.

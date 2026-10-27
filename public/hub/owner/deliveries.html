@@ -46,7 +46,7 @@
   var assignmentRequest = 0;
   var assignmentVerified = false;
   function money(c) { return '$' + ((Number(c) || 0) / 100).toFixed(2); }
-  function clockET(ms) { try { return new Date(Number(ms)).toLocaleTimeString('en-US', { timeZone: 'America/New_York', hour: 'numeric', minute: '2-digit' }); } catch (e) { return ''; } }
+  function clockET(ms) { try { return new Date(Number(ms)).toLocaleTimeString((window.AnejoLang && window.AnejoLang.get() === 'es' ? 'es-US' : 'en-US'), { timeZone: 'America/New_York', hour: 'numeric', minute: '2-digit' }); } catch (e) { return ''; } }
   // The line every route shows: pay · stops · miles · finish ETA.
   function routeMeta(ro) {
     var parts = [];
@@ -350,7 +350,7 @@
         Owner.tile(r.on_time_pct == null ? '—' : (r.on_time_pct + '%'), 'On-time')
       ].join('') + '</div>';
 
-      var etClock = function (ms) { try { return new Date(Number(ms)).toLocaleTimeString('en-US', { timeZone: 'America/New_York', hour: 'numeric', minute: '2-digit' }); } catch (e) { return ''; } };
+      var etClock = function (ms) { try { return new Date(Number(ms)).toLocaleTimeString((window.AnejoLang && window.AnejoLang.get() === 'es' ? 'es-US' : 'en-US'), { timeZone: 'America/New_York', hour: 'numeric', minute: '2-digit' }); } catch (e) { return ''; } };
       var routesEl = document.getElementById('routes');
       routesEl.innerHTML = d.routes.length ? d.routes.map(function (ro) {
         var p = ro.progress, live = '', counts = '';

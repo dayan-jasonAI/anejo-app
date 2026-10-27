@@ -56,9 +56,9 @@
       // ── Program stats ──
       html += '<div class="hub-section"><h2 data-i18n>Program at a glance</h2><div class="rw-stats">'+
         '<div class="rw-stat"><div class="v">'+(s.members||0)+'</div><div class="l" data-i18n>Members</div></div>'+
-        '<div class="rw-stat"><div class="v">'+(s.outstanding||0).toLocaleString()+'</div><div class="l" data-i18n>Points out</div></div>'+
-        '<div class="rw-stat"><div class="v">'+(s.earned||0).toLocaleString()+'</div><div class="l" data-i18n>Earned</div></div>'+
-        '<div class="rw-stat"><div class="v">'+(s.redeemed||0).toLocaleString()+'</div><div class="l" data-i18n>Redeemed</div></div>'+
+        '<div class="rw-stat"><div class="v">'+(s.outstanding||0).toLocaleString((window.AnejoLang && window.AnejoLang.get() === 'es' ? 'es-US' : 'en-US'))+'</div><div class="l" data-i18n>Points out</div></div>'+
+        '<div class="rw-stat"><div class="v">'+(s.earned||0).toLocaleString((window.AnejoLang && window.AnejoLang.get() === 'es' ? 'es-US' : 'en-US'))+'</div><div class="l" data-i18n>Earned</div></div>'+
+        '<div class="rw-stat"><div class="v">'+(s.redeemed||0).toLocaleString((window.AnejoLang && window.AnejoLang.get() === 'es' ? 'es-US' : 'en-US'))+'</div><div class="l" data-i18n>Redeemed</div></div>'+
         '<div class="rw-stat"><div class="v">'+(s.redemptions||0)+'</div><div class="l" data-i18n>Redemptions</div></div>'+
         '</div></div>';
 
@@ -69,7 +69,7 @@
       // ── Top members ──
       var top = d.top || [];
       html += '<div class="hub-section"><h2 data-i18n>Top members</h2><div class="list">'+
-        (top.length ? top.map(function(m){ return '<div class="row"><div class="row-main"><div class="row-title">'+esc(m.email)+'</div></div><div class="cust-right"><b>'+(m.bal||0).toLocaleString()+' pts</b></div></div>'; }).join('')
+        (top.length ? top.map(function(m){ return '<div class="row"><div class="row-main"><div class="row-title">'+esc(m.email)+'</div></div><div class="cust-right"><b>'+(m.bal||0).toLocaleString((window.AnejoLang && window.AnejoLang.get() === 'es' ? 'es-US' : 'en-US'))+' pts</b></div></div>'; }).join('')
           : '<div class="card"><p class="row-sub" data-i18n>No members yet.</p></div>')+'</div></div>';
 
       // ── Settings ──

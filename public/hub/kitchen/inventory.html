@@ -227,7 +227,7 @@
     var when = change.created_at || change.at || change.timestamp || '';
     if (when) {
       var date = new Date(when);
-      when = isNaN(date.getTime()) ? String(when) : date.toLocaleString();
+      when = isNaN(date.getTime()) ? String(when) : date.toLocaleString((window.AnejoLang && window.AnejoLang.get() === 'es' ? 'es-US' : 'en-US'));
     }
     var pushStatus = change.push_status == null ? '' : String(change.push_status);
     var pushLabel = pushStatus === 'sent' ? 'Push status: sent · delivery not confirmed' : pushStatus === 'noop' ? 'Push status: no push sent' : pushStatus === 'pending' ? 'Push status: pending' : pushStatus === 'failed' ? 'Push status: failed' : pushStatus ? 'Push status: ' + pushStatus : '';
@@ -246,7 +246,7 @@
     return '<article class="inv-card' + (below ? ' below' : '') + '" data-card="' + esc(it.id) + '">' +
       '<div class="inv-head">' + photoMarkup(it) + '<div class="inv-name">' + esc(it.name) +
       '<div class="inv-meta">' + (it.unit ? esc(it.unit) + ' · ' : '') + 'Par ' + numberText(it.par_level, '—') + '</div>' +
-      '<div class="inv-meta">' + (it.counted_at ? 'Last count saved ' + esc(new Date(it.counted_at).toLocaleString()) : 'No count timestamp recorded') + '</div>' +
+      '<div class="inv-meta">' + (it.counted_at ? 'Last count saved ' + esc(new Date(it.counted_at).toLocaleString((window.AnejoLang && window.AnejoLang.get() === 'es' ? 'es-US' : 'en-US'))) : 'No count timestamp recorded') + '</div>' +
       '<div class="inv-badges">' + (below ? '<span class="inv-badge warn">Below par</span>' : '') + (expired ? '<span class="inv-badge warn">Expired stock</span>' : '') + '<span class="inv-badge">' + esc(status) + '</span></div></div></div>' +
       (it.vendor_name ? '<div class="inv-meta">Vendor: ' + esc(it.vendor_name) + '</div>' : '') +
       '<div class="inv-controls">' +
@@ -310,7 +310,7 @@
       var search = String(line.item_name + ' ' + line.supplier_name).toLocaleLowerCase();
       return '<article class="inv-card" data-cost-search="' + esc(search) + '"><strong>' + esc(line.item_name) + '</strong><div class="inv-meta">' + esc(line.supplier_name) + ' · ' + esc(line.purchased_on) + ' · Receipt ' + esc(line.receipt_reference) + ', line ' + esc(line.line_ordinal) + '</div><div class="inv-meta">Paid line $' + (Number(line.paid_line_cents) / 100).toFixed(2) + ' · ' + esc(line.purchased_packs) + ' pack(s)' + (line.pack_quantity != null ? ' · ' + esc(line.pack_quantity) + ' ' + esc(line.pack_unit || '') + ' per pack' : '') + '</div><div class="inv-meta">Per pack: ' + rate(line.per_pack_dollars) + ' · Per ' + esc(line.pack_unit || 'unit') + ': ' + rate(line.per_unit_dollars) + '</div><div class="inv-meta">Historical paid cost · current stock unknown from receipt</div><details class="inv-ledger"><summary>Cost source and exact calculation</summary><p class="inv-help">' + esc(line.source_path) + '</p><p class="inv-help">' + esc(line.paid_line_cents) + ' cents ÷ 100 ÷ ' + esc(line.purchased_packs) + (line.pack_quantity != null ? ' ÷ ' + esc(line.pack_quantity) + ' for per-unit cost.' : ' for per-pack cost; unit quantity unresolved.') + '</p></details></article>';
     }).join('');
-    $('#cost-sheet').innerHTML = '<p class="inv-help">Latest ' + sheet.lines.length + ' receipt lines · read ' + esc(new Date(sheet.read_at).toLocaleString()) + (sheet.has_more ? ' · Older lines are not included in this view.' : '') + '</p>' + (rows || '<p class="inv-help">No paid receipt costs imported yet.</p>');
+    $('#cost-sheet').innerHTML = '<p class="inv-help">Latest ' + sheet.lines.length + ' receipt lines · read ' + esc(new Date(sheet.read_at).toLocaleString((window.AnejoLang && window.AnejoLang.get() === 'es' ? 'es-US' : 'en-US'))) + (sheet.has_more ? ' · Older lines are not included in this view.' : '') + '</p>' + (rows || '<p class="inv-help">No paid receipt costs imported yet.</p>');
   }
   function load() {
     K.get('/api/hub/kitchen/inventory').then(function (d) {
@@ -416,7 +416,7 @@
     $('#prepared').innerHTML = rows.length ? rows.map(function (p) {
       var remaining = p.remaining;
       var label = p.stock_count == null ? 'No limit set' + (remaining != null ? ' · ' + remaining + ' left today' : '') : (remaining != null ? remaining + ' left of ' + p.stock_count + ' today' : p.stock_count + ' stored count');
-      label += p.stock_counted_at ? ' · last count ' + new Date(p.stock_counted_at).toLocaleString() : ' · no verified count date';
+      label += p.stock_counted_at ? ' · last count ' + new Date(p.stock_counted_at).toLocaleString((window.AnejoLang && window.AnejoLang.get() === 'es' ? 'es-US' : 'en-US')) : ' · no verified count date';
       return '<div class="card inv-prep-card"><div class="inv-prep-main"><strong>' + esc(p.name) + '</strong><div class="inv-meta">' + esc(label) + '</div></div>' +
         '<input type="number" min="0" max="9999" step="1" inputmode="numeric" placeholder="—" aria-label="Today’s finished count for ' + esc(p.name) + '" id="pq-' + esc(p.id) + '" value="' + (p.stock_count == null ? '' : esc(p.stock_count)) + '">' +
         '<button class="btn ghost" type="button" data-prep="' + esc(p.id) + '">Set</button></div>';

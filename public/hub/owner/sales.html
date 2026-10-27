@@ -91,8 +91,8 @@
 
   // Attribute-safe escaping (quotes included) — used for srcdoc and value="" as well as text.
   const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
-  const money = (c) => (c == null ? '—' : '$' + (Number(c) / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
-  const when = (ms) => (ms ? new Date(Number(ms)).toLocaleString() : '—');
+  const money = (c) => (c == null ? '—' : '$' + (Number(c) / 100).toLocaleString((window.AnejoLang && window.AnejoLang.get() === 'es' ? 'es-US' : 'en-US'), { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
+  const when = (ms) => (ms ? new Date(Number(ms)).toLocaleString((window.AnejoLang && window.AnejoLang.get() === 'es' ? 'es-US' : 'en-US')) : '—');
   const get = (p) => Hub.api(p);
   const post = (p, body) => Hub.api(p, { method: 'POST', body });
   const tier = (t, s) => `<span class="tier tier-${esc(t || '')}">${t ? esc(t) : '—'}${s != null ? ' · ' + esc(s) : ''}</span>`;
