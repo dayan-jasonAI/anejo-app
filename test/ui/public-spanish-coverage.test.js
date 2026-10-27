@@ -52,6 +52,25 @@ test('public coverage dictionary registers with an already-loaded engine and que
   vm.runInNewContext(source, { window });
   assert.equal(window.__hubI18nQueue.length, 1);
   assert.equal(window.__hubI18nQueue[0]['Add & pay'], 'Añadir y pagar');
+  assert.equal(window.__anejoI18nAliases['Saltar al contenido'], 'Skip to content');
+});
+
+test('inverse-only source aliases register and static public text has no unresolved literals', async () => {
+  const source = await readFile(addonPath, 'utf8');
+  const aliases = {};
+  vm.runInNewContext(source, { window: { AnejoI18n: {
+    extend() {},
+    extendAliases(value) { Object.assign(aliases, value); }
+  } } });
+  assert.equal(aliases['Solicita cotización'], 'Request a quote');
+  assert.equal(aliases['Palm Beach County'], 'Palm Beach County');
+  const audit = await buildAudit();
+  assert.deepEqual(audit.staticTextAudit.englishTextNotMatchedToDictionary.strings, []);
+  assert.deepEqual(audit.staticTextAudit.spanishTextNotMatchedToInverseDictionary.strings, []);
+  assert.equal(audit.staticTextAudit.dictionaryCounts.inverseOnlyAliases, 6);
+  assert.ok(audit.staticTextAudit.pairedRouteAnalysis.authoredSourcePairs.length >= 640);
+  assert.ok(audit.staticTextAudit.pairedRouteAnalysis.authoredSourcePairs.every(pair => pair.routes.length && pair.paths.length),
+    'source-paired translations should retain route and DOM-path evidence');
 });
 
 test('new public dictionary does not silently override existing curated translations', async () => {
