@@ -27,9 +27,11 @@ test('is reachable from the owner overview via a tile', () => {
   assert.match(INDEX, /href:\s*'\/hub\/owner\/marketing-settings\.html'/);
 });
 
-test('Stories cadence is labeled recorded-but-not-automated, never as if Stories post today', () => {
+test('Story cadence targets stay distinct from the existing draft and publishing workflow', () => {
   assert.match(PAGE, /Recorded, not automated\./);
-  assert.match(PAGE, /nothing in the product drafts or posts a Story today/);
+  assert.match(PAGE, /changing them does not create drafts or publish/);
+  assert.match(PAGE, /Prepare Stories in Marketing or the campaign workspace/);
+  assert.doesNotMatch(PAGE, /nothing in the product drafts or posts a Story today/);
   assert.doesNotMatch(PAGE, /Stories are (currently |)being posted/i);
 });
 
