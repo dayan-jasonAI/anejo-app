@@ -516,8 +516,9 @@
         last.set(e2, e2.getAttribute(attr));
       }
     }
-    if (es){ var tv = tr(origTitle); if (tv) document.title = tv; else queue(origTitle); }
-    else { document.title = origTitle; }
+    var canonicalTitle = canonical(origTitle);
+    if (es){ var tv = tr(canonicalTitle); if (tv) document.title = tv; else queue(canonicalTitle); }
+    else { document.title = canonicalTitle; }
     document.documentElement.lang = es ? 'es' : 'en';
     // Submit/reset controls expose their labels through value, not text nodes.
     var buttons = document.querySelectorAll('input[type="submit"],input[type="reset"],input[type="button"]');
@@ -584,6 +585,16 @@
   window.AnejoLang = { get: function(){ return lang; }, set: setLang };
   window.AnejoI18n = { extendPatterns: extendPatterns, missing: function(){ return Object.keys(misses).filter(function(k){ return tr(k) === undefined; }); }, refresh: function(){ apply(lang); }, extend: extend,
     text: function(english){ return lang === 'es' ? (tr(String(english)) || english) : english; } };
+
+  // Native dialogs are outside the DOM observer. Translate their UI copy while
+  // preserving return values and a prompt's user-entered/default content.
+  ['alert', 'confirm', 'prompt'].forEach(function(name){
+    if (typeof window[name] !== 'function') return;
+    var original = window[name].bind(window);
+    window[name] = function(message, value){
+      return original(lang === 'es' ? (tr(String(message)) || message) : message, value);
+    };
+  });
 
   rebuildReverse();
   function init(){

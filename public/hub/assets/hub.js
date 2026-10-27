@@ -154,7 +154,7 @@
     return Hub.api('/api/me').then(function (data) {
       Hub._me = data;
       Hub.rememberRole(data && data.authenticated ? Hub.roleFromMe(data) : null);
-      if (data && data.authenticated && Hub.roleFromMe(data) === 'owner') {
+      if (data && data.authenticated && Hub.roleFromMe(data) === 'owner' && !/\/operations-guide(?:\.html)?$/.test(location.pathname)) {
         var mountPlaybook = function () {
           if (window.AnejoOperatorPlaybooks) window.AnejoOperatorPlaybooks.mount({ role: 'owner', pathname: location.pathname });
         };

@@ -121,15 +121,13 @@ export function I18nProvider({ children }: { children: ReactNode }) {
   useEffect(() => { document.documentElement.lang = lang; }, [lang]);
   const t = useCallback((k: string) => DICT[k]?.[lang] ?? k, [lang]);
   const toggle = useCallback(() => {
-    setLang((l) => {
-      const next = l === 'en' ? 'es' : 'en';
-      try { localStorage.setItem('anejo:lang', next); } catch { /* session choice still works */ }
-      const shared = (window as unknown as { AnejoLang?: { set: (value: Lang) => void } }).AnejoLang;
-      if (shared) shared.set(next);
-      else document.dispatchEvent(new CustomEvent('anejo:langchange', { detail: { lang: next } }));
-      return next;
-    });
-  }, []);
+    const next = lang === 'en' ? 'es' : 'en';
+    try { localStorage.setItem('anejo:lang', next); } catch { /* session choice still works */ }
+    setLang(next);
+    const shared = (window as unknown as { AnejoLang?: { set: (value: Lang) => void } }).AnejoLang;
+    if (shared) shared.set(next);
+    else document.dispatchEvent(new CustomEvent('anejo:langchange', { detail: { lang: next } }));
+  }, [lang]);
   return <Ctx.Provider value={{ lang, t, toggle }}>{children}</Ctx.Provider>;
 }
 
