@@ -1,0 +1,2579 @@
+{
+  "auditDate": "2026-10-27",
+  "source": "Repository static HTML route inventory; this does not establish deployed/live coverage.",
+  "routeRules": {
+    "excludedFromPublicTotals": "/hub/** (Hub localization is out of scope)",
+    "separateReviewSurfaces": [
+      "/studio/** (React build; not covered by static page scan)",
+      "/trainer/** (separate trainer app surfaces)"
+    ],
+    "authoredSpanishCompanion": "A matching /es + route HTML file exists in this checkout; it is not evidence of an interactive language toggle."
+  },
+  "totals": {
+    "allHtmlRoutes": 298,
+    "publicNonHub": {
+      "htmlRoutes": 221,
+      "withSharedEngine": 13,
+      "withoutSharedEngine": 208,
+      "withAuthoredSpanishCompanion": 89,
+      "withExplicitToggleControl": 1
+    },
+    "hubExcluded": {
+      "htmlRoutes": 77,
+      "withSharedEngine": 56,
+      "withoutSharedEngine": 21,
+      "withAuthoredSpanishCompanion": 0,
+      "withExplicitToggleControl": 44
+    },
+    "studio": {
+      "htmlRoutes": 1,
+      "withSharedEngine": 0,
+      "withoutSharedEngine": 1,
+      "withAuthoredSpanishCompanion": 0,
+      "withExplicitToggleControl": 0
+    },
+    "trainer": {
+      "htmlRoutes": 1,
+      "withSharedEngine": 0,
+      "withoutSharedEngine": 1,
+      "withAuthoredSpanishCompanion": 0,
+      "withExplicitToggleControl": 0
+    }
+  },
+  "missingSharedEnginePublicRoutes": [
+    "/404",
+    "/add-ons",
+    "/add-ons/confirmed",
+    "/affiliate",
+    "/business",
+    "/catering-feedback",
+    "/catering/atlantis",
+    "/catering/belle-glade",
+    "/catering/boca-raton",
+    "/catering/boynton-beach",
+    "/catering/briny-breezes",
+    "/catering/cloud-lake",
+    "/catering/coconut-creek",
+    "/catering/cooper-city",
+    "/catering/coral-springs",
+    "/catering/dania-beach",
+    "/catering/davie",
+    "/catering/deerfield-beach",
+    "/catering/delray-beach",
+    "/catering/fort-lauderdale",
+    "/catering/glen-ridge",
+    "/catering/golf",
+    "/catering/greenacres",
+    "/catering/gulf-stream",
+    "/catering/hallandale-beach",
+    "/catering/haverhill",
+    "/catering/highland-beach",
+    "/catering/hillsboro-beach",
+    "/catering/hollywood",
+    "/catering/hypoluxo",
+    "/catering/juno-beach",
+    "/catering/jupiter-inlet-colony",
+    "/catering/jupiter",
+    "/catering/lake-clarke-shores",
+    "/catering/lake-park",
+    "/catering/lake-worth-beach",
+    "/catering/lantana",
+    "/catering/lauderdale-by-the-sea",
+    "/catering/lauderdale-lakes",
+    "/catering/lauderhill",
+    "/catering/lazy-lake",
+    "/catering/lighthouse-point",
+    "/catering/loxahatchee-groves",
+    "/catering/manalapan",
+    "/catering/mangonia-park",
+    "/catering/margate",
+    "/catering/miramar",
+    "/catering/north-lauderdale",
+    "/catering/north-palm-beach",
+    "/catering/oakland-park",
+    "/catering/ocean-ridge",
+    "/catering/pahokee",
+    "/catering/palm-beach-gardens",
+    "/catering/palm-beach-shores",
+    "/catering/palm-beach",
+    "/catering/palm-springs",
+    "/catering/parkland",
+    "/catering/pembroke-park",
+    "/catering/pembroke-pines",
+    "/catering/plantation",
+    "/catering/pompano-beach",
+    "/catering/riviera-beach",
+    "/catering/royal-palm-beach",
+    "/catering/sea-ranch-lakes",
+    "/catering/service-areas",
+    "/catering/south-bay",
+    "/catering/south-palm-beach",
+    "/catering/southwest-ranches",
+    "/catering/sunrise",
+    "/catering/tamarac",
+    "/catering/tequesta",
+    "/catering/wellington",
+    "/catering/west-palm-beach",
+    "/catering/west-park",
+    "/catering/westlake",
+    "/catering/weston",
+    "/catering/wilton-manors",
+    "/client/dashboard",
+    "/client",
+    "/client/payment",
+    "/cuban-food",
+    "/daily-lunch",
+    "/es/catering-mediterraneo",
+    "/es/catering/areas-de-servicio",
+    "/es/catering/atlantis",
+    "/es/catering/belle-glade",
+    "/es/catering/boca-raton",
+    "/es/catering/boynton-beach",
+    "/es/catering/briny-breezes",
+    "/es/catering/cloud-lake",
+    "/es/catering/coconut-creek",
+    "/es/catering/cooper-city",
+    "/es/catering/coral-springs",
+    "/es/catering/dania-beach",
+    "/es/catering/davie",
+    "/es/catering/deerfield-beach",
+    "/es/catering/delray-beach",
+    "/es/catering/fort-lauderdale",
+    "/es/catering/glen-ridge",
+    "/es/catering/golf",
+    "/es/catering/greenacres",
+    "/es/catering/gulf-stream",
+    "/es/catering/hallandale-beach",
+    "/es/catering/haverhill",
+    "/es/catering/highland-beach",
+    "/es/catering/hillsboro-beach",
+    "/es/catering/hollywood",
+    "/es/catering/hypoluxo",
+    "/es/catering/juno-beach",
+    "/es/catering/jupiter-inlet-colony",
+    "/es/catering/jupiter",
+    "/es/catering/lake-clarke-shores",
+    "/es/catering/lake-park",
+    "/es/catering/lake-worth-beach",
+    "/es/catering/lantana",
+    "/es/catering/lauderdale-by-the-sea",
+    "/es/catering/lauderdale-lakes",
+    "/es/catering/lauderhill",
+    "/es/catering/lazy-lake",
+    "/es/catering/lighthouse-point",
+    "/es/catering/loxahatchee-groves",
+    "/es/catering/manalapan",
+    "/es/catering/mangonia-park",
+    "/es/catering/margate",
+    "/es/catering/miramar",
+    "/es/catering/north-lauderdale",
+    "/es/catering/north-palm-beach",
+    "/es/catering/oakland-park",
+    "/es/catering/ocean-ridge",
+    "/es/catering/pahokee",
+    "/es/catering/palm-beach-gardens",
+    "/es/catering/palm-beach-shores",
+    "/es/catering/palm-beach",
+    "/es/catering/palm-springs",
+    "/es/catering/parkland",
+    "/es/catering/pembroke-park",
+    "/es/catering/pembroke-pines",
+    "/es/catering/plantation",
+    "/es/catering/pompano-beach",
+    "/es/catering/riviera-beach",
+    "/es/catering/royal-palm-beach",
+    "/es/catering/sea-ranch-lakes",
+    "/es/catering/south-bay",
+    "/es/catering/south-palm-beach",
+    "/es/catering/southwest-ranches",
+    "/es/catering/sunrise",
+    "/es/catering/tamarac",
+    "/es/catering/tequesta",
+    "/es/catering/wellington",
+    "/es/catering/west-palm-beach",
+    "/es/catering/west-park",
+    "/es/catering/westlake",
+    "/es/catering/weston",
+    "/es/catering/wilton-manors",
+    "/es/comida-cubana",
+    "/es",
+    "/es/meal-prep/boca-raton",
+    "/es/meal-prep/boynton-beach",
+    "/es/meal-prep/delray-beach",
+    "/es/meal-prep/high-protein",
+    "/es/meal-prep",
+    "/es/meal-prep/keto",
+    "/es/meal-prep/lake-worth",
+    "/es/meal-prep/paleo",
+    "/es/meal-prep/wellington",
+    "/es/meal-prep/west-palm-beach",
+    "/es/menu/coco",
+    "/es/menu/congreen",
+    "/es/menu/fuego",
+    "/es/menu",
+    "/es/menu/ligero",
+    "/es/menu/mar",
+    "/es/menu/raiz",
+    "/es/menu/vida",
+    "/feedback",
+    "/go",
+    "/kitchen",
+    "/legal/privacy",
+    "/legal/refund",
+    "/legal/terms",
+    "/lunch-card",
+    "/lunch-count",
+    "/lunch-feedback",
+    "/meal-prep/boca-raton",
+    "/meal-prep/boynton-beach",
+    "/meal-prep/delray-beach",
+    "/meal-prep/high-protein",
+    "/meal-prep",
+    "/meal-prep/keto",
+    "/meal-prep/lake-worth",
+    "/meal-prep/paleo",
+    "/meal-prep/wellington",
+    "/meal-prep/west-palm-beach",
+    "/mediterranean-catering",
+    "/menu",
+    "/menu/coco",
+    "/menu/congreen",
+    "/menu/fuego",
+    "/menu",
+    "/menu/ligero",
+    "/menu/mar",
+    "/menu/raiz",
+    "/menu/vida",
+    "/order/confirmed",
+    "/prototype/anejobuyer",
+    "/sms",
+    "/studio",
+    "/trainer/dashboard"
+  ],
+  "missingExplicitTogglePublicRoutes": [
+    "/404",
+    "/add-ons",
+    "/add-ons/confirmed",
+    "/affiliate",
+    "/business",
+    "/cajita-builder",
+    "/cajita",
+    "/calculator",
+    "/catering-feedback",
+    "/catering",
+    "/catering/atlantis",
+    "/catering/belle-glade",
+    "/catering/boca-raton",
+    "/catering/boynton-beach",
+    "/catering/briny-breezes",
+    "/catering/cloud-lake",
+    "/catering/coconut-creek",
+    "/catering/cooper-city",
+    "/catering/coral-springs",
+    "/catering/dania-beach",
+    "/catering/davie",
+    "/catering/deerfield-beach",
+    "/catering/delray-beach",
+    "/catering/fort-lauderdale",
+    "/catering/glen-ridge",
+    "/catering/golf",
+    "/catering/greenacres",
+    "/catering/gulf-stream",
+    "/catering/hallandale-beach",
+    "/catering/haverhill",
+    "/catering/highland-beach",
+    "/catering/hillsboro-beach",
+    "/catering/hollywood",
+    "/catering/hypoluxo",
+    "/catering/juno-beach",
+    "/catering/jupiter-inlet-colony",
+    "/catering/jupiter",
+    "/catering/lake-clarke-shores",
+    "/catering/lake-park",
+    "/catering/lake-worth-beach",
+    "/catering/lantana",
+    "/catering/lauderdale-by-the-sea",
+    "/catering/lauderdale-lakes",
+    "/catering/lauderhill",
+    "/catering/lazy-lake",
+    "/catering/lighthouse-point",
+    "/catering/loxahatchee-groves",
+    "/catering/manalapan",
+    "/catering/mangonia-park",
+    "/catering/margate",
+    "/catering/miramar",
+    "/catering/north-lauderdale",
+    "/catering/north-palm-beach",
+    "/catering/oakland-park",
+    "/catering/ocean-ridge",
+    "/catering/pahokee",
+    "/catering/palm-beach-gardens",
+    "/catering/palm-beach-shores",
+    "/catering/palm-beach",
+    "/catering/palm-springs",
+    "/catering/parkland",
+    "/catering/pembroke-park",
+    "/catering/pembroke-pines",
+    "/catering/plantation",
+    "/catering/pompano-beach",
+    "/catering/riviera-beach",
+    "/catering/royal-palm-beach",
+    "/catering/sea-ranch-lakes",
+    "/catering/service-areas",
+    "/catering/south-bay",
+    "/catering/south-palm-beach",
+    "/catering/southwest-ranches",
+    "/catering/sunrise",
+    "/catering/tamarac",
+    "/catering/tequesta",
+    "/catering/wellington",
+    "/catering/west-palm-beach",
+    "/catering/west-park",
+    "/catering/westlake",
+    "/catering/weston",
+    "/catering/wilton-manors",
+    "/client/dashboard",
+    "/client",
+    "/client/payment",
+    "/cuban-food",
+    "/daily-lunch",
+    "/es/catering-mediterraneo",
+    "/es/catering/areas-de-servicio",
+    "/es/catering/atlantis",
+    "/es/catering/belle-glade",
+    "/es/catering/boca-raton",
+    "/es/catering/boynton-beach",
+    "/es/catering/briny-breezes",
+    "/es/catering/cloud-lake",
+    "/es/catering/coconut-creek",
+    "/es/catering/cooper-city",
+    "/es/catering/coral-springs",
+    "/es/catering/dania-beach",
+    "/es/catering/davie",
+    "/es/catering/deerfield-beach",
+    "/es/catering/delray-beach",
+    "/es/catering/fort-lauderdale",
+    "/es/catering/glen-ridge",
+    "/es/catering/golf",
+    "/es/catering/greenacres",
+    "/es/catering/gulf-stream",
+    "/es/catering/hallandale-beach",
+    "/es/catering/haverhill",
+    "/es/catering/highland-beach",
+    "/es/catering/hillsboro-beach",
+    "/es/catering/hollywood",
+    "/es/catering/hypoluxo",
+    "/es/catering/juno-beach",
+    "/es/catering/jupiter-inlet-colony",
+    "/es/catering/jupiter",
+    "/es/catering/lake-clarke-shores",
+    "/es/catering/lake-park",
+    "/es/catering/lake-worth-beach",
+    "/es/catering/lantana",
+    "/es/catering/lauderdale-by-the-sea",
+    "/es/catering/lauderdale-lakes",
+    "/es/catering/lauderhill",
+    "/es/catering/lazy-lake",
+    "/es/catering/lighthouse-point",
+    "/es/catering/loxahatchee-groves",
+    "/es/catering/manalapan",
+    "/es/catering/mangonia-park",
+    "/es/catering/margate",
+    "/es/catering/miramar",
+    "/es/catering/north-lauderdale",
+    "/es/catering/north-palm-beach",
+    "/es/catering/oakland-park",
+    "/es/catering/ocean-ridge",
+    "/es/catering/pahokee",
+    "/es/catering/palm-beach-gardens",
+    "/es/catering/palm-beach-shores",
+    "/es/catering/palm-beach",
+    "/es/catering/palm-springs",
+    "/es/catering/parkland",
+    "/es/catering/pembroke-park",
+    "/es/catering/pembroke-pines",
+    "/es/catering/plantation",
+    "/es/catering/pompano-beach",
+    "/es/catering/riviera-beach",
+    "/es/catering/royal-palm-beach",
+    "/es/catering/sea-ranch-lakes",
+    "/es/catering/south-bay",
+    "/es/catering/south-palm-beach",
+    "/es/catering/southwest-ranches",
+    "/es/catering/sunrise",
+    "/es/catering/tamarac",
+    "/es/catering/tequesta",
+    "/es/catering/wellington",
+    "/es/catering/west-palm-beach",
+    "/es/catering/west-park",
+    "/es/catering/westlake",
+    "/es/catering/weston",
+    "/es/catering/wilton-manors",
+    "/es/comida-cubana",
+    "/es",
+    "/es/meal-prep/boca-raton",
+    "/es/meal-prep/boynton-beach",
+    "/es/meal-prep/delray-beach",
+    "/es/meal-prep/high-protein",
+    "/es/meal-prep",
+    "/es/meal-prep/keto",
+    "/es/meal-prep/lake-worth",
+    "/es/meal-prep/paleo",
+    "/es/meal-prep/wellington",
+    "/es/meal-prep/west-palm-beach",
+    "/es/menu/coco",
+    "/es/menu/congreen",
+    "/es/menu/fuego",
+    "/es/menu",
+    "/es/menu/ligero",
+    "/es/menu/mar",
+    "/es/menu/raiz",
+    "/es/menu/vida",
+    "/feedback",
+    "/go",
+    "/index",
+    "/intake",
+    "/kitchen",
+    "/launch",
+    "/legal/privacy",
+    "/legal/refund",
+    "/legal/terms",
+    "/lunch-card",
+    "/lunch-count",
+    "/lunch-feedback",
+    "/meal-prep/boca-raton",
+    "/meal-prep/boynton-beach",
+    "/meal-prep/delray-beach",
+    "/meal-prep/high-protein",
+    "/meal-prep",
+    "/meal-prep/keto",
+    "/meal-prep/lake-worth",
+    "/meal-prep/paleo",
+    "/meal-prep/wellington",
+    "/meal-prep/west-palm-beach",
+    "/mediterranean-catering",
+    "/menu",
+    "/menu/coco",
+    "/menu/congreen",
+    "/menu/fuego",
+    "/menu",
+    "/menu/ligero",
+    "/menu/mar",
+    "/menu/raiz",
+    "/menu/vida",
+    "/order",
+    "/order/confirmed",
+    "/plan",
+    "/portal",
+    "/preferences",
+    "/prototype/anejobuyer",
+    "/sms",
+    "/studio",
+    "/subscribe",
+    "/trainer/dashboard"
+  ],
+  "separateSurfaceRoutes": [
+    {
+      "route": "/studio",
+      "surface": "studio-react-review",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": null
+    },
+    {
+      "route": "/trainer/dashboard",
+      "surface": "trainer-review",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": null
+    }
+  ],
+  "routes": [
+    {
+      "route": "/404",
+      "surface": "public-static",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": null
+    },
+    {
+      "route": "/add-ons",
+      "surface": "public-static",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": null
+    },
+    {
+      "route": "/add-ons/confirmed",
+      "surface": "public-static",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": null
+    },
+    {
+      "route": "/affiliate",
+      "surface": "public-static",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": null
+    },
+    {
+      "route": "/business",
+      "surface": "public-static",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": null
+    },
+    {
+      "route": "/cajita-builder",
+      "surface": "public-static",
+      "sharedEngine": true,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": null
+    },
+    {
+      "route": "/cajita",
+      "surface": "public-static",
+      "sharedEngine": true,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": null
+    },
+    {
+      "route": "/calculator",
+      "surface": "public-static",
+      "sharedEngine": true,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": null
+    },
+    {
+      "route": "/catering-feedback",
+      "surface": "public-static",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": null
+    },
+    {
+      "route": "/catering",
+      "surface": "public-static",
+      "sharedEngine": true,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": null
+    },
+    {
+      "route": "/catering/atlantis",
+      "surface": "public-static",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": "/es/catering/atlantis"
+    },
+    {
+      "route": "/catering/belle-glade",
+      "surface": "public-static",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": "/es/catering/belle-glade"
+    },
+    {
+      "route": "/catering/boca-raton",
+      "surface": "public-static",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": "/es/catering/boca-raton"
+    },
+    {
+      "route": "/catering/boynton-beach",
+      "surface": "public-static",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": "/es/catering/boynton-beach"
+    },
+    {
+      "route": "/catering/briny-breezes",
+      "surface": "public-static",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": "/es/catering/briny-breezes"
+    },
+    {
+      "route": "/catering/cloud-lake",
+      "surface": "public-static",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": "/es/catering/cloud-lake"
+    },
+    {
+      "route": "/catering/coconut-creek",
+      "surface": "public-static",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": "/es/catering/coconut-creek"
+    },
+    {
+      "route": "/catering/cooper-city",
+      "surface": "public-static",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": "/es/catering/cooper-city"
+    },
+    {
+      "route": "/catering/coral-springs",
+      "surface": "public-static",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": "/es/catering/coral-springs"
+    },
+    {
+      "route": "/catering/dania-beach",
+      "surface": "public-static",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": "/es/catering/dania-beach"
+    },
+    {
+      "route": "/catering/davie",
+      "surface": "public-static",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": "/es/catering/davie"
+    },
+    {
+      "route": "/catering/deerfield-beach",
+      "surface": "public-static",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": "/es/catering/deerfield-beach"
+    },
+    {
+      "route": "/catering/delray-beach",
+      "surface": "public-static",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": "/es/catering/delray-beach"
+    },
+    {
+      "route": "/catering/fort-lauderdale",
+      "surface": "public-static",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": "/es/catering/fort-lauderdale"
+    },
+    {
+      "route": "/catering/glen-ridge",
+      "surface": "public-static",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": "/es/catering/glen-ridge"
+    },
+    {
+      "route": "/catering/golf",
+      "surface": "public-static",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": "/es/catering/golf"
+    },
+    {
+      "route": "/catering/greenacres",
+      "surface": "public-static",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": "/es/catering/greenacres"
+    },
+    {
+      "route": "/catering/gulf-stream",
+      "surface": "public-static",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": "/es/catering/gulf-stream"
+    },
+    {
+      "route": "/catering/hallandale-beach",
+      "surface": "public-static",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": "/es/catering/hallandale-beach"
+    },
+    {
+      "route": "/catering/haverhill",
+      "surface": "public-static",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": "/es/catering/haverhill"
+    },
+    {
+      "route": "/catering/highland-beach",
+      "surface": "public-static",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": "/es/catering/highland-beach"
+    },
+    {
+      "route": "/catering/hillsboro-beach",
+      "surface": "public-static",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": "/es/catering/hillsboro-beach"
+    },
+    {
+      "route": "/catering/hollywood",
+      "surface": "public-static",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": "/es/catering/hollywood"
+    },
+    {
+      "route": "/catering/hypoluxo",
+      "surface": "public-static",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": "/es/catering/hypoluxo"
+    },
+    {
+      "route": "/catering/juno-beach",
+      "surface": "public-static",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": "/es/catering/juno-beach"
+    },
+    {
+      "route": "/catering/jupiter-inlet-colony",
+      "surface": "public-static",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": "/es/catering/jupiter-inlet-colony"
+    },
+    {
+      "route": "/catering/jupiter",
+      "surface": "public-static",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": "/es/catering/jupiter"
+    },
+    {
+      "route": "/catering/lake-clarke-shores",
+      "surface": "public-static",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": "/es/catering/lake-clarke-shores"
+    },
+    {
+      "route": "/catering/lake-park",
+      "surface": "public-static",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": "/es/catering/lake-park"
+    },
+    {
+      "route": "/catering/lake-worth-beach",
+      "surface": "public-static",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": "/es/catering/lake-worth-beach"
+    },
+    {
+      "route": "/catering/lantana",
+      "surface": "public-static",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": "/es/catering/lantana"
+    },
+    {
+      "route": "/catering/lauderdale-by-the-sea",
+      "surface": "public-static",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": "/es/catering/lauderdale-by-the-sea"
+    },
+    {
+      "route": "/catering/lauderdale-lakes",
+      "surface": "public-static",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": "/es/catering/lauderdale-lakes"
+    },
+    {
+      "route": "/catering/lauderhill",
+      "surface": "public-static",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": "/es/catering/lauderhill"
+    },
+    {
+      "route": "/catering/lazy-lake",
+      "surface": "public-static",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": "/es/catering/lazy-lake"
+    },
+    {
+      "route": "/catering/lighthouse-point",
+      "surface": "public-static",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": "/es/catering/lighthouse-point"
+    },
+    {
+      "route": "/catering/loxahatchee-groves",
+      "surface": "public-static",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": "/es/catering/loxahatchee-groves"
+    },
+    {
+      "route": "/catering/manalapan",
+      "surface": "public-static",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": "/es/catering/manalapan"
+    },
+    {
+      "route": "/catering/mangonia-park",
+      "surface": "public-static",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": "/es/catering/mangonia-park"
+    },
+    {
+      "route": "/catering/margate",
+      "surface": "public-static",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": "/es/catering/margate"
+    },
+    {
+      "route": "/catering/miramar",
+      "surface": "public-static",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": "/es/catering/miramar"
+    },
+    {
+      "route": "/catering/north-lauderdale",
+      "surface": "public-static",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": "/es/catering/north-lauderdale"
+    },
+    {
+      "route": "/catering/north-palm-beach",
+      "surface": "public-static",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": "/es/catering/north-palm-beach"
+    },
+    {
+      "route": "/catering/oakland-park",
+      "surface": "public-static",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": "/es/catering/oakland-park"
+    },
+    {
+      "route": "/catering/ocean-ridge",
+      "surface": "public-static",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": "/es/catering/ocean-ridge"
+    },
+    {
+      "route": "/catering/pahokee",
+      "surface": "public-static",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": "/es/catering/pahokee"
+    },
+    {
+      "route": "/catering/palm-beach-gardens",
+      "surface": "public-static",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": "/es/catering/palm-beach-gardens"
+    },
+    {
+      "route": "/catering/palm-beach-shores",
+      "surface": "public-static",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": "/es/catering/palm-beach-shores"
+    },
+    {
+      "route": "/catering/palm-beach",
+      "surface": "public-static",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": "/es/catering/palm-beach"
+    },
+    {
+      "route": "/catering/palm-springs",
+      "surface": "public-static",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": "/es/catering/palm-springs"
+    },
+    {
+      "route": "/catering/parkland",
+      "surface": "public-static",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": "/es/catering/parkland"
+    },
+    {
+      "route": "/catering/pembroke-park",
+      "surface": "public-static",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": "/es/catering/pembroke-park"
+    },
+    {
+      "route": "/catering/pembroke-pines",
+      "surface": "public-static",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": "/es/catering/pembroke-pines"
+    },
+    {
+      "route": "/catering/plantation",
+      "surface": "public-static",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": "/es/catering/plantation"
+    },
+    {
+      "route": "/catering/pompano-beach",
+      "surface": "public-static",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": "/es/catering/pompano-beach"
+    },
+    {
+      "route": "/catering/riviera-beach",
+      "surface": "public-static",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": "/es/catering/riviera-beach"
+    },
+    {
+      "route": "/catering/royal-palm-beach",
+      "surface": "public-static",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": "/es/catering/royal-palm-beach"
+    },
+    {
+      "route": "/catering/sea-ranch-lakes",
+      "surface": "public-static",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": "/es/catering/sea-ranch-lakes"
+    },
+    {
+      "route": "/catering/service-areas",
+      "surface": "public-static",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": null
+    },
+    {
+      "route": "/catering/south-bay",
+      "surface": "public-static",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": "/es/catering/south-bay"
+    },
+    {
+      "route": "/catering/south-palm-beach",
+      "surface": "public-static",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": "/es/catering/south-palm-beach"
+    },
+    {
+      "route": "/catering/southwest-ranches",
+      "surface": "public-static",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": "/es/catering/southwest-ranches"
+    },
+    {
+      "route": "/catering/sunrise",
+      "surface": "public-static",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": "/es/catering/sunrise"
+    },
+    {
+      "route": "/catering/tamarac",
+      "surface": "public-static",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": "/es/catering/tamarac"
+    },
+    {
+      "route": "/catering/tequesta",
+      "surface": "public-static",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": "/es/catering/tequesta"
+    },
+    {
+      "route": "/catering/wellington",
+      "surface": "public-static",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": "/es/catering/wellington"
+    },
+    {
+      "route": "/catering/west-palm-beach",
+      "surface": "public-static",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": "/es/catering/west-palm-beach"
+    },
+    {
+      "route": "/catering/west-park",
+      "surface": "public-static",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": "/es/catering/west-park"
+    },
+    {
+      "route": "/catering/westlake",
+      "surface": "public-static",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": "/es/catering/westlake"
+    },
+    {
+      "route": "/catering/weston",
+      "surface": "public-static",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": "/es/catering/weston"
+    },
+    {
+      "route": "/catering/wilton-manors",
+      "surface": "public-static",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": "/es/catering/wilton-manors"
+    },
+    {
+      "route": "/client/dashboard",
+      "surface": "public-static",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": null
+    },
+    {
+      "route": "/client",
+      "surface": "public-static",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": null
+    },
+    {
+      "route": "/client/payment",
+      "surface": "public-static",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": null
+    },
+    {
+      "route": "/cuban-food",
+      "surface": "public-static",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": null
+    },
+    {
+      "route": "/daily-lunch",
+      "surface": "public-static",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": null
+    },
+    {
+      "route": "/es/catering-mediterraneo",
+      "surface": "public-static",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": null
+    },
+    {
+      "route": "/es/catering/areas-de-servicio",
+      "surface": "public-static",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": null
+    },
+    {
+      "route": "/es/catering/atlantis",
+      "surface": "public-static",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": null
+    },
+    {
+      "route": "/es/catering/belle-glade",
+      "surface": "public-static",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": null
+    },
+    {
+      "route": "/es/catering/boca-raton",
+      "surface": "public-static",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": null
+    },
+    {
+      "route": "/es/catering/boynton-beach",
+      "surface": "public-static",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": null
+    },
+    {
+      "route": "/es/catering/briny-breezes",
+      "surface": "public-static",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": null
+    },
+    {
+      "route": "/es/catering/cloud-lake",
+      "surface": "public-static",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": null
+    },
+    {
+      "route": "/es/catering/coconut-creek",
+      "surface": "public-static",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": null
+    },
+    {
+      "route": "/es/catering/cooper-city",
+      "surface": "public-static",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": null
+    },
+    {
+      "route": "/es/catering/coral-springs",
+      "surface": "public-static",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": null
+    },
+    {
+      "route": "/es/catering/dania-beach",
+      "surface": "public-static",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": null
+    },
+    {
+      "route": "/es/catering/davie",
+      "surface": "public-static",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": null
+    },
+    {
+      "route": "/es/catering/deerfield-beach",
+      "surface": "public-static",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": null
+    },
+    {
+      "route": "/es/catering/delray-beach",
+      "surface": "public-static",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": null
+    },
+    {
+      "route": "/es/catering/fort-lauderdale",
+      "surface": "public-static",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": null
+    },
+    {
+      "route": "/es/catering/glen-ridge",
+      "surface": "public-static",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": null
+    },
+    {
+      "route": "/es/catering/golf",
+      "surface": "public-static",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": null
+    },
+    {
+      "route": "/es/catering/greenacres",
+      "surface": "public-static",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": null
+    },
+    {
+      "route": "/es/catering/gulf-stream",
+      "surface": "public-static",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": null
+    },
+    {
+      "route": "/es/catering/hallandale-beach",
+      "surface": "public-static",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": null
+    },
+    {
+      "route": "/es/catering/haverhill",
+      "surface": "public-static",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": null
+    },
+    {
+      "route": "/es/catering/highland-beach",
+      "surface": "public-static",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": null
+    },
+    {
+      "route": "/es/catering/hillsboro-beach",
+      "surface": "public-static",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": null
+    },
+    {
+      "route": "/es/catering/hollywood",
+      "surface": "public-static",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": null
+    },
+    {
+      "route": "/es/catering/hypoluxo",
+      "surface": "public-static",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": null
+    },
+    {
+      "route": "/es/catering/juno-beach",
+      "surface": "public-static",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": null
+    },
+    {
+      "route": "/es/catering/jupiter-inlet-colony",
+      "surface": "public-static",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": null
+    },
+    {
+      "route": "/es/catering/jupiter",
+      "surface": "public-static",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": null
+    },
+    {
+      "route": "/es/catering/lake-clarke-shores",
+      "surface": "public-static",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": null
+    },
+    {
+      "route": "/es/catering/lake-park",
+      "surface": "public-static",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": null
+    },
+    {
+      "route": "/es/catering/lake-worth-beach",
+      "surface": "public-static",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": null
+    },
+    {
+      "route": "/es/catering/lantana",
+      "surface": "public-static",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": null
+    },
+    {
+      "route": "/es/catering/lauderdale-by-the-sea",
+      "surface": "public-static",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": null
+    },
+    {
+      "route": "/es/catering/lauderdale-lakes",
+      "surface": "public-static",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": null
+    },
+    {
+      "route": "/es/catering/lauderhill",
+      "surface": "public-static",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": null
+    },
+    {
+      "route": "/es/catering/lazy-lake",
+      "surface": "public-static",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": null
+    },
+    {
+      "route": "/es/catering/lighthouse-point",
+      "surface": "public-static",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": null
+    },
+    {
+      "route": "/es/catering/loxahatchee-groves",
+      "surface": "public-static",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": null
+    },
+    {
+      "route": "/es/catering/manalapan",
+      "surface": "public-static",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": null
+    },
+    {
+      "route": "/es/catering/mangonia-park",
+      "surface": "public-static",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": null
+    },
+    {
+      "route": "/es/catering/margate",
+      "surface": "public-static",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": null
+    },
+    {
+      "route": "/es/catering/miramar",
+      "surface": "public-static",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": null
+    },
+    {
+      "route": "/es/catering/north-lauderdale",
+      "surface": "public-static",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": null
+    },
+    {
+      "route": "/es/catering/north-palm-beach",
+      "surface": "public-static",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": null
+    },
+    {
+      "route": "/es/catering/oakland-park",
+      "surface": "public-static",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": null
+    },
+    {
+      "route": "/es/catering/ocean-ridge",
+      "surface": "public-static",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": null
+    },
+    {
+      "route": "/es/catering/pahokee",
+      "surface": "public-static",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": null
+    },
+    {
+      "route": "/es/catering/palm-beach-gardens",
+      "surface": "public-static",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": null
+    },
+    {
+      "route": "/es/catering/palm-beach-shores",
+      "surface": "public-static",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": null
+    },
+    {
+      "route": "/es/catering/palm-beach",
+      "surface": "public-static",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": null
+    },
+    {
+      "route": "/es/catering/palm-springs",
+      "surface": "public-static",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": null
+    },
+    {
+      "route": "/es/catering/parkland",
+      "surface": "public-static",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": null
+    },
+    {
+      "route": "/es/catering/pembroke-park",
+      "surface": "public-static",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": null
+    },
+    {
+      "route": "/es/catering/pembroke-pines",
+      "surface": "public-static",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": null
+    },
+    {
+      "route": "/es/catering/plantation",
+      "surface": "public-static",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": null
+    },
+    {
+      "route": "/es/catering/pompano-beach",
+      "surface": "public-static",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": null
+    },
+    {
+      "route": "/es/catering/riviera-beach",
+      "surface": "public-static",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": null
+    },
+    {
+      "route": "/es/catering/royal-palm-beach",
+      "surface": "public-static",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": null
+    },
+    {
+      "route": "/es/catering/sea-ranch-lakes",
+      "surface": "public-static",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": null
+    },
+    {
+      "route": "/es/catering/south-bay",
+      "surface": "public-static",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": null
+    },
+    {
+      "route": "/es/catering/south-palm-beach",
+      "surface": "public-static",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": null
+    },
+    {
+      "route": "/es/catering/southwest-ranches",
+      "surface": "public-static",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": null
+    },
+    {
+      "route": "/es/catering/sunrise",
+      "surface": "public-static",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": null
+    },
+    {
+      "route": "/es/catering/tamarac",
+      "surface": "public-static",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": null
+    },
+    {
+      "route": "/es/catering/tequesta",
+      "surface": "public-static",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": null
+    },
+    {
+      "route": "/es/catering/wellington",
+      "surface": "public-static",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": null
+    },
+    {
+      "route": "/es/catering/west-palm-beach",
+      "surface": "public-static",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": null
+    },
+    {
+      "route": "/es/catering/west-park",
+      "surface": "public-static",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": null
+    },
+    {
+      "route": "/es/catering/westlake",
+      "surface": "public-static",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": null
+    },
+    {
+      "route": "/es/catering/weston",
+      "surface": "public-static",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": null
+    },
+    {
+      "route": "/es/catering/wilton-manors",
+      "surface": "public-static",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": null
+    },
+    {
+      "route": "/es/comida-cubana",
+      "surface": "public-static",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": null
+    },
+    {
+      "route": "/es",
+      "surface": "public-static",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": null
+    },
+    {
+      "route": "/es/meal-prep/boca-raton",
+      "surface": "public-static",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": null
+    },
+    {
+      "route": "/es/meal-prep/boynton-beach",
+      "surface": "public-static",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": null
+    },
+    {
+      "route": "/es/meal-prep/delray-beach",
+      "surface": "public-static",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": null
+    },
+    {
+      "route": "/es/meal-prep/high-protein",
+      "surface": "public-static",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": null
+    },
+    {
+      "route": "/es/meal-prep",
+      "surface": "public-static",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": null
+    },
+    {
+      "route": "/es/meal-prep/keto",
+      "surface": "public-static",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": null
+    },
+    {
+      "route": "/es/meal-prep/lake-worth",
+      "surface": "public-static",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": null
+    },
+    {
+      "route": "/es/meal-prep/paleo",
+      "surface": "public-static",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": null
+    },
+    {
+      "route": "/es/meal-prep/wellington",
+      "surface": "public-static",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": null
+    },
+    {
+      "route": "/es/meal-prep/west-palm-beach",
+      "surface": "public-static",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": null
+    },
+    {
+      "route": "/es/menu/coco",
+      "surface": "public-static",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": null
+    },
+    {
+      "route": "/es/menu/congreen",
+      "surface": "public-static",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": null
+    },
+    {
+      "route": "/es/menu/fuego",
+      "surface": "public-static",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": null
+    },
+    {
+      "route": "/es/menu",
+      "surface": "public-static",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": null
+    },
+    {
+      "route": "/es/menu/ligero",
+      "surface": "public-static",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": null
+    },
+    {
+      "route": "/es/menu/mar",
+      "surface": "public-static",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": null
+    },
+    {
+      "route": "/es/menu/raiz",
+      "surface": "public-static",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": null
+    },
+    {
+      "route": "/es/menu/vida",
+      "surface": "public-static",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": null
+    },
+    {
+      "route": "/feedback",
+      "surface": "public-static",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": null
+    },
+    {
+      "route": "/go",
+      "surface": "public-static",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": null
+    },
+    {
+      "route": "/hub/account",
+      "surface": "hub-excluded",
+      "sharedEngine": true,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": null
+    },
+    {
+      "route": "/hub/comms",
+      "surface": "hub-excluded",
+      "sharedEngine": true,
+      "hasExplicitToggleControl": true,
+      "authoredSpanishCompanion": null
+    },
+    {
+      "route": "/hub/driver/catering",
+      "surface": "hub-excluded",
+      "sharedEngine": true,
+      "hasExplicitToggleControl": true,
+      "authoredSpanishCompanion": null
+    },
+    {
+      "route": "/hub/driver/checklist",
+      "surface": "hub-excluded",
+      "sharedEngine": true,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": null
+    },
+    {
+      "route": "/hub/driver/earnings",
+      "surface": "hub-excluded",
+      "sharedEngine": true,
+      "hasExplicitToggleControl": true,
+      "authoredSpanishCompanion": null
+    },
+    {
+      "route": "/hub/driver/eod",
+      "surface": "hub-excluded",
+      "sharedEngine": true,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": null
+    },
+    {
+      "route": "/hub/driver/expenses",
+      "surface": "hub-excluded",
+      "sharedEngine": true,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": null
+    },
+    {
+      "route": "/hub/driver",
+      "surface": "hub-excluded",
+      "sharedEngine": true,
+      "hasExplicitToggleControl": true,
+      "authoredSpanishCompanion": null
+    },
+    {
+      "route": "/hub/driver/route",
+      "surface": "hub-excluded",
+      "sharedEngine": true,
+      "hasExplicitToggleControl": true,
+      "authoredSpanishCompanion": null
+    },
+    {
+      "route": "/hub/driver/temp",
+      "surface": "hub-excluded",
+      "sharedEngine": true,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": null
+    },
+    {
+      "route": "/hub/driver/ticket",
+      "surface": "hub-excluded",
+      "sharedEngine": true,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": null
+    },
+    {
+      "route": "/hub",
+      "surface": "hub-excluded",
+      "sharedEngine": true,
+      "hasExplicitToggleControl": true,
+      "authoredSpanishCompanion": null
+    },
+    {
+      "route": "/hub/kitchen/catering",
+      "surface": "hub-excluded",
+      "sharedEngine": true,
+      "hasExplicitToggleControl": true,
+      "authoredSpanishCompanion": null
+    },
+    {
+      "route": "/hub/kitchen/checklists",
+      "surface": "hub-excluded",
+      "sharedEngine": true,
+      "hasExplicitToggleControl": true,
+      "authoredSpanishCompanion": null
+    },
+    {
+      "route": "/hub/kitchen/commissary",
+      "surface": "hub-excluded",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": null
+    },
+    {
+      "route": "/hub/kitchen/eod",
+      "surface": "hub-excluded",
+      "sharedEngine": true,
+      "hasExplicitToggleControl": true,
+      "authoredSpanishCompanion": null
+    },
+    {
+      "route": "/hub/kitchen/event",
+      "surface": "hub-excluded",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": null
+    },
+    {
+      "route": "/hub/kitchen",
+      "surface": "hub-excluded",
+      "sharedEngine": true,
+      "hasExplicitToggleControl": true,
+      "authoredSpanishCompanion": null
+    },
+    {
+      "route": "/hub/kitchen/inventory",
+      "surface": "hub-excluded",
+      "sharedEngine": true,
+      "hasExplicitToggleControl": true,
+      "authoredSpanishCompanion": null
+    },
+    {
+      "route": "/hub/kitchen/library",
+      "surface": "hub-excluded",
+      "sharedEngine": true,
+      "hasExplicitToggleControl": true,
+      "authoredSpanishCompanion": null
+    },
+    {
+      "route": "/hub/kitchen/program",
+      "surface": "hub-excluded",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": null
+    },
+    {
+      "route": "/hub/kitchen/recipes",
+      "surface": "hub-excluded",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": null
+    },
+    {
+      "route": "/hub/kitchen/restock",
+      "surface": "hub-excluded",
+      "sharedEngine": true,
+      "hasExplicitToggleControl": true,
+      "authoredSpanishCompanion": null
+    },
+    {
+      "route": "/hub/kitchen/studio",
+      "surface": "hub-excluded",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": null
+    },
+    {
+      "route": "/hub/kitchen/summary",
+      "surface": "hub-excluded",
+      "sharedEngine": true,
+      "hasExplicitToggleControl": true,
+      "authoredSpanishCompanion": null
+    },
+    {
+      "route": "/hub/kitchen/ticket",
+      "surface": "hub-excluded",
+      "sharedEngine": true,
+      "hasExplicitToggleControl": true,
+      "authoredSpanishCompanion": null
+    },
+    {
+      "route": "/hub/marketing",
+      "surface": "hub-excluded",
+      "sharedEngine": true,
+      "hasExplicitToggleControl": true,
+      "authoredSpanishCompanion": null
+    },
+    {
+      "route": "/hub/my-activity",
+      "surface": "hub-excluded",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": null
+    },
+    {
+      "route": "/hub/offline",
+      "surface": "hub-excluded",
+      "sharedEngine": true,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": null
+    },
+    {
+      "route": "/hub/owner/adoption",
+      "surface": "hub-excluded",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": null
+    },
+    {
+      "route": "/hub/owner/aiops",
+      "surface": "hub-excluded",
+      "sharedEngine": true,
+      "hasExplicitToggleControl": true,
+      "authoredSpanishCompanion": null
+    },
+    {
+      "route": "/hub/owner/brief-proposals",
+      "surface": "hub-excluded",
+      "sharedEngine": true,
+      "hasExplicitToggleControl": true,
+      "authoredSpanishCompanion": null
+    },
+    {
+      "route": "/hub/owner/callbacks",
+      "surface": "hub-excluded",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": null
+    },
+    {
+      "route": "/hub/owner/campaigns",
+      "surface": "hub-excluded",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": null
+    },
+    {
+      "route": "/hub/owner/catering-service",
+      "surface": "hub-excluded",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": null
+    },
+    {
+      "route": "/hub/owner/catering",
+      "surface": "hub-excluded",
+      "sharedEngine": true,
+      "hasExplicitToggleControl": true,
+      "authoredSpanishCompanion": null
+    },
+    {
+      "route": "/hub/owner/comms",
+      "surface": "hub-excluded",
+      "sharedEngine": true,
+      "hasExplicitToggleControl": true,
+      "authoredSpanishCompanion": null
+    },
+    {
+      "route": "/hub/owner/content",
+      "surface": "hub-excluded",
+      "sharedEngine": true,
+      "hasExplicitToggleControl": true,
+      "authoredSpanishCompanion": null
+    },
+    {
+      "route": "/hub/owner/contracts",
+      "surface": "hub-excluded",
+      "sharedEngine": true,
+      "hasExplicitToggleControl": true,
+      "authoredSpanishCompanion": null
+    },
+    {
+      "route": "/hub/owner/customers",
+      "surface": "hub-excluded",
+      "sharedEngine": true,
+      "hasExplicitToggleControl": true,
+      "authoredSpanishCompanion": null
+    },
+    {
+      "route": "/hub/owner/daily-lunch",
+      "surface": "hub-excluded",
+      "sharedEngine": true,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": null
+    },
+    {
+      "route": "/hub/owner/deliveries",
+      "surface": "hub-excluded",
+      "sharedEngine": true,
+      "hasExplicitToggleControl": true,
+      "authoredSpanishCompanion": null
+    },
+    {
+      "route": "/hub/owner/finance",
+      "surface": "hub-excluded",
+      "sharedEngine": true,
+      "hasExplicitToggleControl": true,
+      "authoredSpanishCompanion": null
+    },
+    {
+      "route": "/hub/owner/google-reviews",
+      "surface": "hub-excluded",
+      "sharedEngine": true,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": null
+    },
+    {
+      "route": "/hub/owner",
+      "surface": "hub-excluded",
+      "sharedEngine": true,
+      "hasExplicitToggleControl": true,
+      "authoredSpanishCompanion": null
+    },
+    {
+      "route": "/hub/owner/invoice",
+      "surface": "hub-excluded",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": null
+    },
+    {
+      "route": "/hub/owner/kitchen",
+      "surface": "hub-excluded",
+      "sharedEngine": true,
+      "hasExplicitToggleControl": true,
+      "authoredSpanishCompanion": null
+    },
+    {
+      "route": "/hub/owner/knowledge",
+      "surface": "hub-excluded",
+      "sharedEngine": true,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": null
+    },
+    {
+      "route": "/hub/owner/leads",
+      "surface": "hub-excluded",
+      "sharedEngine": true,
+      "hasExplicitToggleControl": true,
+      "authoredSpanishCompanion": null
+    },
+    {
+      "route": "/hub/owner/lunch-feedback",
+      "surface": "hub-excluded",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": null
+    },
+    {
+      "route": "/hub/owner/marketing-settings",
+      "surface": "hub-excluded",
+      "sharedEngine": true,
+      "hasExplicitToggleControl": true,
+      "authoredSpanishCompanion": null
+    },
+    {
+      "route": "/hub/owner/marketing",
+      "surface": "hub-excluded",
+      "sharedEngine": true,
+      "hasExplicitToggleControl": true,
+      "authoredSpanishCompanion": null
+    },
+    {
+      "route": "/hub/owner/menu",
+      "surface": "hub-excluded",
+      "sharedEngine": true,
+      "hasExplicitToggleControl": true,
+      "authoredSpanishCompanion": null
+    },
+    {
+      "route": "/hub/owner/operations-guide",
+      "surface": "hub-excluded",
+      "sharedEngine": true,
+      "hasExplicitToggleControl": true,
+      "authoredSpanishCompanion": null
+    },
+    {
+      "route": "/hub/owner/orders",
+      "surface": "hub-excluded",
+      "sharedEngine": true,
+      "hasExplicitToggleControl": true,
+      "authoredSpanishCompanion": null
+    },
+    {
+      "route": "/hub/owner/partners",
+      "surface": "hub-excluded",
+      "sharedEngine": true,
+      "hasExplicitToggleControl": true,
+      "authoredSpanishCompanion": null
+    },
+    {
+      "route": "/hub/owner/payouts",
+      "surface": "hub-excluded",
+      "sharedEngine": true,
+      "hasExplicitToggleControl": true,
+      "authoredSpanishCompanion": null
+    },
+    {
+      "route": "/hub/owner/pricing",
+      "surface": "hub-excluded",
+      "sharedEngine": true,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": null
+    },
+    {
+      "route": "/hub/owner/purge",
+      "surface": "hub-excluded",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": null
+    },
+    {
+      "route": "/hub/owner/rewards",
+      "surface": "hub-excluded",
+      "sharedEngine": true,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": null
+    },
+    {
+      "route": "/hub/owner/sales",
+      "surface": "hub-excluded",
+      "sharedEngine": true,
+      "hasExplicitToggleControl": true,
+      "authoredSpanishCompanion": null
+    },
+    {
+      "route": "/hub/owner/schedule",
+      "surface": "hub-excluded",
+      "sharedEngine": true,
+      "hasExplicitToggleControl": true,
+      "authoredSpanishCompanion": null
+    },
+    {
+      "route": "/hub/owner/site-copy",
+      "surface": "hub-excluded",
+      "sharedEngine": true,
+      "hasExplicitToggleControl": true,
+      "authoredSpanishCompanion": null
+    },
+    {
+      "route": "/hub/owner/sms-test",
+      "surface": "hub-excluded",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": null
+    },
+    {
+      "route": "/hub/owner/social-campaigns",
+      "surface": "hub-excluded",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": null
+    },
+    {
+      "route": "/hub/owner/social",
+      "surface": "hub-excluded",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": null
+    },
+    {
+      "route": "/hub/owner/staff",
+      "surface": "hub-excluded",
+      "sharedEngine": true,
+      "hasExplicitToggleControl": true,
+      "authoredSpanishCompanion": null
+    },
+    {
+      "route": "/hub/owner/team-training",
+      "surface": "hub-excluded",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": null
+    },
+    {
+      "route": "/hub/owner/team",
+      "surface": "hub-excluded",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": null
+    },
+    {
+      "route": "/hub/owner/timesheet",
+      "surface": "hub-excluded",
+      "sharedEngine": true,
+      "hasExplicitToggleControl": true,
+      "authoredSpanishCompanion": null
+    },
+    {
+      "route": "/hub/owner/traffic",
+      "surface": "hub-excluded",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": null
+    },
+    {
+      "route": "/hub/owner/trainers",
+      "surface": "hub-excluded",
+      "sharedEngine": true,
+      "hasExplicitToggleControl": true,
+      "authoredSpanishCompanion": null
+    },
+    {
+      "route": "/hub/owner/training-status",
+      "surface": "hub-excluded",
+      "sharedEngine": true,
+      "hasExplicitToggleControl": true,
+      "authoredSpanishCompanion": null
+    },
+    {
+      "route": "/hub/team",
+      "surface": "hub-excluded",
+      "sharedEngine": true,
+      "hasExplicitToggleControl": true,
+      "authoredSpanishCompanion": null
+    },
+    {
+      "route": "/hub/training-card",
+      "surface": "hub-excluded",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": null
+    },
+    {
+      "route": "/hub/training",
+      "surface": "hub-excluded",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": null
+    },
+    {
+      "route": "/hub/vendor",
+      "surface": "hub-excluded",
+      "sharedEngine": true,
+      "hasExplicitToggleControl": true,
+      "authoredSpanishCompanion": null
+    },
+    {
+      "route": "/index",
+      "surface": "public-static",
+      "sharedEngine": true,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": null
+    },
+    {
+      "route": "/intake",
+      "surface": "public-static",
+      "sharedEngine": true,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": null
+    },
+    {
+      "route": "/kitchen",
+      "surface": "public-static",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": null
+    },
+    {
+      "route": "/launch",
+      "surface": "public-static",
+      "sharedEngine": true,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": null
+    },
+    {
+      "route": "/legal/privacy",
+      "surface": "public-static",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": null
+    },
+    {
+      "route": "/legal/refund",
+      "surface": "public-static",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": null
+    },
+    {
+      "route": "/legal/terms",
+      "surface": "public-static",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": null
+    },
+    {
+      "route": "/login",
+      "surface": "public-static",
+      "sharedEngine": true,
+      "hasExplicitToggleControl": true,
+      "authoredSpanishCompanion": null
+    },
+    {
+      "route": "/lunch-card",
+      "surface": "public-static",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": null
+    },
+    {
+      "route": "/lunch-count",
+      "surface": "public-static",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": null
+    },
+    {
+      "route": "/lunch-feedback",
+      "surface": "public-static",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": null
+    },
+    {
+      "route": "/meal-prep/boca-raton",
+      "surface": "public-static",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": "/es/meal-prep/boca-raton"
+    },
+    {
+      "route": "/meal-prep/boynton-beach",
+      "surface": "public-static",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": "/es/meal-prep/boynton-beach"
+    },
+    {
+      "route": "/meal-prep/delray-beach",
+      "surface": "public-static",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": "/es/meal-prep/delray-beach"
+    },
+    {
+      "route": "/meal-prep/high-protein",
+      "surface": "public-static",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": "/es/meal-prep/high-protein"
+    },
+    {
+      "route": "/meal-prep",
+      "surface": "public-static",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": "/es/meal-prep"
+    },
+    {
+      "route": "/meal-prep/keto",
+      "surface": "public-static",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": "/es/meal-prep/keto"
+    },
+    {
+      "route": "/meal-prep/lake-worth",
+      "surface": "public-static",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": "/es/meal-prep/lake-worth"
+    },
+    {
+      "route": "/meal-prep/paleo",
+      "surface": "public-static",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": "/es/meal-prep/paleo"
+    },
+    {
+      "route": "/meal-prep/wellington",
+      "surface": "public-static",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": "/es/meal-prep/wellington"
+    },
+    {
+      "route": "/meal-prep/west-palm-beach",
+      "surface": "public-static",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": "/es/meal-prep/west-palm-beach"
+    },
+    {
+      "route": "/mediterranean-catering",
+      "surface": "public-static",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": null
+    },
+    {
+      "route": "/menu",
+      "surface": "public-static",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": "/es/menu"
+    },
+    {
+      "route": "/menu/coco",
+      "surface": "public-static",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": "/es/menu/coco"
+    },
+    {
+      "route": "/menu/congreen",
+      "surface": "public-static",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": "/es/menu/congreen"
+    },
+    {
+      "route": "/menu/fuego",
+      "surface": "public-static",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": "/es/menu/fuego"
+    },
+    {
+      "route": "/menu",
+      "surface": "public-static",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": "/es/menu"
+    },
+    {
+      "route": "/menu/ligero",
+      "surface": "public-static",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": "/es/menu/ligero"
+    },
+    {
+      "route": "/menu/mar",
+      "surface": "public-static",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": "/es/menu/mar"
+    },
+    {
+      "route": "/menu/raiz",
+      "surface": "public-static",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": "/es/menu/raiz"
+    },
+    {
+      "route": "/menu/vida",
+      "surface": "public-static",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": "/es/menu/vida"
+    },
+    {
+      "route": "/order",
+      "surface": "public-static",
+      "sharedEngine": true,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": null
+    },
+    {
+      "route": "/order/confirmed",
+      "surface": "public-static",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": null
+    },
+    {
+      "route": "/plan",
+      "surface": "public-static",
+      "sharedEngine": true,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": null
+    },
+    {
+      "route": "/portal",
+      "surface": "public-static",
+      "sharedEngine": true,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": null
+    },
+    {
+      "route": "/preferences",
+      "surface": "public-static",
+      "sharedEngine": true,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": null
+    },
+    {
+      "route": "/prototype/anejobuyer",
+      "surface": "public-static",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": null
+    },
+    {
+      "route": "/sms",
+      "surface": "public-static",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": null
+    },
+    {
+      "route": "/studio",
+      "surface": "studio-react-review",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": null
+    },
+    {
+      "route": "/subscribe",
+      "surface": "public-static",
+      "sharedEngine": true,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": null
+    },
+    {
+      "route": "/trainer/dashboard",
+      "surface": "trainer-review",
+      "sharedEngine": false,
+      "hasExplicitToggleControl": false,
+      "authoredSpanishCompanion": null
+    }
+  ]
+}
