@@ -1868,8 +1868,60 @@
     "· Palm Beach County, FL": "· Palm Beach County, FL",
     "— see": "— consulta",
     "We use essential cookies to keep you signed in, and — with your OK — analytics to improve the site. See our": "Usamos cookies esenciales para mantener tu sesión iniciada y, con tu permiso, analítica para mejorar el sitio. Consulta nuestra",
-    "Chat with Añejo": "Chatea con Añejo"
+    "Chat with Añejo": "Chatea con Añejo",
+    "$10 Menu": "Menú de $10",
+    "A consolidated invoice every two weeks, paid on terms by your billing department.": "Una factura consolidada cada dos semanas, pagadera según las condiciones acordadas por tu departamento de facturación.",
+    "A little help finding your invitation.": "¿Necesitas ayuda para encontrar tu invitación?",
+    "Add to Order": "Añadir al pedido",
+    "Añejo Fit Drink. Pineapple, ginger, turmeric, chia. Add-on drink fixture from existing menu fallback.": "Añejo Fit Drink. Piña, jengibre, cúrcuma y chía. Bebida adicional de prueba basada en la alternativa existente del menú.",
+    "Best price per standard bowl": "Mejor precio por bowl estándar",
+    "Built for workweek consistency": "Pensado para mantener una rutina constante durante la semana laboral",
+    "Check your order": "Consulta tu pedido",
+    "Chimichurri steak, quinoa, roasted zucchini and peppers, arugula, pickled onions, pepitas.": "Bistec con chimichurri, quinoa, calabacín y pimientos asados, rúcula, cebollas encurtidas y pepitas.",
+    "Choose lunch or dinner window": "Elige el horario de almuerzo o cena",
+    "Daily head-count contact": "Contacto para el conteo diario",
+    "Delivery days": "Días de entrega",
+    "Delivery window": "Horario de entrega",
+    "Enter your email and we'll send you a one-time sign-in link.": "Escribe tu correo electrónico y te enviaremos un enlace de inicio de sesión de un solo uso.",
+    "Enter your email for a one-time sign-in link to view your orders, rewards, and any meal plan.": "Escribe tu correo electrónico para recibir un enlace de inicio de sesión de un solo uso y consultar tus pedidos, recompensas y cualquier plan de comidas.",
+    "FROM THIS WEEK’S KITCHEN": "DE LA COCINA DE ESTA SEMANA",
+    "Fresh Tuna Mango Bowl. Seared tuna, mango, cucumber, quinoa, greens, chia, Mango Omega, and Ajo Citrico.": "Bowl de atún fresco y mango. Atún sellado, mango, pepino, quinoa, hojas verdes, chía, Mango Omega y Ajo Citrico.",
+    "Lunch & dinner": "Almuerzo y cena",
+    "Menu temporarily unavailable.": "El menú no está disponible temporalmente.",
+    "Mon-Fri, lunch and dinner": "Lun–vie, almuerzo y cena",
+    "Mon-Sat, lunch and dinner": "Lun–sáb, almuerzo y cena",
+    "New here? The same link creates your account — name & mobile are saved on first sign-in.": "¿Eres nuevo? El mismo enlace crea tu cuenta; tu nombre y celular se guardan al iniciar sesión por primera vez.",
+    "One invoice each week, auto-charged to a card or bank account on file. Simplest — nothing to remember.": "Una factura por semana, con cobro automático a la tarjeta o cuenta bancaria registrada. Es la opción más sencilla: no tienes que recordar nada.",
+    "One invoice per month — easiest for most accounting departments.": "Una factura al mes: la opción más sencilla para la mayoría de los departamentos de contabilidad.",
+    "Order notifications cannot be confirmed in this tab.": "No se pueden confirmar las notificaciones del pedido en esta pestaña.",
+    "Pause or cancel through account flow": "Pausa o cancela desde el flujo de tu cuenta",
+    "Pay for each day’s lunches when you submit the head count.": "Paga los almuerzos de cada día cuando envíes el conteo.",
+    "Plan": "Plan",
+    "Please use the private link in your Añejo email, or contact us about your event.": "Usa el enlace privado incluido en tu correo de Añejo o comunícate con nosotros sobre tu evento.",
+    "Scheduled delivery. Counts and serving weights are listed with each item. Photos illustrate presentation; packaging and quantities vary with the size ordered.": "Entrega programada. Cada producto indica la cantidad y el peso por porción. Las fotos ilustran la presentación; el empaque y las cantidades varían según el tamaño del pedido.",
+    "Select plan": "Selecciona un plan",
+    "Send sign-in link": "Enviar enlace de inicio de sesión",
+    "Separate from order updates — this is marketing. By checking this box you agree to receive recurring automated promotional texts (about 2–4 per month) at the number provided. Consent is not a condition of any purchase. Msg & data rates may apply. Reply HELP for help, STOP to cancel anytime.": "Este consentimiento es independiente de las actualizaciones del pedido y corresponde a mensajes de marketing. Al marcar esta casilla, aceptas recibir mensajes de texto promocionales automatizados y recurrentes (aproximadamente 2–4 al mes) en el número indicado. El consentimiento no es requisito para realizar una compra. Pueden aplicarse tarifas de mensajes y datos. Responde HELP para recibir ayuda o STOP para cancelar en cualquier momento.",
+    "Sign in to check your order →": "Inicia sesión para consultar tu pedido →",
+    "Steak Bowl. Chimichurri steak, quinoa, roasted zucchini and peppers, arugula, pickled onions, pepitas.": "Bowl de bistec. Bistec con chimichurri, quinoa, calabacín y pimientos asados, rúcula, cebollas encurtidas y pepitas.",
+    "The next lunch menu is being prepared. Please check back.": "Estamos preparando el próximo menú de almuerzo. Vuelve a consultar pronto.",
+    "Their phone": "Teléfono de esa persona",
+    "This add-on link is missing its code. Please use the link from your message.": "A este enlace adicional le falta el código. Usa el enlace que recibiste en tu mensaje.",
+    "This feedback invitation is incomplete or unavailable.": "Esta invitación para enviar comentarios está incompleta o no está disponible.",
+    "This link is missing its code. Ask Añejo for a new one.": "A este enlace le falta el código. Pídele uno nuevo a Añejo.",
+    "This preferences link is missing its address. Reply to any Añejo email and we will set it by hand.": "A este enlace de preferencias le falta la dirección. Responde a cualquier correo de Añejo y la configuraremos manualmente.",
+    "Two daily deliveries/windows": "Dos entregas u horarios diarios",
+    "We cannot verify payment from this page. Check your Square receipt or sign in to view your order. Do not pay again if you already received a receipt.": "No podemos verificar el pago desde esta página. Revisa tu recibo de Square o inicia sesión para consultar tu pedido. No vuelvas a pagar si ya recibiste un recibo.",
+    "Your Añejo account": "Tu cuenta de Añejo",
+    "Your cart is empty. Add a bowl to see checkout context.": "Tu carrito está vacío. Añade un bowl para ver el resumen del pago."
   });
+
+  var patterns = [{
+    en: 'Order by {preorder} Eastern the day before for FREE delivery. Same-day orders close at {sameDay} Eastern, while quantities last, with the regular delivery fee.',
+    es: 'Pide antes de las {preorder} (hora del Este) del día anterior para recibir entrega GRATIS. Los pedidos para el mismo día cierran a las {sameDay} (hora del Este), mientras haya disponibilidad; se aplica la tarifa de entrega habitual.'
+  }];
+  if (window.AnejoI18n && typeof window.AnejoI18n.extendPatterns === 'function') window.AnejoI18n.extendPatterns(patterns);
+  else window.__anejoI18nPatterns = (window.__anejoI18nPatterns || []).concat(patterns);
 
   if (window.AnejoI18n && typeof window.AnejoI18n.extendAliases === 'function') {
     window.AnejoI18n.extendAliases(esAliases);
