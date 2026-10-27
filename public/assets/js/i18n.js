@@ -643,6 +643,7 @@
     if (window.__anejoI18nAliases) { extendAliases(window.__anejoI18nAliases); window.__anejoI18nAliases = null; }
     startHubObserver();
     apply(lang);
+    document.dispatchEvent(new CustomEvent('anejo:i18nready', { detail: { lang: lang } }));
   }
   function loadDictionary(path, id){
     if (!document.createElement || !document.head || document.getElementById(id)) return;

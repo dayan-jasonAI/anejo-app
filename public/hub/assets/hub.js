@@ -150,12 +150,8 @@
     } catch (e) { /* private mode / storage disabled — the nav just repaints once */ }
   };
 
-  Hub.me = function () {
-    if (Hub._mePending) return Hub._mePending;
-    return Hub._mePending = Hub.api('/api/me').then(function (data) {
-      Hub._mePending = null;
-      Hub._me = data;
-      // Seed a first visit from the authenticated staff preference. A manual
+  function seedStaffLanguage(data){
+    // Seed a first visit from the authenticated staff preference. A manual
       // choice on this device wins, including a deliberate switch to English.
       if (data && data.authenticated && window.AnejoLang) {
         try {
@@ -164,6 +160,15 @@
           if (savedLanguage !== 'en' && savedLanguage !== 'es' && (staffLanguage === 'es' || staffLanguage === 'en')) window.AnejoLang.set(staffLanguage);
         } catch (_) { /* storage unavailable: retain the current session choice */ }
       }
+  }
+  document.addEventListener('anejo:i18nready',function(){seedStaffLanguage(Hub._me);});
+
+  Hub.me = function () {
+    if (Hub._mePending) return Hub._mePending;
+    return Hub._mePending = Hub.api('/api/me').then(function (data) {
+      Hub._mePending = null;
+      Hub._me = data;
+      seedStaffLanguage(data);
       Hub.rememberRole(data && data.authenticated ? Hub.roleFromMe(data) : null);
       if (data && data.authenticated && Hub.roleFromMe(data) === 'owner' && !/\/operations-guide(?:\.html)?$/.test(location.pathname)) {
         var mountPlaybook = function () {
