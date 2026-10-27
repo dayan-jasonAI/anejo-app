@@ -140,6 +140,7 @@
   function syncActions() {
     var review = document.getElementById('campaign-review'), validate = document.getElementById('campaign-validate'), pause = document.getElementById('campaign-pause');
     if (!review) return;
+    var batchButton = document.getElementById('campaign-batch-open'); if (batchButton) batchButton.disabled = state.busy || state.loading || dirty() || mediaPending() || state.needsRefresh || !['draft', 'paused'].includes(state.cycle.state);
     var importing = document.getElementById('campaign-import'); if (importing) importing.disabled = state.busy || state.loading || dirty() || mediaPending();
     document.getElementById('campaign-reload').disabled = state.busy || state.loading || mediaPending();
     document.getElementById('campaign-select').disabled = state.busy || state.loading || mediaPending();
@@ -386,11 +387,44 @@
     if (days.size !== 30) throw new Error('Every one of the 30 days needs at least one slot.');
     return { title: value.title.trim(), start_date: start, slots: slots };
   }
+  function parseRevisionPlan(value, cycle) {
+    if (!cycle || value.campaign_id !== cycle.id || !['draft', 'paused'].includes(cycle.state)) throw new Error('Open the private campaign named by this file.');
+    var plan = parseDraftPlan(value), byId = new Map((cycle.slots || []).map(function (s) { return [s.slot_id, s]; }));
+    if (plan.slots.length !== byId.size || !Array.isArray(value.slots) || value.slots.length !== byId.size) throw new Error('A revision must preserve every saved slot and post.');
+    plan.slots.forEach(function (s) { var original = value.slots.find(function (p) { return p.slot_id === s.slot_id; }), saved = byId.get(s.slot_id); if (!saved || original.post_id !== saved.post_id || !saved.post_id || s.channel !== saved.channel || (!['draft', 'failed'].includes(saved.post_status) || (saved.blockers || []).some(function (b) { return b.code === 'already_published'; }))) throw new Error('Slot IDs, saved post IDs and channels must match unscheduled drafts.'); s.post_id = saved.post_id; s.caption = s.caption.trim(); [['objective',500],['creative_angle',700],['offer',500],['cta',200],['cta_url',700],['utm_campaign',120],['language',40]].forEach(function (field) { s[field[0]] = typeof s[field[0]] === 'string' ? s[field[0]].trim().slice(0,field[1]) : null; }); s.expected_revision_snapshot = original.expected_revision_snapshot || null; });
+    return plan;
+  }
+  function revisionMetadata(plan) { return { title: plan.title, start_date: plan.start_date, slots: plan.slots.map(function (s) { var out = Object.assign({}, s); delete out.caption; delete out.expected_revision_snapshot; return out; }) }; }
+  function metadataMatches(plan, cycle) {
+    if (plan.title !== cycle.title || plan.start_date !== cycle.start_date) return false;
+    return plan.slots.every(function (s) { var saved = cycle.slots.find(function (p) { return p.slot_id === s.slot_id; }); return ['post_id','day_offset','time','channel','objective','creative_angle','offer','cta','cta_url','utm_campaign','language'].every(function (k) { return (s[k] || null) === (saved[k] || null); }); });
+  }
+  async function reviseDraftPlan(value) {
+    var reviewedVersion = state.cycle.version, plan = parseRevisionPlan(value, state.cycle), captured = new Map(state.cycle.slots.map(function (s) { return [s.slot_id, s.revision_snapshot]; }));
+    var changes = plan.slots.filter(function (s) { return s.caption !== state.cycle.slots.find(function (p) { return p.slot_id === s.slot_id; }).caption; });
+    changes.forEach(function (s) { if (s.expected_revision_snapshot && s.expected_revision_snapshot !== captured.get(s.slot_id)) throw new Error('A caption changed since this file was prepared. Refresh its source before replacing it.'); });
+    var old = document.getElementById('campaign-import-dialog'); if (old) old.remove(); var dialog = document.createElement('dialog'); dialog.id = 'campaign-import-dialog'; dialog.className = 'campaign-review-dialog'; dialog.setAttribute('aria-labelledby', 'campaign-import-title');
+    dialog.innerHTML = '<h3 id="campaign-import-title">Update this private draft plan?</h3><p class="campaign-import-summary">' + esc(plan.title) + '\n' + esc(plan.start_date) + ' · ' + plan.slots.length + ' existing posts · ' + changes.length + ' caption change(s) · version ' + reviewedVersion + '</p><p>Saved post IDs and media stay attached. This updates private dates, offer details and the captions shown below; it does not approve or schedule.</p><details><summary>Review caption changes</summary>' + changes.map(function (s) { return '<h4>' + esc(s.slot_id) + '</h4><p class="campaign-caption">' + esc(s.caption) + '</p>'; }).join('') + '</details><div class="campaign-import-choices"><button type="button" id="campaign-import-cancel" class="campaign-button">Cancel</button><button type="button" id="campaign-import-confirm" class="campaign-button primary">Update private draft plan</button></div>';
+    document.body.appendChild(dialog); dialog.querySelector('#campaign-import-cancel').addEventListener('click', function () { dialog.close(); });
+    dialog.querySelector('#campaign-import-confirm').addEventListener('click', async function () {
+      if (state.busy) return; state.busy = true; syncActions(); this.disabled = true; dialog.querySelector('#campaign-import-cancel').disabled = true;
+      try {
+        acceptSavedView(await Hub.api(API + '?id=' + encodeURIComponent(value.campaign_id))); if (state.cycle.version !== reviewedVersion) throw new Error('The saved plan version changed during review. Refresh and review it again.'); parseRevisionPlan(value, state.cycle);
+        plan.slots.forEach(function (s) { var current = state.cycle.slots.find(function (p) { return p.slot_id === s.slot_id; }); if (current.caption !== s.caption && current.revision_snapshot !== captured.get(s.slot_id)) throw new Error('A caption or media revision changed during review. No caption overwrite was made.'); });
+        var metadata = revisionMetadata(plan), digest = await hashText(JSON.stringify(metadata));
+        if (!metadataMatches(plan, state.cycle)) acceptSavedView(await Hub.api(API, { method: 'POST', body: Object.assign({ op: 'update', id: state.cycle.id, expected_version: state.cycle.version, request_id: 'revision_' + digest + '_' + state.cycle.version }, metadata) }));
+        var pending = plan.slots.filter(function (s) { var current = state.cycle.slots.find(function (p) { return p.slot_id === s.slot_id; }); if (current.caption === s.caption) return false; if (current.revision_snapshot !== captured.get(s.slot_id)) throw new Error('A caption revision changed. Refresh and reconcile before continuing.'); return true; });
+        for (var i = 0; i < pending.length; i += 10) { var batch = pending.slice(i, i + 10).map(function (s) { return { post_id: s.post_id, caption: s.caption, expected_revision_snapshot: captured.get(s.slot_id) }; }); var request = 'rev_caption_' + await hashText(JSON.stringify([state.cycle.id, batch])); acceptSavedView(await Hub.api(API, { method: 'POST', body: { op: 'save_captions', id: state.cycle.id, expected_version: state.cycle.version, request_id: request, posts: batch } })); }
+        dialog.close(); state.needsRefresh = false; render(); say('Private draft plan updated. Existing post IDs and media preserved; nothing scheduled.');
+      } catch (error) { dialog.close(); state.needsRefresh = true; render(); say('Plan update stopped safely. Some private changes may already be saved. Refresh, then select the same unchanged file to reconcile. ' + error.message); }
+      finally { state.busy = false; syncActions(); }
+    }); dialog.showModal(); dialog.querySelector('#campaign-import-cancel').focus();
+  }
   async function importDraftPlan(file) {
     if (!file || dirty() || mediaPending() || state.busy || state.loading) return;
-    if (file.size > 512 * 1024) { say('The JSON plan must be smaller than 512 KB.'); return; }
+    if (file.size > 1024 * 1024) { say('The JSON plan must be smaller than 1 MB.'); return; }
     var plan, raw;
-    try { raw = await file.text(); plan = parseDraftPlan(JSON.parse(raw)); } catch (error) { say('Plan not imported. ' + error.message); return; }
+    try { raw = await file.text(); var value = JSON.parse(raw); if (value && value.campaign_id) { await reviseDraftPlan(value); return; } plan = parseDraftPlan(value); } catch (error) { say('Plan not imported. ' + error.message); return; }
     var old = document.getElementById('campaign-import-dialog'); if (old) old.remove();
     var dialog = document.createElement('dialog'); dialog.id = 'campaign-import-dialog'; dialog.className = 'campaign-review-dialog'; dialog.setAttribute('aria-labelledby', 'campaign-import-title');
     dialog.innerHTML = '<h3 id="campaign-import-title">Save this draft plan?</h3><p class="campaign-import-summary">' + esc(plan.title) + '\n' + esc(plan.start_date) + ' · 30 days · ' + plan.slots.length + ' caption drafts</p><p>Media, approval and schedule values in the file are ignored. This creates private drafts only. If an import stops, select the same unchanged file to resume.</p><div class="campaign-import-choices"><button type="button" id="campaign-import-cancel" class="campaign-button">Cancel</button><button type="button" id="campaign-import-confirm" class="campaign-button primary">Save draft plan</button></div>';
@@ -453,5 +487,12 @@
   window.addEventListener('beforeunload', function (event) { if (!dirty() && !state.busy && !mediaPending()) return; event.preventDefault(); event.returnValue = ''; });
   // This owner-only guard intentionally matches the campaign API, including cold navigation.
   Owner.init('marketing', load);
-  window.CampaignReview = { counts: counts, category: category, safeUrl: safeUrl, approvalCurrent: approvalCurrent, parseDraftPlan: parseDraftPlan, state: state };
+  window.CampaignReview = { counts: counts, category: category, safeUrl: safeUrl, approvalCurrent: approvalCurrent, parseDraftPlan: parseDraftPlan, parseRevisionPlan: parseRevisionPlan, metadataMatches: metadataMatches, state: state, batch: {
+    available: function () { return !!state.cycle && !state.busy && !state.loading && !dirty() && !mediaPending() && !state.needsRefresh && ['draft', 'paused'].includes(state.cycle.state); },
+    campaignId: function () { return state.cycle && state.cycle.id; },
+    lock: function (readback) { if (!state.cycle || state.busy || state.loading || dirty() || mediaPending() || (!readback && state.needsRefresh) || !['draft', 'paused'].includes(state.cycle.state)) return false; state.busy = true; syncActions(); return true; },
+    accept: function (data) { acceptSavedView(data); state.needsRefresh = false; render(); },
+    invalidate: function () { state.needsRefresh = true; },
+    unlock: function () { state.busy = false; syncActions(); }
+  } };
 })();
