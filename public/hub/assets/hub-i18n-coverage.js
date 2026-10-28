@@ -2,6 +2,8 @@
 (function () {
   "use strict";
   var dictionary = {
+    'PUBLIC Instagram comment reply': 'Respuesta PÚBLICA a un comentario de Instagram',
+    'Instagram direct message': 'Mensaje directo de Instagram',
     'Vendor · Añejo HUB': 'Proveedor · Añejo HUB',
     'Switch language to English': 'Cambiar idioma a inglés',
     'Añejo Hub · Operations guide': 'Añejo Hub · Guía de operaciones',

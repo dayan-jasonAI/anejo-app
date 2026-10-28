@@ -423,7 +423,9 @@
     var normalized = s.replace(/\s+/g, ' ').trim();
     if (ES[normalized] !== undefined) return ES[normalized];
     for (var pi = 0; pi < PATTERNS.length; pi++) {
-      var match = normalized.match(PATTERNS[pi].regex);
+      // Native confirmations can include a reviewed, multi-line message. Match
+      // the original first so its wording/spacing is never changed by UI lookup.
+      var match = s.match(PATTERNS[pi].regex) || normalized.match(PATTERNS[pi].regex);
       if (match) return PATTERNS[pi].es.replace(/\{([a-zA-Z][a-zA-Z0-9_]*)\}/g, function(_, name){ return match[PATTERNS[pi].names.indexOf(name) + 1]; });
     }
     return REMOTE[s];
@@ -436,7 +438,7 @@
       if (!p || typeof p.en !== 'string' || typeof p.es !== 'string') return;
       var names = [], parts = p.en.split(/(\{[a-zA-Z][a-zA-Z0-9_]*\})/g);
       var regex = parts.map(function(part){
-        if (/^\{/.test(part)) { names.push(part.slice(1,-1)); return '(.+?)'; }
+        if (/^\{/.test(part)) { names.push(part.slice(1,-1)); return '([\\s\\S]+?)'; }
         return part.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
       }).join('');
       var targetNames = p.es.match(/\{[a-zA-Z][a-zA-Z0-9_]*\}/g) || [];

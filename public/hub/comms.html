@@ -321,6 +321,7 @@
     if(!pending && (!body.trim()||body!==body.trim()||body.length>1000)){Hub.toast('Use 1–1,000 characters with no leading or trailing whitespace. The reviewed text will be sent exactly.');return;}
     if(pending)body=pending.body;
     var destination=replyContext.thread.ref_type==='ig_media'?'PUBLIC Instagram comment reply':'Instagram direct message';
+    if(window.AnejoI18n)destination=window.AnejoI18n.text(destination);
     if(!window.confirm((pending?'Check or retry the same reviewed request for ':'Send this exact text as a ')+destination+'?\n\n'+body))return;
     if(!pending){pending={request_id:crypto.randomUUID(),body:body,expected_trigger_id:replyContext.trigger_id,after_attempt_id:igFollowups[tid]||null};igRequests[tid]=pending;}
     pending.busy=true;paintReplyControls();
