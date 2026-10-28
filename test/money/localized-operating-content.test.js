@@ -154,3 +154,21 @@ test('invalid JSON payloads and missing edition rows fail closed without transla
   assert.equal(absent.localization.status, 'unavailable');
   assert.equal(absent.title, docSource.title);
 });
+
+test('recipe selector names are read-only, source-bound and excluded once edited', async () => {
+  const env = ownerEnv();
+  await insertRecipe(env);
+  const before = env.DB.one('SELECT name,ingredients,steps,status FROM recipes WHERE id=?', recipeSource.id);
+  let response = await getRecipes({ request: request('/api/hub/kitchen/recipes?lang=es'), env });
+  let body = await response.json();
+  assert.equal(body.recipe_name_editions_es[recipeSource.id], recipePayload.name);
+  assert.equal(body.recipes.find((r) => r.id === recipeSource.id).name, recipeSource.name);
+  assert.equal(JSON.stringify(body.recipe_name_editions_es).includes('ingredients'), false);
+  response = await getRecipes({ request: request('/api/hub/kitchen/recipes?lang=en'), env });
+  assert.equal('recipe_name_editions_es' in await response.json(), false);
+  assert.deepEqual(env.DB.one('SELECT name,ingredients,steps,status FROM recipes WHERE id=?', recipeSource.id), before);
+  await env.DB.prepare('UPDATE recipes SET steps=? WHERE id=?').bind('["Changed source"]', recipeSource.id).run();
+  response = await getRecipes({ request: request('/api/hub/kitchen/recipes?lang=es'), env });
+  body = await response.json();
+  assert.equal(body.recipe_name_editions_es[recipeSource.id], undefined);
+});

@@ -132,3 +132,23 @@ export async function legacyRecipeReadingEdition(env, recipeId, locale = LOCALE)
     return metadata('unavailable', entry.source_hash, entry.source_version, entry.source_title);
   }
 }
+
+// Names only for selector displays. Source recipes and editable fields remain unchanged.
+export async function recipeListReadingNames(env) {
+  try {
+    const {results} = await env.DB.prepare(`
+      SELECT r.id,r.name,r.ingredients,r.steps,e.entity_kind,e.entity_id,e.locale,
+        e.source_version,e.source_hash,e.source_title,e.payload_json
+      FROM recipes r JOIN operating_reading_editions e
+        ON e.entity_kind='recipe' AND e.entity_id=r.id AND e.locale='es'
+      WHERE NOT EXISTS (SELECT 1 FROM recipe_revisions v WHERE v.recipe_id=r.id)
+    `).all();
+    const names = {};
+    for (const row of results || []) {
+      const payload = parsePayload(row);
+      const edition = payload ? await recipeReadingEdition(row, {...row,payload}, false) : null;
+      if (edition?.status === 'current') names[row.id] = edition.name;
+    }
+    return names;
+  } catch { return {}; }
+}
