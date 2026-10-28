@@ -2813,6 +2813,9 @@
 
   // Authored HTML fragments and populated record labels; stored customer text is never translated.
   var fragmentDictionary = {
+  "Next follow-up:": "Próximo seguimiento:",
+  "· Submitted entry page:": "· Página de entrada enviada:",
+  "· Browsing path not recorded": "· Recorrido de navegación sin registrar",
   "brand": "marca",
   "A customer": "Un cliente",
   "The library could not be loaded.": "No se pudo cargar la biblioteca.",
