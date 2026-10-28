@@ -1836,6 +1836,7 @@
 
   // Additional source-bound UI/dialog coverage; variable values remain exact.
   var boundaryDictionary = {
+  "Switch language to English": "Cambiar idioma a inglés",
   "Deny this delivery order? It will be offered to another driver.": "¿Rechazar este pedido de entrega? Se ofrecerá a otro conductor.",
   "Cancel this queued reservation? No stock has been consumed.": "¿Cancelar esta reserva en cola? No se han consumido existencias.",
   "Archive this inventory item?": "¿Archivar este artículo de inventario?",
@@ -1868,7 +1869,264 @@
   "Mark this organization do-not-contact? Every sequence stops and nothing will be sent.": "¿Marcar esta organización como «no contactar»? Se detendrán todas las secuencias y no se enviará nada.",
   "Stop emailing this address, everywhere?": "¿Dejar de enviar correos a esta dirección en todos los canales?",
   "Why reject this email? (It stops this prospect’s sequence.)": "¿Por qué rechazar este correo? (Se detiene la secuencia de este prospecto.)",
-  "Delete this message? This cannot be undone.": "¿Eliminar este mensaje? No se puede deshacer."
+  "Delete this message? This cannot be undone.": "¿Eliminar este mensaje? No se puede deshacer.",
+  "Anything showing behind this is empty because the HUB could not load it — not because there is nothing there.": "Lo que aparece detrás está vacío porque el HUB no pudo cargarlo, no porque no haya datos.",
+  "Reply context unavailable; sending is paused.": "El contexto de respuesta no está disponible; el envío está pausado.",
+  "Send customer text": "Enviar texto al cliente",
+  "Instagram reply history unavailable. Sending is paused; no outcome is assumed.": "El historial de respuestas de Instagram no está disponible. El envío está pausado; no se supone ningún resultado.",
+  "Instagram reply outcome pending or unknown. New replies and follow-ups are blocked until its outcome is resolved.": "El resultado de la respuesta de Instagram está pendiente o es desconocido. Las respuestas y los seguimientos nuevos están bloqueados hasta resolverlo.",
+  "Check or retry exact reviewed reply": "Consultar o reintentar la respuesta revisada exacta",
+  "Reply outcome not verified. Only this exact request can be checked or retried; no new message is enabled.": "El resultado de la respuesta no está verificado. Solo se puede consultar o reintentar esta solicitud exacta; no se habilita ningún mensaje nuevo.",
+  "Latest reply was not accepted or its outcome is unavailable. Sending remains blocked; review its saved receipt.": "La última respuesta no fue aceptada o su resultado no está disponible. El envío sigue bloqueado; revisa su comprobante guardado.",
+  "Review and send Instagram reply": "Revisar y enviar respuesta de Instagram",
+  "This reply will be public under the Instagram comment. Review the exact text before sending.": "Esta respuesta será pública debajo del comentario de Instagram. Revisa el texto exacto antes de enviar.",
+  "This reply goes to the Instagram DM. Review the exact text before sending.": "Esta respuesta irá al mensaje directo de Instagram. Revisa el texto exacto antes de enviar.",
+  "Could not load your pay.": "No se pudieron cargar tus pagos.",
+  "Could not load your totals right now — the routes below are still accurate.": "No se pudieron cargar tus totales ahora; las rutas de abajo siguen siendo correctas.",
+  "Editing today's submitted report": "Editando el reporte enviado de hoy",
+  "Checking freshness, stock, and reservations…": "Revisando vigencia del conteo, existencias y reservas…",
+  "No eligible batches were queued.": "No se puso en cola ningún lote elegible.",
+  "Choose a menu item and a published recipe.": "Elige un artículo del menú y una receta publicada.",
+  "Review the quantities and check the confirmation before saving.": "Revisa las cantidades y marca la confirmación antes de guardar.",
+  "Saving owner-reviewed plan…": "Guardando plan revisado por el propietario…",
+  "Plan saved and review recorded. Refreshing opportunities…": "Plan guardado y revisión registrada. Actualizando oportunidades…",
+  "Explain the shortfall before recording completion.": "Explica el faltante antes de registrar la finalización.",
+  "Recording completed yield and stock use…": "Registrando rendimiento final y uso de existencias…",
+  "Completion recorded.": "Finalización registrada.",
+  "Style": "Estilo",
+  "Open and review all three layouts, then confirm the checkbox.": "Abre y revisa los tres formatos; después marca la casilla de confirmación.",
+  "Review the loaded previews and SMS text before enabling.": "Revisa las vistas previas cargadas y el texto SMS antes de activar.",
+  "Photo unavailable": "Foto no disponible",
+  "Inventory photo unavailable": "Foto de inventario no disponible",
+  "Saving counts…": "Guardando cantidades…",
+  "Counts saved.": "Cantidades guardadas.",
+  "Could not save counts.": "No se pudieron guardar las cantidades.",
+  "Uploading private inventory snapshot…": "Subiendo foto privada del inventario…",
+  "Photo uploaded and waiting for owner review.": "Foto subida y pendiente de revisión del propietario.",
+  "Photo upload failed. Your inventory counts are unchanged.": "Falló la carga de la foto. Las cantidades de inventario no cambiaron.",
+  "Saving owner review…": "Guardando revisión del propietario…",
+  "Photo review saved.": "Revisión de foto guardada.",
+  "Could not save photo review.": "No se pudo guardar la revisión de la foto.",
+  "Enter an item name.": "Ingresa un nombre de artículo.",
+  "Adding item…": "Agregando artículo…",
+  "Item added.": "Artículo agregado.",
+  "Unsaved draft": "Borrador sin guardar",
+  "Reference only. No current exact-version owner receipt. Legacy library access remains available.": "Solo referencia. No hay comprobante del propietario para la versión exacta actual. El acceso a la biblioteca anterior sigue disponible.",
+  "New draft. No operational recipe is changed.": "Borrador nuevo. No cambia ninguna receta operativa.",
+  "Unsaved edits. Save a new draft before submitting or approving.": "Cambios sin guardar. Guarda un borrador nuevo antes de enviarlo o aprobarlo.",
+  "Required structured fields supplied. Dayan still must verify their accuracy.": "Se proporcionaron los campos estructurados obligatorios. Dayan aún debe verificar su exactitud.",
+  "Saved reference photos decoded for review.": "Fotos de referencia guardadas y cargadas para revisión.",
+  "A saved photo could not be displayed. Replace or repair it before approval.": "No se pudo mostrar una foto guardada. Reemplázala o repárala antes de aprobar.",
+  "Waiting for saved reference photos to load before approval.": "Esperando que carguen las fotos de referencia guardadas antes de aprobar.",
+  "Request already sent": "Solicitud ya enviada",
+  "Sending…": "Enviando…",
+  "Request sent": "Solicitud enviada",
+  "Asking…": "Consultando…",
+  "Checking the saved acknowledgment; no reply is being sent…": "Consultando el acuse guardado; no se está enviando ninguna respuesta…",
+  "Provider acceptance recorded locally. Recipient delivery remains unverified; no reply was resent.": "La aceptación del proveedor quedó registrada localmente. La entrega al destinatario sigue sin verificar; no se reenvió ninguna respuesta.",
+  "Recovery remains unverified. No reply was resent. Refresh saved status before further action.": "La recuperación sigue sin verificar. No se reenvió ninguna respuesta. Actualiza el estado guardado antes de otra acción.",
+  "Recovery could not be verified. No reply was resent. Refresh saved status before further action.": "No se pudo verificar la recuperación. No se reenvió ninguna respuesta. Actualiza el estado guardado antes de otra acción.",
+  "Could not load callback requests.": "No se pudieron cargar las solicitudes de llamada.",
+  "Booking configuration is ready. Each appointment still requires Google verification. Customer email activation is configured; individual provider receipts appear below.": "La configuración de reservas está lista. Cada cita aún requiere verificación de Google. El correo al cliente está configurado; abajo aparecen los comprobantes individuales del proveedor.",
+  "Booking configuration is ready. Each appointment still requires Google verification. Customer confirmation and reminder emails are disabled.": "La configuración de reservas está lista. Cada cita aún requiere verificación de Google. Las confirmaciones y los recordatorios por correo al cliente están desactivados.",
+  "Booking readiness cannot be verified. Customer email activation is configured; individual provider receipts appear below.": "No se puede verificar que las reservas estén listas. El correo al cliente está configurado; abajo aparecen los comprobantes individuales del proveedor.",
+  "Unverified. Provider accepted; delivery and reading are not verified.": "Sin verificar. El proveedor aceptó el envío; entrega y lectura sin verificar.",
+  "Unverified. No provider acceptance verified.": "Sin verificar. No se verificó la aceptación del proveedor.",
+  "Catering client · event date not recorded": "Cliente de catering · fecha del evento sin registrar",
+  "To: No email recorded · Due date not recorded": "Para: correo sin registrar · fecha de vencimiento sin registrar",
+  "Deposit: not recorded · Final payment: not recorded": "Depósito: sin registrar · pago final: sin registrar",
+  "Actual branded Añejo final-payment email": "Correo real de Añejo para el pago final",
+  "Rendered saved reminder loaded. Sending remains blocked; review the receipt history.": "El recordatorio guardado cargó. El envío sigue bloqueado; revisa el historial de comprobantes.",
+  "Rendered email loaded. Review it, then approve the recipient and one send.": "La vista previa del correo cargó. Revísala y después aprueba el destinatario y un único envío.",
+  "The email preview did not load. Sending stays disabled. Close and reopen to retry.": "La vista previa del correo no cargó. El envío sigue desactivado. Cierra y vuelve a abrir para reintentar.",
+  "Checking the saved payment and reminder evidence…": "Consultando las pruebas guardadas de pago y recordatorios…",
+  "Staging the branded final-payment email…": "Preparando el correo de Añejo para el pago final…",
+  "Automatic reminders enabled for Spanish using the approved template.": "Recordatorios automáticos activados en español con la plantilla aprobada.",
+  "Automatic reminders enabled for English using the approved template.": "Recordatorios automáticos activados en inglés con la plantilla aprobada.",
+  "The template changed. Review this version before enabling automatic reminders.": "La plantilla cambió. Revisa esta versión antes de activar los recordatorios automáticos.",
+  "Automatic reminders are disabled until this rendered template is approved.": "Los recordatorios automáticos están desactivados hasta aprobar la vista previa de esta plantilla.",
+  "Enable future Spanish final-payment reminders": "Activar futuros recordatorios de pago final en español",
+  "Enable future English final-payment reminders": "Activar futuros recordatorios de pago final en inglés",
+  "No sendable reminder is staged. Payment and reminder evidence is shown above.": "No hay un recordatorio preparado para enviar. Arriba se muestran las pruebas de pago y recordatorios.",
+  "The recipient, rendered email or review identity is missing. Sending is disabled.": "Falta el destinatario, la vista previa del correo o la identidad de revisión. El envío está desactivado.",
+  "This reminder is already accepted or its sending outcome is unresolved. Another send is blocked. Review the saved activity below.": "Este recordatorio ya fue aceptado o su resultado está pendiente de resolver. Otro envío está bloqueado. Revisa la actividad guardada abajo.",
+  "Sending the reviewed reminder once. Keep this screen open while the result is checked…": "Enviando una vez el recordatorio revisado. Mantén esta pantalla abierta mientras se comprueba el resultado…",
+  "Resend accepted the email. Delivery and reading are not verified. No payment has been recorded by this email send.": "Resend aceptó el correo. Entrega y lectura sin verificar. Este envío no registró ningún pago.",
+  "The send outcome could not be confirmed. Sending is locked. Refresh the receipt history before taking another action; do not send a second reminder.": "No se pudo confirmar el resultado del envío. El envío está bloqueado. Actualiza el historial de comprobantes antes de otra acción; no envíes un segundo recordatorio.",
+  "The send outcome is unverified. Sending is locked to prevent a duplicate. Refresh the receipt history before taking another action.": "El resultado del envío no está verificado. Se bloqueó el envío para evitar duplicados. Actualiza el historial de comprobantes antes de otra acción.",
+  "Saving the reviewed reminder template…": "Guardando la plantilla de recordatorio revisada…",
+  "Automatic final-payment reminders enabled for Spanish using this approved template. This approval did not send an email.": "Recordatorios automáticos de pago final activados en español con esta plantilla aprobada. Esta aprobación no envió ningún correo.",
+  "Automatic final-payment reminders enabled for English using this approved template. This approval did not send an email.": "Recordatorios automáticos de pago final activados en inglés con esta plantilla aprobada. Esta aprobación no envió ningún correo.",
+  "Message changed. Preview the updated email before approval.": "El mensaje cambió. Revisa la vista previa actualizada antes de aprobar.",
+  "Loading the saved client email…": "Cargando el correo guardado del cliente…",
+  "Unverified. Provider acceptance does not establish delivery or reading.": "Sin verificar. La aceptación del proveedor no confirma entrega ni lectura.",
+  "No email activity recorded.": "No hay actividad de correo registrada.",
+  "Write the message, then preview the actual branded email.": "Escribe el mensaje y después revisa la vista previa real del correo de Añejo.",
+  "Add a subject and message before previewing.": "Agrega asunto y mensaje antes de ver la vista previa.",
+  "Staging the branded preview. Nothing is being sent…": "Preparando la vista previa de Añejo. No se está enviando nada…",
+  "Actual branded Añejo client email": "Correo real de Añejo para el cliente",
+  "Rendered email loaded. Read it, then approve this one send.": "La vista previa del correo cargó. Léela y después aprueba este único envío.",
+  "The rendered preview did not load. Sending stays disabled; retry Preview branded email.": "La vista previa no cargó. El envío sigue desactivado; reintenta «Ver vista previa del correo de Añejo».",
+  "Loading the rendered email. Approval stays disabled until it loads.": "Cargando la vista previa del correo. La aprobación sigue desactivada hasta que termine de cargar.",
+  "Sending the reviewed email once…": "Enviando una vez el correo revisado…",
+  "Resend accepted the branded email. Delivery and reading are not verified.": "Resend aceptó el correo de Añejo. Entrega y lectura sin verificar.",
+  "The send outcome is unverified. Another send is blocked; close and reopen to inspect the saved receipt.": "El resultado del envío no está verificado. Otro envío está bloqueado; cierra y vuelve a abrir para consultar el comprobante guardado.",
+  "Rendered email loaded. Review it before enabling a trigger or sending.": "La vista previa del correo cargó. Revísala antes de activar un disparador o enviar.",
+  "The preview could not load. Approval and sending remain disabled.": "No se pudo cargar la vista previa. La aprobación y el envío siguen desactivados.",
+  "Saved catering booking · Event date not recorded · Recipient shown on each email below": "Reserva de catering guardada · fecha del evento sin registrar · el destinatario aparece en cada correo abajo",
+  "Reading saved event-care status…": "Consultando el estado guardado de atención del evento…",
+  "Staging event-care email previews. Nothing is being sent…": "Preparando vistas previas de los correos del evento. No se está enviando nada…",
+  "These are saved previews and statuses. Opening this screen did not send an email.": "Estas son vistas previas y estados guardados. Abrir esta pantalla no envió ningún correo.",
+  "Sending this reviewed email once…": "Enviando una vez este correo revisado…",
+  "Saving the reviewed future-trigger approval…": "Guardando la aprobación revisada para el futuro disparador…",
+  "The email provider accepted this message. Delivery and reading are not verified.": "El proveedor de correo aceptó este mensaje. Entrega y lectura sin verificar.",
+  "The send outcome is unverified. Sending stays locked. Refresh the saved receipt before any further action.": "El resultado del envío no está verificado. El envío sigue bloqueado. Actualiza el comprobante guardado antes de otra acción.",
+  "Future trigger approved": "Disparador futuro aprobado",
+  "This event’s future trigger is approved. This approval did not send an email.": "El futuro disparador de este evento está aprobado. Esta aprobación no envió ningún correo.",
+  "The send outcome is unverified. Sending stays locked; refresh the saved receipt.": "El resultado del envío no está verificado. El envío sigue bloqueado; actualiza el comprobante guardado.",
+  "Customer response not recorded": "Respuesta del cliente sin registrar",
+  "Choose a customer response status first.": "Elige primero un estado de respuesta del cliente.",
+  "Saving customer response…": "Guardando respuesta del cliente…",
+  "Customer response saved. No message was sent.": "Respuesta del cliente guardada. No se envió ningún mensaje.",
+  "Could not save customer response.": "No se pudo guardar la respuesta del cliente.",
+  "Loading recipient…": "Cargando destinatario…",
+  "Retrieving the current quote reminder. No message has been sent.": "Consultando el recordatorio actual de cotización. No se ha enviado ningún mensaje.",
+  "This reminder cannot be sent right now.": "Este recordatorio no puede enviarse ahora.",
+  "Recipient unavailable": "Destinatario no disponible",
+  "Recipient or rendered preview is missing. Sending is disabled.": "Falta el destinatario o la vista previa. El envío está desactivado.",
+  "The rendered email preview could not be confirmed. Sending stays disabled. Plain text is available above; use Retry email preview to review the HTML before approving.": "No se pudo confirmar la vista previa del correo. El envío sigue desactivado. Arriba está el texto sin formato; usa «Reintentar vista previa del correo» para revisar el HTML antes de aprobar.",
+  "Email preview loaded. Review the actual recipient, subject and rendered email, then check the approval box for one manual send.": "La vista previa del correo cargó. Revisa el destinatario, el asunto y el correo real; después marca la aprobación de un único envío manual.",
+  "Loading the actual email preview. Approval stays disabled until this preview finishes loading.": "Cargando la vista previa real del correo. La aprobación sigue desactivada hasta que termine de cargar.",
+  "Submitting this reviewed reminder once…": "Enviando una vez este recordatorio revisado…",
+  "Send outcome not verified. Refresh history before taking another action. · Existing outcome returned; no second send.": "Resultado del envío sin verificar. Actualiza el historial antes de otra acción. · Se devolvió el resultado existente; no hubo segundo envío.",
+  "Send outcome not verified. Refresh history before taking another action.": "Resultado del envío sin verificar. Actualiza el historial antes de otra acción.",
+  "Could not load follow-up records.": "No se pudieron cargar los registros de seguimiento.",
+  "Review both previews and check the approval box first.": "Revisa ambas vistas previas y marca primero la casilla de aprobación.",
+  "That weekday already has a template.": "Ese día de la semana ya tiene una plantilla.",
+  "Choose a Monday.": "Elige un lunes.",
+  "Change language to Spanish": "Cambiar idioma a español",
+  "Proposed strategy": "Estrategia propuesta",
+  "Saved proposed strategy · used as team planning direction": "Estrategia propuesta guardada · usada como dirección de planificación del equipo",
+  "Saved proposed strategy · historical planning receipt recorded": "Estrategia propuesta guardada · comprobante histórico de planificación registrado",
+  "Saved proposed strategy · planning status unavailable": "Estrategia propuesta guardada · estado de planificación no disponible",
+  "Prior planning use could not be verified. Reload saved strategy before using this proposal; unavailable does not mean no prior planning use.": "No se pudo verificar el uso anterior en planificación. Recarga la estrategia guardada antes de usar esta propuesta; no disponible no significa que no se haya usado antes.",
+  "I reviewed this exact proposal, including its assumptions and open questions. Unresolved facts remain unverified; I am allowing team planning only.": "Revisé esta propuesta exacta, incluidos sus supuestos y preguntas pendientes. Los datos sin resolver siguen sin verificar; autorizo solo planificación del equipo.",
+  "Saving reviewed planning direction…": "Guardando dirección de planificación revisada…",
+  "Saved as team planning brief": "Guardado como brief de planificación del equipo",
+  "Planning use not verified. Reload saved strategy or retry this same request; no duplicate brief will be requested.": "Uso en planificación sin verificar. Recarga la estrategia guardada o reintenta esta misma solicitud; no se solicitará un brief duplicado.",
+  "Saving a separate private revision…": "Guardando una revisión privada separada…",
+  "Revision save not verified. Retry this same save; no planning action was requested.": "Guardado de revisión sin verificar. Reintenta este mismo guardado; no se solicitó ninguna acción de planificación.",
+  "Retry same save": "Reintentar el mismo guardado",
+  "No saved proposal returned for this idea.": "No se devolvió una propuesta guardada para esta idea.",
+  "Generation is recorded as in progress or awaiting an outcome. Completion is not verified. Check saved status; do not start another generation.": "La generación está registrada como en curso o pendiente de resultado. Su finalización no está verificada. Consulta el estado guardado; no inicies otra generación.",
+  "Generation outcome is uncertain. No completed proposal is verified.": "El resultado de la generación es incierto. No se verifica una propuesta completada.",
+  "No completed proposal was saved.": "No se guardó ninguna propuesta completada.",
+  "Saved proposed strategy · private · review required · not active": "Estrategia propuesta guardada · privada · requiere revisión · no está activa",
+  "Original generation and revision evidence": "Pruebas originales de generación y revisión",
+  "Generation evidence": "Pruebas de generación",
+  "Checking saved outcome…": "Consultando resultado guardado…",
+  "Generating private proposal…": "Generando propuesta privada…",
+  "Generation request in progress. You can check this same saved request while the response is pending.": "Solicitud de generación en curso. Puedes consultar esta misma solicitud guardada mientras esperas la respuesta.",
+  "Reading the saved outcome for this same request…": "Consultando el resultado guardado de esta misma solicitud…",
+  "Loading saved private proposal…": "Cargando propuesta privada guardada…",
+  "Saved private idea": "Idea privada guardada",
+  "Añejo voice operator — one tap to talk, two to type": "Operador de voz de Añejo: un toque para hablar, dos para escribir",
+  "Preview unavailable · review media before approval": "Vista previa no disponible · revisa el contenido antes de aprobar",
+  "New review required for caption suggestions": "Se requiere una revisión nueva para las sugerencias de texto",
+  "Owner approval recorded for this preview": "Aprobación del propietario registrada para esta vista previa",
+  "Save caption changes before adding media.": "Guarda los cambios de texto antes de agregar contenido multimedia.",
+  "Finish or discard the active media selection first.": "Termina o descarta primero la selección multimedia activa.",
+  "Refresh the saved campaign before adding media.": "Actualiza la campaña guardada antes de agregar contenido multimedia.",
+  "Review the full captions and every media asset, then give explicit approval for this exact version. Scheduling and provider acceptance require separate evidence.": "Revisa los textos completos y cada archivo; después aprueba expresamente esta versión exacta. La programación y la aceptación del proveedor requieren pruebas separadas.",
+  "Save caption changes": "Guardar cambios de texto",
+  "Discard edits & reload saved version": "Descartar cambios y recargar versión guardada",
+  "Checking the next assets…": "Comprobando los próximos archivos…",
+  "Pausing remaining campaign posts…": "Pausando las publicaciones restantes de la campaña…",
+  "Submitting exact version for owner approval and scheduling…": "Enviando la versión exacta para aprobación del propietario y programación…",
+  "Campaign changed. Refresh and review the current version before trying again. The request may have reached the server.": "La campaña cambió. Actualiza y revisa la versión actual antes de reintentar. La solicitud pudo haber llegado al servidor.",
+  "The action could not be confirmed. Refresh before retrying. The request may have reached the server.": "No se pudo confirmar la acción. Actualiza antes de reintentar. La solicitud pudo haber llegado al servidor.",
+  "The action could not be confirmed. Refresh before retrying; the server may have received it.": "No se pudo confirmar la acción. Actualiza antes de reintentar; el servidor pudo haberla recibido.",
+  "Could not load this version.": "No se pudo cargar esta versión.",
+  "Saved draft · no checkout yet": "Borrador guardado · aún sin enlace de pago",
+  "Open a saved draft first. No checkout has been created by this check.": "Abre primero un borrador guardado. Esta consulta no ha creado ningún enlace de pago.",
+  "Existing prepared quote found. No duplicate checkout created. Reload the quote list to open it.": "Se encontró una cotización ya preparada. No se creó un enlace de pago duplicado. Recarga la lista para abrirla.",
+  "Draft linked to the prepared quote. Nothing sent.": "Borrador relacionado con la cotización preparada. No se envió nada.",
+  "Loading the exact saved quote email…": "Cargando el correo exacto de la cotización guardada…",
+  "Checking the current Square order and recorded payment statuses…": "Consultando el pedido actual de Square y los estados de pago registrados…",
+  "Payment status could not be verified. Try the read-only lookup again when the connection is available.": "No se pudo verificar el estado del pago. Reintenta la consulta de solo lectura cuando haya conexión.",
+  "Payment status could not be verified. No quote, checkout or message was changed.": "No se pudo verificar el estado del pago. No cambió ninguna cotización, enlace de pago ni mensaje.",
+  "Checking and retiring only the selected obsolete checkout…": "Comprobando y retirando solo el enlace de pago obsoleto seleccionado…",
+  "Retirement not verified. Refresh the quote evidence before retrying.": "Retirada sin verificar. Actualiza las pruebas de la cotización antes de reintentar.",
+  "Choose the existing quote to edit": "Elige la cotización existente para editar",
+  "An active quote already exists. A revision replaces its checkout; creating another quote would duplicate the offer.": "Ya existe una cotización activa. Una revisión reemplaza su enlace de pago; crear otra cotización duplicaría la oferta.",
+  "Enter a non-negative delivery / setup amount with no more than two decimals.": "Ingresa un importe no negativo de entrega y montaje con un máximo de dos decimales.",
+  "Price scales with quantity using this line’s agreed rate.": "El precio cambia proporcionalmente con la cantidad según la tarifa acordada de este concepto.",
+  "Submitting the reviewed quote. Waiting for provider evidence…": "Enviando la cotización revisada. Esperando pruebas del proveedor…",
+  "Outcome unverified · check receipt": "Resultado sin verificar · consultar comprobante",
+  "Try again": "Reintentar",
+  "Preparing the current email preview…": "Preparando la vista previa del correo actual…",
+  "Current preview loaded. Read it before creating or replacing the checkout. Nothing has been sent.": "Vista previa actual cargada. Léela antes de crear o reemplazar el enlace de pago. No se ha enviado nada.",
+  "Changes saved. The old checkout was retired and this replacement is ready. Nothing has been sent.": "Cambios guardados. El enlace de pago anterior se retiró y su reemplazo está listo. No se ha enviado nada.",
+  "New quote saved. Nothing has been sent.": "Nueva cotización guardada. No se ha enviado nada.",
+  "Existing quote lookup is unavailable. Refresh before creating a checkout for this request.": "La búsqueda de cotizaciones existentes no está disponible. Actualiza antes de crear un enlace de pago para esta solicitud.",
+  "Refreshing existing quote records before any new checkout can be created…": "Actualizando las cotizaciones existentes antes de permitir un nuevo enlace de pago…",
+  "This quote has a recorded deposit and is read-only here. Review the booked order before making any money changes.": "Esta cotización tiene un depósito registrado y aquí es de solo lectura. Revisa el pedido reservado antes de hacer cambios monetarios.",
+  "Checking the current quote and any saved revision…": "Consultando la cotización actual y cualquier revisión guardada…",
+  "Edit existing catering quote": "Editar cotización de catering existente",
+  "The itemized menu is unavailable. Reload the quotes before editing; the confirmed delivery / setup fee has been preserved. No replacement can be saved.": "El menú desglosado no está disponible. Recarga las cotizaciones antes de editar; se conservó el cargo confirmado de entrega y montaje. No se puede guardar un reemplazo.",
+  "Recover the saved revision. Its approved values stay locked while the old checkout is retired and the replacement recovered.": "Recupera la revisión guardada. Sus valores aprobados permanecen bloqueados mientras se retira el enlace de pago anterior y se recupera su reemplazo.",
+  "Recover saved revision": "Recuperar revisión guardada",
+  "Save changes · replace old checkout": "Guardar cambios · reemplazar enlace de pago anterior",
+  "Enter the service end date and reason, then confirm all locations.": "Ingresa la fecha de fin de servicio y el motivo; luego confirma todas las ubicaciones.",
+  "Offboarding…": "Dando de baja…",
+  "Copied ✓": "Copiado ✓",
+  "Copy": "Copiar",
+  "Planning…": "Planificando…",
+  "Could not reload the library. Saved eligibility is unverified; refresh before making another change.": "No se pudo recargar la biblioteca. La elegibilidad guardada está sin verificar; actualiza antes de hacer otro cambio.",
+  "Preparing…": "Preparando…",
+  "Ready. This QR is reused every day.": "Listo. Este QR se reutiliza todos los días.",
+  "Nothing to do — queue is empty and sweeps are fresh.": "No hay nada pendiente: la cola está vacía y las revisiones están al día.",
+  "Could not run.": "No se pudo ejecutar.",
+  "Filing…": "Archivando…",
+  "Could not queue.": "No se pudo poner en cola.",
+  "Write an answer first.": "Primero escribe una respuesta.",
+  "Compositing…": "Componiendo…",
+  "Testing saved media with Instagram…": "Probando los archivos guardados con Instagram…",
+  "Upload test failed: HTTP unknown": "La prueba de carga falló: HTTP desconocido",
+  "🍽️ Generating a food photo…": "🍽️ Generando una foto de comida…",
+  "🍽️ Generate a food photo": "🍽️ Generar una foto de comida",
+  "Generating preview… / Generando vista previa…": "Generando vista previa…",
+  "Preview only. Review food, names and claims. / Vista previa. Revisa comida, nombres y afirmaciones.": "Solo vista previa. Revisa la comida, los nombres y las afirmaciones.",
+  "Draft saved.": "Borrador guardado.",
+  "Give the campaign a name.": "Dale un nombre a la campaña.",
+  "Write the message.": "Escribe el mensaje.",
+  "An email campaign needs a subject line.": "Una campaña de correo necesita un asunto.",
+  "Could not count the audience.": "No se pudo contar la audiencia.",
+  "Nobody in that segment is reachable on this channel.": "No se puede contactar a nadie de ese segmento por este canal.",
+  "Send stopped.": "Envío detenido.",
+  "Starting…": "Iniciando…",
+  "Checking… / Comprobando…": "Comprobando…",
+  "A new BOWL is not orderable from this form alone. Its recipe (ingredients + macros) lives in code, and checkout refuses any bowl it does not have a recipe for — the customer would build a cart and get an error at payment. Add it here, then have the recipe added and deployed. Leave “show on the website” off until then.": "Un BOWL nuevo no se puede pedir solo con este formulario. Su receta (ingredientes y macros) está en el código, y el pago rechaza cualquier bowl sin receta: el cliente crearía un carrito y recibiría un error al pagar. Agrégalo aquí y luego solicita que se agregue y publique la receta. Deja desactivado «mostrar en el sitio web» hasta entonces.",
+  "Refund": "Reembolsar",
+  "Name and email are required.": "El nombre y el correo son obligatorios.",
+  "Enter a code.": "Ingresa un código.",
+  "✓ Onboarded · code (welcome email not sent)": "✓ Incorporado · código (correo de bienvenida sin enviar)",
+  "✓ Onboarded · code · welcome sent": "✓ Incorporado · código · bienvenida enviada",
+  "✓ Declined": "✓ Rechazado",
+  "✓ Declined · email sent": "✓ Rechazado · correo enviado",
+  "saving…": "guardando…",
+  "saved ✓": "guardado ✓",
+  "Erasing…": "Borrando…",
+  "Saved. New rates apply to the next order.": "Guardado. Las nuevas tarifas se aplican al próximo pedido.",
+  "Nothing in the list to work on.": "No hay nada en la lista para procesar.",
+  "Could not do that.": "No se pudo realizar esa acción.",
+  "Nothing needed doing.": "No había nada pendiente.",
+  "Could not start": "No se pudo iniciar",
+  "Write what they said first.": "Primero escribe lo que dijeron.",
+  "Writing…": "Redactando…",
+  "Could not draft it.": "No se pudo redactar.",
+  "Nothing to save yet — a name on its own is enough.": "Aún no hay nada que guardar: basta con un nombre.",
+  "Could not save that visit.": "No se pudo guardar esa visita."
 };
   var boundaryPatterns = [
   {
@@ -1876,12 +2134,76 @@
     "es": "¿Restaurar el brief a la versión {v0} (guardada el {v1})? Esto reemplaza el brief de marca y estándares actual y cambia la base de todas las futuras sesiones del Estudio Creativo. Primero se guarda una copia del brief actual, para que puedas deshacerlo del mismo modo."
   },
   {
+    "en": "Historical team planning receipt {v0} · brief {v1}. Current brief status: unavailable. Current brief is missing or differs from the reviewed proposal. This receipt does not prove active execution or publication.",
+    "es": "Comprobante histórico de planificación {v0} · brief {v1}. Estado actual del brief: no disponible. El brief actual falta o difiere de la propuesta revisada. Este comprobante no prueba ejecución activa ni publicación."
+  },
+  {
+    "en": "Historical team planning receipt {v0} · brief {v1}. Current brief status: unavailable. Current saved brief matches the reviewed proposal. This receipt does not prove active execution or publication.",
+    "es": "Comprobante histórico de planificación {v0} · brief {v1}. Estado actual del brief: no disponible. El brief guardado actual coincide con la propuesta revisada. Este comprobante no prueba ejecución activa ni publicación."
+  },
+  {
+    "en": "{v0} is a spreadsheet, not a text file. In Excel or Sheets choose File → Save as / Download → CSV, then pick that. (Or just copy the rows and paste them in the box — tab-separated works.)",
+    "es": "{v0} es una hoja de cálculo, no un archivo de texto. En Excel o Sheets elige Archivo → Guardar como / Descargar → CSV y selecciona ese archivo. (También puedes copiar las filas y pegarlas en el cuadro: se aceptan tabulaciones.)"
+  },
+  {
+    "en": "{v0} of {v1} events in this window were automation (actor_type=system) and are excluded from every number above. Counting them would make adoption look healthy even if nobody signed in.",
+    "es": "{v0} de {v1} eventos de este período fueron automáticos (actor_type=system) y se excluyen de todas las cifras anteriores. Contarlos haría parecer que se usa el sistema aunque nadie hubiera iniciado sesión."
+  },
+  {
+    "en": "Planning use was not verified: {v0}. The proposal or its authority has changed. A new current proposal must be reviewed before planning use; no override was applied.",
+    "es": "Uso en planificación sin verificar: {v0}. La propuesta o su autoridad cambió. Una nueva propuesta actual debe revisarse antes de usarla para planificar; no se aplicó ninguna excepción."
+  },
+  {
     "en": "Create an ACTIVE contract account for \"{v0}\" on the confirmed terms ({v1}/month)? Their headcount links start working immediately. Nothing is texted or emailed.",
     "es": "¿Crear una cuenta de oficina ACTIVA para «{v0}» con las condiciones confirmadas ({v1} al mes)? Sus enlaces de cantidades funcionarán de inmediato. No se enviarán SMS ni correos."
   },
   {
+    "en": "Editing existing quote {v0}. 1. Make changes. 2. Read the updated email preview. 3. Save changes to replace the old checkout. Sending is a separate step.",
+    "es": "Editando la cotización existente {v0}. 1. Haz los cambios. 2. Lee la vista previa del correo actualizado. 3. Guarda los cambios para reemplazar el enlace de pago anterior. El envío es un paso aparte."
+  },
+  {
+    "en": "Historical Instagram provider acceptance recorded · attempt {v0}. This is not delivery or read confirmation. Review a deliberate follow-up separately.",
+    "es": "Aceptación anterior del proveedor de Instagram registrada · intento {v0}. Esto no confirma entrega ni lectura. Revisa por separado un nuevo seguimiento."
+  },
+  {
+    "en": "Send outcome not verified. Refresh history before taking another action. · Provider receipt: {v0} · Existing outcome returned; no second send. · {v1}",
+    "es": "Resultado del envío sin verificar. Actualiza el historial antes de otra acción. · Comprobante del proveedor: {v0} · Se devolvió el resultado existente; no hubo segundo envío. · {v1}"
+  },
+  {
+    "en": "Send outcome not verified. Refresh history before taking another action. · Provider receipt: {v0} · Existing outcome returned; no second send.",
+    "es": "Resultado del envío sin verificar. Actualiza el historial antes de otra acción. · Comprobante del proveedor: {v0} · Se devolvió el resultado existente; no hubo segundo envío."
+  },
+  {
+    "en": "Read-only check · {v0} {v1} {v2} This lookup does not charge, cancel, revise or send a message. Order state alone does not establish payment.",
+    "es": "Consulta de solo lectura · {v0} {v1} {v2} Esta consulta no cobra, cancela, modifica ni envía mensajes. El estado del pedido por sí solo no demuestra el pago."
+  },
+  {
+    "en": "Preview unavailable: {v0} No photo was saved. If the preserved source cannot be verified, choose the original from the photo library.",
+    "es": "Vista previa no disponible: {v0} No se guardó ninguna foto. Si no se puede verificar la fuente conservada, elige el original de la biblioteca de fotos."
+  },
+  {
+    "en": "Read-only check · {v0} {v1} This lookup does not charge, cancel, revise or send a message. Order state alone does not establish payment.",
+    "es": "Consulta de solo lectura · {v0} {v1} Esta consulta no cobra, cancela, modifica ni envía mensajes. El estado del pedido por sí solo no demuestra el pago."
+  },
+  {
     "en": "Turn on Aña auto-reply ({v0})? She will send replies to real customers on your behalf. You can switch this back to Off at any time.",
     "es": "¿Activar la respuesta automática de Aña ({v0})? Enviará respuestas a clientes reales en tu nombre. Puedes volver a desactivarla cuando quieras."
+  },
+  {
+    "en": "Saved for team planning · brief {v0} · receipt {v1}. This confirms planning direction only, not publication or that a planner has run.",
+    "es": "Guardado para la planificación del equipo · brief {v0} · comprobante {v1}. Esto confirma solo la dirección de planificación, no una publicación ni que se haya ejecutado el planificador."
+  },
+  {
+    "en": "Resend accepted the email · receipt {v0}. Delivery and reading are not verified. No payment has been recorded by this email send.",
+    "es": "Resend aceptó el correo · comprobante {v0}. Entrega y lectura sin verificar. Este envío no registró ningún pago."
+  },
+  {
+    "en": "Send outcome not verified. Refresh history before taking another action. · Existing outcome returned; no second send. · {v0}",
+    "es": "Resultado del envío sin verificar. Actualiza el historial antes de otra acción. · Se devolvió el resultado existente; no hubo segundo envío. · {v0}"
+  },
+  {
+    "en": "Planning use not verified: {v0}. Reload saved strategy or retry this same request; no duplicate brief will be requested.",
+    "es": "Uso en planificación sin verificar: {v0}. Recarga la estrategia guardada o reintenta esta misma solicitud; no se solicitará un brief duplicado."
   },
   {
     "en": "Set {v0}’s prep time to {v1} minutes? That is the median of {v2} timings of a single one, replacing your estimate of {v3} minutes.",
@@ -1892,8 +2214,56 @@
     "es": "¿Establecer el tiempo de preparación de {v0} en {v1} minutos? Es la mediana de {v2} medición de una unidad y reemplaza tu estimación de {v3} minutos."
   },
   {
+    "en": "{v0} Anything showing behind this is empty because the HUB could not load it — not because there is nothing there.",
+    "es": "{v0} Lo que aparece detrás está vacío porque el HUB no pudo cargarlo, no porque no haya datos."
+  },
+  {
+    "en": "Checkout outcome could not be confirmed. Reload the quote list or recover the saved draft before retrying. {v0}",
+    "es": "No se pudo confirmar el resultado del enlace de pago. Recarga las cotizaciones o recupera el borrador guardado antes de reintentar. {v0}"
+  },
+  {
+    "en": "Save not verified. Your edits remain here. {v0} Reload saved data before retrying a conflicting revision.",
+    "es": "Guardado sin verificar. Tus cambios siguen aquí. {v0} Recarga los datos guardados antes de reintentar una revisión en conflicto."
+  },
+  {
+    "en": "{v0} characters (~{v1} with the opt-out line). Over 160 sends as multiple segments and is billed per segment.",
+    "es": "{v0} caracteres (~{v1} con la línea para cancelar la suscripción). Más de 160 se envían en varios segmentos y se cobra por segmento."
+  },
+  {
+    "en": "{v0}. Outcome not verified. Check or retry this same request; no duplicate generation will be requested.",
+    "es": "{v0}. Resultado sin verificar. Consulta o reintenta esta misma solicitud; no se solicitará una generación duplicada."
+  },
+  {
+    "en": "Unverified · {v0} · Provider receipt: {v1} · {v2}. Provider accepted; delivery and reading are not verified.",
+    "es": "Sin verificar · {v0} · Comprobante del proveedor: {v1} · {v2}. El proveedor aceptó el envío; entrega y lectura sin verificar."
+  },
+  {
+    "en": "Send outcome not verified. Refresh history before taking another action. · Provider receipt: {v0} · {v1}",
+    "es": "Resultado del envío sin verificar. Actualiza el historial antes de otra acción. · Comprobante del proveedor: {v0} · {v1}"
+  },
+  {
+    "en": "Unverified · {v0} · Provider receipt: {v1}. Provider acceptance does not establish delivery or reading.",
+    "es": "Sin verificar · {v0} · Comprobante del proveedor: {v1}. La aceptación del proveedor no confirma entrega ni lectura."
+  },
+  {
     "en": "Refund {v0} (partial) through Square now? This moves real money and cannot be undone from the HUB.",
     "es": "¿Reembolsar ahora {v0} (parcialmente) a través de Square? Esto mueve dinero real y no puede deshacerse desde el HUB."
+  },
+  {
+    "en": "Unverified · {v0} · Provider receipt: {v1}. Provider accepted; delivery and reading are not verified.",
+    "es": "Sin verificar · {v0} · Comprobante del proveedor: {v1}. El proveedor aceptó el envío; entrega y lectura sin verificar."
+  },
+  {
+    "en": "Unverified · Provider receipt: {v0} · {v1}. Provider accepted; delivery and reading are not verified.",
+    "es": "Sin verificar · Comprobante del proveedor: {v0} · {v1}. El proveedor aceptó el envío; entrega y lectura sin verificar."
+  },
+  {
+    "en": "Send outcome not verified. Refresh history before taking another action. · Provider receipt: {v0}",
+    "es": "Resultado del envío sin verificar. Actualiza el historial antes de otra acción. · Comprobante del proveedor: {v0}"
+  },
+  {
+    "en": "Saved outcome not verified: {v0}. No new generation was requested; check this same request again.",
+    "es": "Resultado guardado sin verificar: {v0}. No se solicitó una generación nueva; consulta de nuevo esta misma solicitud."
   },
   {
     "en": "{v0} dish price(s) change. Orders from the next head count on are billed at the new price. Save?",
@@ -1904,8 +2274,20 @@
     "es": "¿Programar la publicación automática para {v0}? Se publicará en el perfil público sin volver a preguntar."
   },
   {
+    "en": "Unverified · Provider receipt: {v0}. Provider acceptance does not establish delivery or reading.",
+    "es": "Sin verificar · Comprobante del proveedor: {v0}. La aceptación del proveedor no confirma entrega ni lectura."
+  },
+  {
     "en": "Refund {v0} (full) through Square now? This moves real money and cannot be undone from the HUB.",
     "es": "¿Reembolsar ahora {v0} (totalmente) a través de Square? Esto mueve dinero real y no puede deshacerse desde el HUB."
+  },
+  {
+    "en": "The email provider accepted this message · receipt {v0}. Delivery and reading are not verified.",
+    "es": "El proveedor de correo aceptó este mensaje · comprobante {v0}. Entrega y lectura sin verificar."
+  },
+  {
+    "en": "{v0} shown of {v1} loaded photos. Search covers loaded photos only; use Load more for older photos.",
+    "es": "Se muestran {v0} de {v1} fotos cargadas. La búsqueda incluye solo las fotos cargadas; usa «Cargar más» para las anteriores."
   },
   {
     "en": "Let {v0} posts schedule themselves once the audit clears them? You can turn this off any time.",
@@ -1914,6 +2296,34 @@
   {
     "en": "Mark {v0} as \"{v1}\"? It stays on the site but nobody can order it, starting within about a minute.",
     "es": "¿Marcar {v0} como «{v1}»? Permanecerá en el sitio, pero nadie podrá pedirlo, con efecto en aproximadamente un minuto."
+  },
+  {
+    "en": "Unverified · Provider receipt: {v0}. Provider accepted; delivery and reading are not verified.",
+    "es": "Sin verificar · Comprobante del proveedor: {v0}. El proveedor aceptó el envío; entrega y lectura sin verificar."
+  },
+  {
+    "en": "{v0} unsaved caption change(s). Save changes before leaving; the saved campaign is unchanged.",
+    "es": "{v0} cambio(s) de texto sin guardar. Guarda antes de salir; la campaña guardada no cambió."
+  },
+  {
+    "en": "Menu unavailable. Retry by reloading this page, or use an explicitly priced custom line. {v0}",
+    "es": "Menú no disponible. Recarga esta página o usa un concepto personalizado con precio explícito. {v0}"
+  },
+  {
+    "en": "Current kitchen standard: owner-approved v{v0}. Further edits remain drafts until approved.",
+    "es": "Estándar actual de cocina: versión {v0} aprobada por el propietario. Las nuevas ediciones siguen siendo borradores hasta aprobarse."
+  },
+  {
+    "en": "Resend accepted the branded email · receipt {v0}. Delivery and reading are not verified.",
+    "es": "Resend aceptó el correo de Añejo · comprobante {v0}. Entrega y lectura sin verificar."
+  },
+  {
+    "en": "Checkout exists, but the draft link is unconfirmed. Do not create another checkout. {v0}",
+    "es": "El enlace de pago existe, pero su relación con el borrador no está confirmada. No crees otro enlace de pago. {v0}"
+  },
+  {
+    "en": "Instagram processed the saved media. Nothing was published or scheduled. Container: {v0}",
+    "es": "Instagram procesó los archivos guardados. No se publicó ni programó nada. Contenedor: {v0}"
   },
   {
     "en": "{v0} bowl(s) are not checked — they will be flagged missing to the kitchen. Continue?",
@@ -1936,6 +2346,10 @@
     "es": "¿Establecer el tiempo de preparación de {v0} en {v1} minutos? Es la mediana de {v2} mediciones de una unidad."
   },
   {
+    "en": "Revision was not saved: {v0}. Correct the wording or list lengths and save again.",
+    "es": "No se guardó la revisión: {v0}. Corrige el texto o la cantidad de elementos de las listas y vuelve a guardar."
+  },
+  {
     "en": "Set {v0}’s prep time to {v1} minutes? That is the median of {v2} timing of a single one.",
     "es": "¿Establecer el tiempo de preparación de {v0} en {v1} minutos? Es la mediana de {v2} medición de una unidad."
   },
@@ -1948,12 +2362,56 @@
     "es": "¿Confirmar estas condiciones? Estimación mensual: {v0}. Editarlas después retirará su confirmación."
   },
   {
+    "en": "Unverified · {v0} · {v1}. Provider accepted; delivery and reading are not verified.",
+    "es": "Sin verificar · {v0} · {v1}. El proveedor aceptó el envío; entrega y lectura sin verificar."
+  },
+  {
+    "en": "Send outcome not verified. Refresh history before taking another action. · {v0}",
+    "es": "Resultado del envío sin verificar. Actualiza el historial antes de otra acción. · {v0}"
+  },
+  {
+    "en": "Unverified · {v0}. Provider acceptance does not establish delivery or reading.",
+    "es": "Sin verificar · {v0}. La aceptación del proveedor no confirma entrega ni lectura."
+  },
+  {
     "en": "Change {v0} from {v1} to {v2}? This is what customers are charged on the next order.",
     "es": "¿Cambiar el precio de {v0} de {v1} a {v2}? Este será el importe que se cobrará al cliente en el próximo pedido."
   },
   {
+    "en": "Unverified · {v0}. Provider accepted; delivery and reading are not verified.",
+    "es": "Sin verificar · {v0}. El proveedor aceptó el envío; entrega y lectura sin verificar."
+  },
+  {
+    "en": "Unverified · {v0} · Provider receipt: {v1} · {v2}. No provider acceptance verified.",
+    "es": "Sin verificar · {v0} · Comprobante del proveedor: {v1} · {v2}. No se verificó la aceptación del proveedor."
+  },
+  {
     "en": "Confirm the full {v0} for invoice {v1} was received. Reference: {v2}. Mark paid?",
     "es": "Confirma que se recibió el importe completo de {v0} para la factura {v1}. Referencia: {v2}. ¿Marcar como pagada?"
+  },
+  {
+    "en": "Unverified · {v0} · Provider receipt: {v1}. No provider acceptance verified.",
+    "es": "Sin verificar · {v0} · Comprobante del proveedor: {v1}. No se verificó la aceptación del proveedor."
+  },
+  {
+    "en": "Unverified · Provider receipt: {v0} · {v1}. No provider acceptance verified.",
+    "es": "Sin verificar · Comprobante del proveedor: {v0} · {v1}. No se verificó la aceptación del proveedor."
+  },
+  {
+    "en": "{v0} Showing saved history only. New approvals and sends stay disabled.",
+    "es": "{v0} Se muestra solo el historial guardado. Las nuevas aprobaciones y los envíos siguen desactivados."
+  },
+  {
+    "en": "Cannot approve this email: {v0} Use Review / send this quote to retry.",
+    "es": "No se puede aprobar este correo: {v0} Usa «Revisar o enviar esta cotización» para reintentar."
+  },
+  {
+    "en": "Unverified · Provider receipt: {v0}. No provider acceptance verified.",
+    "es": "Sin verificar · Comprobante del proveedor: {v0}. No se verificó la aceptación del proveedor."
+  },
+  {
+    "en": "Send outcome unconfirmed. Check message history before retrying. {v0}",
+    "es": "Resultado del envío sin confirmar. Consulta el historial de mensajes antes de reintentar. {v0}"
   },
   {
     "en": "Weeks after week {v0} have {v1} dish(es). Saving removes them. Continue?",
@@ -1962,6 +2420,14 @@
   {
     "en": "Delete the template “{v0}”? Campaigns already sent are not affected.",
     "es": "¿Eliminar la plantilla «{v0}»? No afecta las campañas ya enviadas."
+  },
+  {
+    "en": "{v0} Do not create another checkout until the quote list is checked.",
+    "es": "{v0} No crees otro enlace de pago hasta revisar la lista de cotizaciones."
+  },
+  {
+    "en": "Opened saved draft · version {v0}. No checkout or message created.",
+    "es": "Borrador guardado abierto · versión {v0}. No se creó enlace de pago ni mensaje."
   },
   {
     "en": "Approve {v0} to be charged automatically to this account’s card?",
@@ -1976,6 +2442,22 @@
     "es": "¿Quitar la tarifa por hora de {v0}? Este cambio queda registrado."
   },
   {
+    "en": "Unsent reviewed text retained (not sent by this request): {v0}",
+    "es": "Se conservó el texto revisado sin enviar (esta solicitud no lo envió): {v0}"
+  },
+  {
+    "en": "Draft saved · version {v0}. No checkout created; nothing sent.",
+    "es": "Borrador guardado · versión {v0}. No se creó enlace de pago ni se envió nada."
+  },
+  {
+    "en": "Preview unavailable: {v0} Retry the preview before continuing.",
+    "es": "Vista previa no disponible: {v0} Vuelve a cargarla antes de continuar."
+  },
+  {
+    "en": "{v0} dates added to this unsaved draft. Review before saving.",
+    "es": "Se agregaron {v0} fechas a este borrador sin guardar. Revisa antes de guardar."
+  },
+  {
     "en": "Auto-build and offer the most efficient routes for {v0} now?",
     "es": "¿Crear y ofrecer ahora las rutas más eficientes para {v0}?"
   },
@@ -1988,24 +2470,144 @@
     "es": "¿Restablecer el PIN de {v0}? Configurará uno nuevo al volver a iniciar sesión."
   },
   {
+    "en": "{v0} callback request · {v1} with saved calendar verification.",
+    "es": "{v0} solicitud de llamada · {v1} con verificación guardada del calendario."
+  },
+  {
+    "en": "Only {v0} day(s) with activity — too few to plot a trend.",
+    "es": "Solo hay {v0} día(s) con actividad; no bastan para trazar una tendencia."
+  },
+  {
+    "en": "{v0} Nothing was sent. The saved activity is shown below.",
+    "es": "{v0} No se envió nada. La actividad guardada aparece abajo."
+  },
+  {
+    "en": "Saved revision {v0}. Public menu now uses these settings.",
+    "es": "Revisión {v0} guardada. El menú público ya usa estos ajustes."
+  },
+  {
+    "en": "last {v0} days · people who did real work · humans only",
+    "es": "Últimos {v0} días · personas que hicieron trabajo real · solo humanos"
+  },
+  {
+    "en": "Enter a whole finished quantity between zero and {v0}.",
+    "es": "Ingresa una cantidad entera de productos terminados entre cero y {v0}."
+  },
+  {
+    "en": "Unverified · {v0} · {v1}. No provider acceptance verified.",
+    "es": "Sin verificar · {v0} · {v1}. No se verificó la aceptación del proveedor."
+  },
+  {
+    "en": "{v0} characters. A blank line starts a new paragraph.",
+    "es": "{v0} caracteres. Una línea vacía inicia un párrafo nuevo."
+  },
+  {
+    "en": "Daily active staff · peak {v0} · {v1} days with activity",
+    "es": "Personal activo por día · máximo {v0} · {v1} días con actividad"
+  },
+  {
     "en": "Check or retry the same reviewed request for {v0}? {v1}",
     "es": "¿Consultar o reintentar la misma solicitud revisada para {v0}? {v1}"
+  },
+  {
+    "en": "Unverified · {v0}. No provider acceptance verified.",
+    "es": "Sin verificar · {v0}. No se verificó la aceptación del proveedor."
+  },
+  {
+    "en": "{v0} of {v1} items shown · Unsaved edits stay visible.",
+    "es": "Se muestran {v0} de {v1} artículos · Los cambios sin guardar siguen visibles."
+  },
+  {
+    "en": "{v0} Refresh to verify the saved automation state.",
+    "es": "{v0} Actualiza para verificar el estado guardado de la automatización."
+  },
+  {
+    "en": "Not saved. Reload the review before retrying. {v0}",
+    "es": "No se guardó. Recarga la revisión antes de reintentar. {v0}"
+  },
+  {
+    "en": "{v0} lines · {v1} · {v2} still needs a name and a price",
+    "es": "{v0} conceptos · {v1} · a {v2} todavía le falta nombre y precio"
   },
   {
     "en": "Deactivate {v0}? They lose access immediately.",
     "es": "¿Desactivar a {v0}? Perderá el acceso inmediatamente."
   },
   {
+    "en": "{v0} line · {v1} · {v2} still needs a name and a price",
+    "es": "{v0} concepto · {v1} · a {v2} todavía le falta nombre y precio"
+  },
+  {
     "en": "Send this text to the catering customer? {v0}",
     "es": "¿Enviar este texto al cliente de catering? {v0}"
+  },
+  {
+    "en": "{v0} Nothing was sent by opening this screen.",
+    "es": "{v0} Abrir esta pantalla no envió nada."
+  },
+  {
+    "en": "Food {v0} + delivery / setup {v1} = quote total {v2}.",
+    "es": "Comida {v0} + entrega y montaje {v1} = total de la cotización {v2}."
+  },
+  {
+    "en": "{v0} / {v1} loaded posts · publicaciones cargadas",
+    "es": "{v0} / {v1} publicaciones cargadas"
+  },
+  {
+    "en": "{v0} rows · {v1} new · {v2} already known · {v3} contacts{v4}{v5}",
+    "es": "{v0} filas · {v1} nuevas · {v2} ya conocidas · {v3} contactos{v4}{v5}"
+  },
+  {
+    "en": "Enter a valid non-negative value for {v0}.",
+    "es": "Ingresa un valor válido y no negativo para {v0}."
+  },
+  {
+    "en": "{v0} loaded — {v1} data row(s). Press Import.",
+    "es": "{v0} cargado — {v1} filas de datos. Pulsa Importar."
+  },
+  {
+    "en": "Enabled for requests received after {v0}",
+    "es": "Activado para solicitudes recibidas después de {v0}"
+  },
+  {
+    "en": "last {v0} days · first-party, cookieless",
+    "es": "últimos {v0} días · datos propios, sin cookies"
+  },
+  {
+    "en": "{v0} pieces · optional +{v1} · not included",
+    "es": "{v0} piezas · opcional +{v1} · no incluido"
+  },
+  {
+    "en": "{v0} enrolled{v1} — drafts are in Approvals",
+    "es": "{v0} inscritos{v1} — los borradores están en Aprobaciones"
   },
   {
     "en": "Replace the message below with “{v0}”?",
     "es": "¿Reemplazar el mensaje de abajo por «{v0}»?"
   },
   {
+    "en": "{v0} Your current edits remain here.",
+    "es": "{v0} Tus cambios actuales siguen aquí."
+  },
+  {
+    "en": "Done — {v0} sent, {v1} failed, {v2} skipped.",
+    "es": "Finalizado: {v0} enviados, {v1} fallidos, {v2} omitidos."
+  },
+  {
+    "en": "{v0} eligible batch task(s) queued.",
+    "es": "Se pusieron en cola {v0} tarea(s) de lote elegibles."
+  },
+  {
     "en": "“{v0}” already exists. Replace it?",
     "es": "«{v0}» ya existe. ¿Reemplazarlo?"
+  },
+  {
+    "en": "Saved proposals unavailable: {v0}",
+    "es": "Propuestas guardadas no disponibles: {v0}"
+  },
+  {
+    "en": "{v0} of {v1} planned items · {v2} days · {v3}",
+    "es": "{v0} de {v1} elementos planificados · {v2} días · {v3}"
   },
   {
     "en": "Send this exact text as a {v0}? {v1}",
@@ -2020,16 +2622,184 @@
     "es": "¿Descartar {v0} cambios sin guardar?"
   },
   {
+    "en": "{v0} follow-ups due · refreshed {v1}",
+    "es": "{v0} seguimientos pendientes · actualizado {v1}"
+  },
+  {
     "en": "Throw away {v0} unsaved change?",
     "es": "¿Descartar {v0} cambio sin guardar?"
+  },
+  {
+    "en": "Actual branded Añejo {v0} email",
+    "es": "Correo real de Añejo: {v0}"
+  },
+  {
+    "en": "Needs Dayan confirmation: {v0}",
+    "es": "Necesita confirmación de Dayan: {v0}"
+  },
+  {
+    "en": "Show {v0} saved audit details",
+    "es": "Mostrar {v0} detalles guardados de auditoría"
+  },
+  {
+    "en": "Loose box · {v0} · {v1} pieces · {v2}",
+    "es": "Caja sin montaje · {v0} · {v1} piezas · {v2}"
+  },
+  {
+    "en": "Nothing needed doing. — {v0}",
+    "es": "No había nada pendiente. — {v0}"
+  },
+  {
+    "en": "{v0} {v1} branded email preview",
+    "es": "Vista previa de correo de Añejo: {v0} {v1}"
+  },
+  {
+    "en": "Loaded saved revision {v0}.",
+    "es": "Se cargó la revisión guardada {v0}."
+  },
+  {
+    "en": "Platter · {v0} · {v1} pieces · {v2}",
+    "es": "Bandeja · {v0} · {v1} piezas · {v2}"
+  },
+  {
+    "en": "Sending… {v0} sent, {v1} to go.",
+    "es": "Enviando… {v0} enviados, {v1} pendientes."
+  },
+  {
+    "en": "Current {v0} label artwork",
+    "es": "Diseño actual de etiqueta {v0}"
+  },
+  {
+    "en": "Backup created · {v0} rows",
+    "es": "Respaldo creado · {v0} filas"
+  },
+  {
+    "en": "{v0} of {v1} shown · {v2} selected",
+    "es": "Se muestran {v0} de {v1} · {v2} seleccionados"
+  },
+  {
+    "en": "{v0} · delivery unverified",
+    "es": "{v0} · entrega sin verificar"
+  },
+  {
+    "en": "Staff member created. {v0}",
+    "es": "Miembro del personal creado. {v0}"
+  },
+  {
+    "en": "{v0} No request was sent.",
+    "es": "{v0} No se envió ninguna solicitud."
+  },
+  {
+    "en": "{v0} — one item per line",
+    "es": "{v0} · un elemento por línea"
   },
   {
     "en": "Email invoice {v0} to {v1}?",
     "es": "¿Enviar por correo la factura {v0} a {v1}?"
   },
   {
+    "en": "1 unsaved change — {v0}",
+    "es": "1 cambio sin guardar — {v0}"
+  },
+  {
+    "en": "{v0} unsaved changes — {v1}",
+    "es": "{v0} cambios sin guardar — {v1}"
+  },
+  {
     "en": "Mark {v0} as paid to {v1}?",
     "es": "¿Marcar {v0} como pagado a {v1}?"
+  },
+  {
+    "en": "{v0} Nothing was sent.",
+    "es": "{v0} No se envió nada."
+  },
+  {
+    "en": "👥 Who can order ({v0})",
+    "es": "👥 Quién puede pedir ({v0})"
+  },
+  {
+    "en": "Saved {v0}, failed {v1}: {v2}",
+    "es": "Guardados {v0}, fallidos {v1}: {v2}"
+  },
+  {
+    "en": "{v0} (email not sent)",
+    "es": "{v0} (correo sin enviar)"
+  },
+  {
+    "en": "now {v0} · not saved",
+    "es": "ahora {v0} · sin guardar"
+  },
+  {
+    "en": "Persona creada. {v0}",
+    "es": "Persona creada. {v0}"
+  },
+  {
+    "en": "{v0} photos loaded.",
+    "es": "Se cargaron {v0} fotos."
+  },
+  {
+    "en": "Submitted for {v0}",
+    "es": "Enviado para {v0}"
+  },
+  {
+    "en": "🔔 {v0} new orders!",
+    "es": "🔔 ¡{v0} pedidos nuevos!"
+  },
+  {
+    "en": "🔔 {v0} new order!",
+    "es": "🔔 ¡{v0} pedido nuevo!"
+  },
+  {
+    "en": "{v0} KB of HTML.",
+    "es": "{v0} KB de HTML."
+  },
+  {
+    "en": "Saved all {v0}.",
+    "es": "Se guardaron los {v0}."
+  },
+  {
+    "en": "saving 0/{v0}…",
+    "es": "guardando 0/{v0}…"
+  },
+  {
+    "en": "Subject: {v0}",
+    "es": "Asunto: {v0}"
+  },
+  {
+    "en": "{v0} lines · {v1}",
+    "es": "{v0} conceptos · {v1}"
+  },
+  {
+    "en": "saving {v0}{v1}/{v2}…",
+    "es": "guardando {v0}{v1}/{v2}…"
+  },
+  {
+    "en": "{v0} approved{v1}",
+    "es": "{v0} aprobados{v1}"
+  },
+  {
+    "en": "{v0} line · {v1}",
+    "es": "{v0} concepto · {v1}"
+  },
+  {
+    "en": "Saved · {v0}",
+    "es": "Guardado · {v0}"
+  },
+  {
+    "en": "To: {v0} · {v1}",
+    "es": "Para: {v0} · {v1}"
+  },
+  {
+    "en": "Refund {v0}",
+    "es": "Reembolsar {v0}"
+  },
+  {
+    "en": "To: {v0}",
+    "es": "Para: {v0}"
+  },
+  {
+    "en": "now {v0}",
+    "es": "ahora {v0}"
   }
 ];
   if (window.AnejoI18n && typeof window.AnejoI18n.extend === "function") window.AnejoI18n.extend(boundaryDictionary);
