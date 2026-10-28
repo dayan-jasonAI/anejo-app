@@ -13,6 +13,17 @@
   };
   function lang() { return window.AnejoLang && window.AnejoLang.get() === 'es' ? 'es' : 'en'; }
   function text(key) { return copy[key][lang() === 'es' ? 1 : 0]; }
+  var gapNames = {
+    name:['Recipe name','Nombre de la receta'], portion:['Ready-to-serve portion','Porción lista para servir'], yield_unit:['Yield unit','Unidad de rendimiento'],
+    cook_temperature:['Cook temperature and doneness','Temperatura y punto de cocción'], holding:['Holding and service','Conservación para el servicio'], cooling_reheating:['Cooling and reheating','Enfriamiento y recalentamiento'],
+    storage:['Storage','Almacenamiento'], shelf_life:['Shelf life','Vida útil'], allergens:['Allergens and cross-contact','Alérgenos y contacto cruzado'], packaging:['Packaging and plating','Envases y presentación'], source_reference:['Verified source','Fuente verificada'],
+    yield_count:['Batch yield count','Cantidad de porciones por lote'], prep_minutes:['Preparation minutes','Minutos de preparación'], cook_minutes:['Cooking minutes','Minutos de cocción'], ingredients:['Ingredients','Ingredientes'], steps:['Method steps','Pasos de preparación'], equipment:['Equipment','Equipo'], photos:['Reference photos','Fotos de referencia'], unresolved_unknowns:['Unresolved questions','Preguntas pendientes'], catalog_unit_mapping:['Menu unit conversions','Conversión de unidades del menú']
+  };
+  function gapLabel(key) {
+    var es = lang() === 'es', match = /^ingredient_(\d+)_quantity_unit_basis$/.exec(String(key));
+    if (match) return (es ? 'Ingrediente ' : 'Ingredient ') + match[1] + (es ? ': cantidad, unidad y tipo de peso' : ': quantity, unit and weight basis');
+    return gapNames[key] ? gapNames[key][es ? 1 : 0] : (es ? 'Requisito no reconocido: ' : 'Unrecognized requirement: ') + key;
+  }
   function esc(value) { return String(value == null ? '' : value).replace(/[&<>"']/g, function (c) { return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
   function query(path, locale) { return path + (path.indexOf('?') < 0 ? '?' : '&') + 'lang=' + (locale || lang()); }
   function lines(items, ordered) {
@@ -37,5 +48,5 @@
   var style = document.createElement('style');
   style.textContent = '.reading-edition{border-left:3px solid var(--gold,#b69b49);padding:12px 16px;background:var(--cream,#f8f5ea);margin:16px 0;overflow-wrap:anywhere}.reading-content{max-width:72ch;line-height:1.65}.reading-content li{margin-bottom:8px}.reading-content ul,.reading-content ol{padding-left:24px}.reading-source summary{min-height:44px;cursor:pointer;display:flex;align-items:center}.reading-source{margin:16px 0}.reading-edition h3{margin-top:8px}';
   document.head.appendChild(style);
-  window.AnejoReadingEdition = {lang:lang,text:text,query:query,html:html,gate:gate};
+  window.AnejoReadingEdition = {lang:lang,text:text,query:query,html:html,gate:gate,gapLabel:gapLabel};
 })();

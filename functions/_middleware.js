@@ -1,3 +1,5 @@
+import {LANGUAGE_ASSET_REVISION} from './_lib/language_asset_version.js';
+
 // Top-level Pages middleware — runs on EVERY request. Two jobs:
 //   1) Canonical host: 301 www → apex (Pages serves the same build on all hosts; _redirects can't
 //      match hosts). Preview *.pages.dev + apex pass through.
@@ -57,7 +59,7 @@ export async function onRequest(context) {
     },
   }).on('head', {
     element(element) {
-      element.append('<script src="/assets/js/i18n.js?v=20261027-bilingual-r2" charset="utf-8" data-anejo-language-bootstrap></script>', { html: true });
+      element.append('<script src="/assets/js/i18n.js?v=' + LANGUAGE_ASSET_REVISION + '" charset="utf-8" data-anejo-language-bootstrap></script>', { html: true });
     },
   }).transform(response);
 }
