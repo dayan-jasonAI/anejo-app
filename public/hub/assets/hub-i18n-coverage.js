@@ -2814,6 +2814,7 @@
   // Authored HTML fragments and populated record labels; stored customer text is never translated.
   var fragmentDictionary = {
   "A customer": "Un cliente",
+  "The library could not be loaded.": "No se pudo cargar la biblioteca.",
   "Provider accepted; local receipt needs reconciliation": "Aceptado por el proveedor; el comprobante local necesita conciliación",
   "Text accepted by provider; delivery unverified": "Texto aceptado por el proveedor; entrega sin verificar",
   "A saved prep request belongs to another signed-in operator. Reconcile it before starting again.": "Una solicitud de preparación guardada pertenece a otro operador con sesión iniciada. Concíliala antes de volver a empezar.",

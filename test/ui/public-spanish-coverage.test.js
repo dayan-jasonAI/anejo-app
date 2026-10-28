@@ -64,10 +64,11 @@ test('inverse-only source aliases register and static public text has no unresol
   } } });
   assert.equal(aliases['Solicita cotización'], 'Request a quote');
   assert.equal(aliases['Palm Beach County'], 'Palm Beach County');
+  assert.equal(aliases.English, 'English', 'English remains a canonical source endonym on Spanish-page language controls');
   const audit = await buildAudit();
   assert.deepEqual(audit.staticTextAudit.englishTextNotMatchedToDictionary.strings, []);
   assert.deepEqual(audit.staticTextAudit.spanishTextNotMatchedToInverseDictionary.strings, []);
-  assert.equal(audit.staticTextAudit.dictionaryCounts.inverseOnlyAliases, 6);
+  assert.equal(audit.staticTextAudit.dictionaryCounts.inverseOnlyAliases, 7);
   assert.ok(audit.staticTextAudit.pairedRouteAnalysis.authoredSourcePairs.length >= 640);
   assert.ok(audit.staticTextAudit.pairedRouteAnalysis.authoredSourcePairs.every(pair => pair.routes.length && pair.paths.length),
     'source-paired translations should retain route and DOM-path evidence');

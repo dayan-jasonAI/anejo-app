@@ -1857,6 +1857,7 @@
 
   // Authored Spanish source variants that require inverse-only aliases.
   var esAliases = {
+  "English": "English", // Endonym authored on Spanish-page language selectors.
   "Saltar al contenido": "Skip to content",
   "Solicita cotización": "Request a quote",
   "Cada bowl Añejo es hecho por chef, nunca congelado, porcionado a tus metas de macros y entregado fresco en todo Palm Beach County — de lunes a sábado, almuerzo o cena.": "Every Añejo bowl is chef-made, never frozen, portioned to your macro goals, and delivered fresh across Palm Beach County — Monday through Saturday, lunch or dinner.",

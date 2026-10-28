@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import vm from 'node:vm';
 import { randomUUID } from 'node:crypto';
 import { readFileSync } from 'node:fs';
+const cateringI18n=readFileSync(new URL('../../public/hub/assets/catering-i18n.js',import.meta.url),'utf8');
 const html=readFileSync(new URL('../../public/hub/owner/catering.html',import.meta.url),'utf8');
 const script=[...html.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/g)].map(x=>x[1]).find(x=>x.includes('Hub.boot'));
 const quote={id:'cq_synthetic',source_lead_id:'ld_synthetic',customer_name:'Synthetic Guest',customer_email:'guest@example.test',customer_phone:'',event_date:'2030-12-20',guests:35,lang:'en',deposit_status:'unpaid',total_cents:10000,updated_at:1000,quote_json:JSON.stringify({lead_id:'ld_synthetic',lines:[{name:'Synthetic tray',qty:'35',cents:9000,product_id:'catering_example-10'}],delivery_fee_cents:1000})};
@@ -31,11 +32,13 @@ function fixture(handler){
     for(const key of ['name','qty','price','reason']){values['.q-l-'+key]=new Element();values['.q-l-'+key].value=decode(match[1].match(new RegExp('class="q-l-'+key+'"[^>]*value="([^"]*)"'))?.[1]||'');}
     values['.q-l-override']=new Element();values['.q-l-override'].checked=/<input class="q-l-override"[^>]* checked/.test(match[1]);values['.q-line-rate']=new Element();for(const key of ['rate-cents','rate-qty'])row.attributes['data-'+key]=match[1].match(new RegExp('data-'+key+'="([^"]*)"'))?.[1]||'';row.querySelector=selector=>values[selector];return row;
   });}
-  const document={getElementById:get,querySelectorAll:selector=>selector==='#q-lines .q-line'?rows():selector.split(',').filter(x=>/^#q-[\w-]+$/.test(x)).map(x=>get(x.slice(1)))};
+  const document={addEventListener(){},getElementById:get,querySelectorAll:selector=>selector==='#q-lines .q-line'?rows():selector.split(',').filter(x=>/^#q-[\w-]+$/.test(x)).map(x=>get(x.slice(1)))};
   const Hub={boot(){},esc:value=>String(value??'').replace(/[&"<]/g,c=>({'&':'&amp;','"':'&quot;','<':'&lt;'}[c])),toast:text=>toasts.push(text),api:async(_url,options)=>{calls.push(options.body);if(handler)return handler(options.body);if(options.body.op==='revision_status')return {ok:true};if(options.body.op==='preview')return {ok:true,total_cents:10000,deposit_cents:5000,balance_cents:5000,deposit_pct:.5};if(options.body.op==='render')return {ok:true,subject:'Synthetic quote',html:'<p>Synthetic quote preview</p>'};return {ok:true,quote_id:'cq_synthetic_replacement',deposit_cents:5000};}};
-  const window={addEventListener(){},CateringI18n:{label:x=>x},location:{search:''},confirm:message=>{confirms.push(message);return true;}};
+  const window={addEventListener(){},location:{search:''},confirm:message=>{confirms.push(message);return true;}};
   const ctx=vm.createContext({Hub,Owner:{get:async()=>({ok:false}),money:c=>'$'+(Number(c||0)/100).toFixed(2),init(){}},window,document,URLSearchParams,console,setTimeout,clearTimeout,crypto:{randomUUID}});
   const hooked=script.replace("Owner.init('catering', render);", "loadRecommendations=function(){};window.testQuote={attachDraft:attachDraft,recoverDraft:recoverDraft,markEditorDirty:markEditorDirty,guardEditorSwitch:guardEditorSwitch,catalogLine:catalogLine,lineRowHtml:lineRowHtml,updateLinePricing:updateLinePricing,saveDraft:saveDraft,fillDraftPayload:fillDraftPayload,reviewSavedQuote:reviewSavedQuote,mountEmailPreview:mountEmailPreview,quoteCard:quoteCard,showSend:showSend,checkCheckoutStatus:checkCheckoutStatus,quoteListHtml:quoteListHtml,body:body,deliveryFee:deliveryFee,deliverySummary:deliverySummary,beginRevision:beginRevision,associatedQuotes:associatedQuotes,wireRequests:wireRequests,wireForm:wireForm,showExistingChoice:showExistingChoice,retire:reviewDuplicateRetirement,formHtml:formHtml,setQuotes:function(q){quoteCache=q;},setLead:function(id){leadId=id;}};");
+  // Exercise the same source-leaf renderer as the real page rather than a label-only mock.
+  vm.runInContext(cateringI18n,ctx);
   vm.runInContext(hooked,ctx);const api=window.testQuote;
   return {preview:async()=>{const pending=get('q-preview').listeners.click.call(get('q-preview'));await new Promise(resolve=>setImmediate(resolve));get('q-mail').querySelector('iframe').listeners.load?.();await pending;},get,calls,toasts,confirms,api,Element,tick:()=>new Promise(resolve=>setImmediate(resolve)),click:id=>get(id).listeners.click?.call(get(id)),wire:()=>api.wireForm()};
 }
@@ -232,4 +235,11 @@ test('preparing one draft locks its save controls but opening a fresh draft enab
  const f=fixture(b=>b.op==='save'?{ok:true,draft:{id:b.id,version:1,state:'draft'}}:b.op==='attach'?{ok:true,draft:{id:b.id,version:2,state:'prepared',quote_id:'cq_prepared'}}:{ok:true});f.get('q-name').value='Synthetic first draft';await f.api.saveDraft();await f.api.attachDraft('cq_prepared');assert.equal(f.get('q-save-draft').disabled,true);assert.equal(f.get('q-recover-draft').disabled,true);
  f.api.fillDraftPayload({customer_name:'Synthetic second draft',note:'Unfinished',lines:[]});assert.equal(f.get('q-save-draft').disabled,false);assert.equal(f.get('q-recover-draft').disabled,false);assert.equal(f.get('q-name').value,'Synthetic second draft');
  await f.api.beginRevision(clone(quote));assert.equal(f.get('q-save-draft').disabled,false);assert.equal(f.get('q-recover-draft').disabled,false);
+});
+
+test('the production source-leaf helper is exercised without translating customer text',()=>{
+ const f=fixture();const markup=f.api.quoteCard({...clone(quote),customer_name:'English <Guest> & "source"'});
+ assert.match(markup,/<span translate="no" data-catering-source>English &lt;Guest&gt; &amp; &quot;source&quot;<\/span>/);
+ assert.match(markup,/Delivery \/ setup:/,'UI labels remain outside protected customer source leaves');
+ assert.equal(f.calls.length,0);
 });
