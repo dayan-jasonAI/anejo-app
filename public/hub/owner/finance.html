@@ -139,6 +139,25 @@
   //   · the APPROVE button below is per-invoice and per-amount, and re-approval is required if
   //     the invoice total moves after it was approved.
   // Both default OFF and the page says so out loud, so nobody has to guess what state it is in.
+  function paymentSwitchCopy(which) {
+    var es = window.AnejoLang && window.AnejoLang.get() === 'es';
+    var copy = {
+      contracts: {
+        en: ['Enable automatic contract charges? Only approved invoice amounts may then be charged.', 'Automatic contract charges enabled', 'Automatic contract charges disabled'],
+        es: ['¿Activar los cobros automáticos de contratos? Solo podrán cobrarse los importes de facturas aprobados.', 'Cobros automáticos de contratos activados', 'Cobros automáticos de contratos desactivados']
+      },
+      payouts: {
+        en: ['Allow payouts to be marked paid? Each payout still needs its exact amount approved. This switch does not send money.', 'Payout recording enabled', 'Payout recording disabled'],
+        es: ['¿Permitir marcar pagos como realizados? Cada pago sigue necesitando la aprobación de su importe exacto. Este interruptor no envía dinero.', 'Registro de pagos activado', 'Registro de pagos desactivado']
+      },
+      card_capture: {
+        en: ['Allow clients to authorize a saved card? This does not charge the card.', 'Saved-card authorization enabled', 'Saved-card authorization disabled'],
+        es: ['¿Permitir que los clientes autoricen una tarjeta guardada? Esto no cobra a la tarjeta.', 'Autorización de tarjetas guardadas activada', 'Autorización de tarjetas guardadas desactivada']
+      }
+    };
+    return copy[which] ? copy[which][es ? 'es' : 'en'] : null;
+  }
+
   function autopayRender(d) {
     var el = document.getElementById('autopay'); if (!el) return;
     if (!d || !d.ok) { el.innerHTML = '<p class="row-sub" data-i18n>Could not load the automatic-payment switches.</p>'; return; }
@@ -239,10 +258,12 @@
       btn.addEventListener('click', function () {
         var which = btn.getAttribute('data-switch');
         var next = btn.getAttribute('data-next') === '1';
-        if (next && !window.confirm('Turn ' + which + ' automatic payments ON? Approved amounts will then be able to move money.')) return;
+        var copy = paymentSwitchCopy(which);
+        if (!copy) return;
+        if (next && !window.confirm(copy[0])) return;
         btn.disabled = true;
         Hub.api('/api/hub/owner/autopay', { method: 'POST', body: { op: 'set', which: which, on: next } }).then(function (r) {
-          if (r && r.ok) { Hub.toast(which + ' automatic payments ' + (next ? 'ON' : 'OFF')); autopayLoad(); }
+          if (r && r.ok) { Hub.toast(copy[next ? 1 : 2]); autopayLoad(); }
           else { btn.disabled = false; Hub.toast((r && r.error) || 'Could not change that switch'); }
         });
       });

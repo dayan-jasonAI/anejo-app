@@ -56,7 +56,8 @@
   // Same source of truth as the rest of the HUB chrome: the cook's own language toggle.
   var lang = 'en';
   try { lang = (window.AnejoLang ? window.AnejoLang.get() : localStorage.getItem('anejo:lang')) === 'es' ? 'es' : 'en'; } catch (e) { lang = 'en'; }
-  var T = lang === 'es' ? {
+  function textForLanguage(){
+    return lang === 'es' ? {
     headcount: 'personas', noCount: 'El centro aún no ha enviado el conteo', ordered: 'Conteo del centro',
     portion: 'Porción aprobada', ingredients: 'Ingredientes para', steps: 'Pasos', components: 'Lo que lleva cada bandeja',
     packTemp: 'Temp. al empacar (°F)', delTemp: 'Temp. al entregar (°F)', packed: 'Empacadas', save: 'Guardar',
@@ -69,6 +70,9 @@
     save: 'Save', saved: 'Saved', none: 'No program meals today.', allerg: 'Allergens', recipe: 'Recipe',
     hot: 'Hot 135°F or above · Cold 41°F or below', logged: 'Logged'
   };
+  }
+  var T = textForLanguage();
+  document.addEventListener('anejo:langchange',function(e){lang=e.detail && e.detail.lang==='es'?'es':'en';T=textForLanguage();});
   var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]; }); };
   var today = new Date().toISOString().slice(0, 10);
 

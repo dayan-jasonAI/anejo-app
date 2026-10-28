@@ -83,7 +83,7 @@
 
   function when(e) {
     if (!e.starts_at && !e.ends_at) return 'No dates — on until you switch it off.';
-    var f = function (ms) { return new Date(Number(ms)).toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }); };
+    var f = function (ms) { return new Date(Number(ms)).toLocaleString((typeof window !== 'undefined' && window.AnejoLang && window.AnejoLang.get() === 'es' ? 'es-US' : 'en-US'), { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }); };
     if (e.starts_at && e.ends_at) return f(e.starts_at) + ' → ' + f(e.ends_at);
     return e.starts_at ? 'From ' + f(e.starts_at) : 'Until ' + f(e.ends_at);
   }
@@ -246,7 +246,7 @@
             '<span class="tag ' + (l.published ? 'showing' : 'off') + '">' + (l.published ? 'Your version is live' : 'Shipped version') + '</span>' +
           '</div>' +
           '<div class="entry-when"><a href="' + esc(l.url) + '" target="_blank" rel="noopener">' + esc(l.url) + '</a>' +
-            (l.updated_at ? ' · edited ' + new Date(Number(l.updated_at)).toLocaleDateString() : '') + '</div>' +
+            (l.updated_at ? ' · edited ' + new Date(Number(l.updated_at)).toLocaleDateString((typeof window !== 'undefined' && window.AnejoLang && window.AnejoLang.get() === 'es' ? 'es-US' : 'en-US')) : '') + '</div>' +
           '<div class="form-row" style="margin-top:8px"><label>Page body (HTML)</label>' +
             '<textarea id="lg_' + esc(l.slug) + '" style="min-height:150px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12.5px">' + esc(l.body) + '</textarea>' +
             '<p class="hint">Headings, paragraphs and lists — &lt;h2&gt;, &lt;p&gt;, &lt;ul&gt;. The page title, table of contents and legal schema stay as they are; this replaces the document body.</p></div>' +

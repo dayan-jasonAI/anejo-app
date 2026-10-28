@@ -51,7 +51,7 @@
     lt.addEventListener('click', function () { var n = window.AnejoLang.get() === 'es' ? 'en' : 'es'; window.AnejoLang.set(n); lt.textContent = n === 'es' ? 'EN' : 'ES'; });
   }
   var esc = (window.Hub && Hub.esc) ? Hub.esc : function (s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]; }); };
-  function fmtDate(ms) { try { return new Date(Number(ms)).toLocaleDateString(); } catch (e) { return ''; } }
+  function fmtDate(ms) { try { return new Date(Number(ms)).toLocaleDateString((typeof window !== 'undefined' && window.AnejoLang && window.AnejoLang.get() === 'es' ? 'es-US' : 'en-US')); } catch (e) { return ''; } }
 
   function render(d) {
     var root = document.getElementById('owner-root');

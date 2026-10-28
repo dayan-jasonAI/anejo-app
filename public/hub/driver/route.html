@@ -223,7 +223,7 @@
   // Pay / miles / finish-time summary for a route (what the driver earns + scope of the job).
   function routePayLine(r) {
     if (!r) return '';
-    var clk = function (ms) { try { return new Date(Number(ms)).toLocaleTimeString('en-US', { timeZone: 'America/New_York', hour: 'numeric', minute: '2-digit' }); } catch (e) { return ''; } };
+    var clk = function (ms) { try { return new Date(Number(ms)).toLocaleTimeString((typeof window !== 'undefined' && window.AnejoLang && window.AnejoLang.get() === 'es' ? 'es-US' : 'en-US'), { timeZone: 'America/New_York', hour: 'numeric', minute: '2-digit' }); } catch (e) { return ''; } };
     var bits = [];
     if (r.pay_cents != null) bits.push('💵 $' + (Number(r.pay_cents) / 100).toFixed(2));
     if (r.stop_count != null) bits.push((r.stop_count) + ' stops');

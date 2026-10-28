@@ -150,10 +150,37 @@
     } catch (e) { /* private mode / storage disabled — the nav just repaints once */ }
   };
 
+  function seedStaffLanguage(data){
+    // Seed a first visit from the authenticated staff preference. A manual
+      // choice on this device wins, including a deliberate switch to English.
+      if (data && data.authenticated && window.AnejoLang) {
+        try {
+          var savedLanguage = window.localStorage.getItem('anejo:lang');
+          var staffLanguage = data.staff && data.staff.lang;
+          if (savedLanguage !== 'en' && savedLanguage !== 'es' && (staffLanguage === 'es' || staffLanguage === 'en')) window.AnejoLang.set(staffLanguage);
+        } catch (_) { /* storage unavailable: retain the current session choice */ }
+      }
+  }
+  document.addEventListener('anejo:i18nready',function(){seedStaffLanguage(Hub._me);});
+
   Hub.me = function () {
-    return Hub.api('/api/me').then(function (data) {
+    if (Hub._mePending) return Hub._mePending;
+    return Hub._mePending = Hub.api('/api/me').then(function (data) {
+      Hub._mePending = null;
       Hub._me = data;
+      seedStaffLanguage(data);
       Hub.rememberRole(data && data.authenticated ? Hub.roleFromMe(data) : null);
+      if (data && data.authenticated && Hub.roleFromMe(data) === 'owner' && !/\/operations-guide(?:\.html)?$/.test(location.pathname)) {
+        var mountPlaybook = function () {
+          if (window.AnejoOperatorPlaybooks) window.AnejoOperatorPlaybooks.mount({ role: 'owner', pathname: location.pathname });
+        };
+        if (window.AnejoOperatorPlaybooks) mountPlaybook();
+        else if (!document.getElementById('operator-playbooks-js')) {
+          var help = document.createElement('script');
+          help.id = 'operator-playbooks-js'; help.src = '/hub/assets/operator-playbooks.js?v=20261027';
+          help.onload = mountPlaybook; document.head.appendChild(help);
+        }
+      }
       return data;
     });
   };
@@ -759,6 +786,7 @@
 
   // Auto-mount the universal Account button + unread badge on any page that loads hub.js.
   function autoMount() {
+    if (!Hub._me) Hub.me();
     Hub.mountAccountButton();
     Hub.trainingGate();
     Hub.refreshUnreadBadge();

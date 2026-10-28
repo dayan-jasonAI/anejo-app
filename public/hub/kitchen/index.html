@@ -288,7 +288,7 @@
     if (shift) {
       var since = new Date(Number(shift.clock_in_at));
       $('#clock-status').textContent = 'Clocked in';
-      $('#clock-sub').textContent = 'Since ' + since.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      $('#clock-sub').textContent = 'Since ' + since.toLocaleTimeString((typeof window !== 'undefined' && window.AnejoLang && window.AnejoLang.get() === 'es' ? 'es-US' : 'en-US'), { hour: '2-digit', minute: '2-digit' });
       btn.textContent = 'Clock out';
       btn.className = 'btn ghost';
     } else {
@@ -884,7 +884,7 @@
   }
 
   // ---- Handed off today (cleared from the board) ----
-  function clk(ms) { try { return new Date(Number(ms)).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }); } catch (e) { return ''; } }
+  function clk(ms) { try { return new Date(Number(ms)).toLocaleTimeString((typeof window !== 'undefined' && window.AnejoLang && window.AnejoLang.get() === 'es' ? 'es-US' : 'en-US'), { hour: 'numeric', minute: '2-digit' }); } catch (e) { return ''; } }
   function renderCleared(list) {
     var sec = $('#cleared-section'), col = $('#col-cleared'), c = $('#c-cleared');
     if (!sec || !col) return;

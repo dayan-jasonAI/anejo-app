@@ -10,7 +10,7 @@
    - other static assets  → cache-first with background refresh.
    - web push             → encrypted event-specific payload, with legacy tickle fallback.
    Bump CACHE on shell changes to invalidate. */
-const CACHE = 'anejo-hub-v11';
+const CACHE = 'anejo-hub-v12';
 const PREFERENCES_CACHE = 'anejo-hub-preferences';
 const LANGUAGE_KEY = '/hub/__push-language';
 const SHELL = [
@@ -82,7 +82,9 @@ self.addEventListener('fetch', (event) => {
 
   // Executable Hub code and styles must not lag the API deployed with them.
   // A successful cache hit is offline fallback only, never the online winner.
-  if (url.origin === self.location.origin && url.pathname.startsWith('/hub/') && /\.(?:js|css)$/.test(url.pathname)) {
+  if (url.origin === self.location.origin &&
+      ((url.pathname.startsWith('/hub/') && /\.(?:js|css)$/.test(url.pathname)) ||
+       ['/assets/js/i18n.js', '/assets/js/public-i18n-coverage.js'].includes(url.pathname))) {
     event.respondWith(
       fetch(req, { cache: 'no-cache' }).then(async (res) => {
         if (res && res.ok && !res.redirected && res.type === 'basic') {

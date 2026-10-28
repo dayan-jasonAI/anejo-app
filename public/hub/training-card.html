@@ -107,7 +107,8 @@ var CARD={
 var lang='en';
 function qRole(){ try{ var m=/[?&]role=([a-z]+)/.exec(location.search); if(m && m[1]==='all') return 'all'; return m && CARD[m[1]] ? m[1] : 'kitchen'; }catch(e){ return 'kitchen'; } }
 var role=qRole();
-function setLang(l){ lang=l; document.getElementById('en').className=l==='en'?'on':''; document.getElementById('es').className=l==='es'?'on':''; document.querySelectorAll('[data-t]').forEach(function(el){ el.textContent=UI[el.getAttribute('data-t')][l]; }); render(); }
+document.addEventListener('anejo:langchange',function(e){var next=e.detail && e.detail.lang==='es'?'es':'en';if(next!==lang)setLang(next);});
+function setLang(l){ lang=l; if(window.AnejoLang && window.AnejoLang.get()!==l) window.AnejoLang.set(l); document.getElementById('en').className=l==='en'?'on':''; document.getElementById('es').className=l==='es'?'on':''; document.querySelectorAll('[data-t]').forEach(function(el){ el.textContent=UI[el.getAttribute('data-t')][l]; }); render(); }
 function cardHtml(rk){
   var c=CARD[rk];
   return '<div class="card"><div class="hd"><span class="brand">AÑEJO <b>·</b> HUB</span><span class="role">'+c.role[lang]+'</span></div>'+

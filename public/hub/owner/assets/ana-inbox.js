@@ -20,7 +20,7 @@
       return;
     }
     add(root, 'p', 'Saved drafts and reply receipts. This view does not send or enable automatic replies.');
-    add(root, 'p', 'Snapshot checked: ' + new Date().toLocaleString() + '. Latest 100 conversations and 200 reply attempts; this is not complete history.');
+    add(root, 'p', 'Snapshot checked: ' + new Date().toLocaleString((typeof window !== 'undefined' && window.AnejoLang && window.AnejoLang.get() === 'es' ? 'es-US' : 'en-US')) + '. Latest 100 conversations and 200 reply attempts; this is not complete history.');
     if (data.drafts_read_status !== 'available') add(root, 'p', 'Draft lookup unavailable; an empty list does not mean no pending drafts.');
     if (data.escalations_read_status !== 'available') add(root, 'p', 'Escalation lookup unavailable.');
     if (data.reply_attempt_history !== 'available') add(root, 'p', 'Reply receipts unavailable. Delivery cannot be verified here.');
@@ -36,7 +36,7 @@
       (thread.escalations || []).forEach(function (entry) { add(section, 'p', 'Needs review: ' + entry.body); });
       (thread.reply_attempts || []).forEach(function (attempt) {
         add(section, 'p', states[attempt.state] || 'Unrecognized reply state; outcome unverified.');
-        add(section, 'p', 'Receipt: ' + attempt.id + ' · ' + (attempt.completed_at || attempt.created_at ? new Date(attempt.completed_at || attempt.created_at).toLocaleString() : 'Time unavailable'));
+        add(section, 'p', 'Receipt: ' + attempt.id + ' · ' + (attempt.completed_at || attempt.created_at ? new Date(attempt.completed_at || attempt.created_at).toLocaleString((typeof window !== 'undefined' && window.AnejoLang && window.AnejoLang.get() === 'es' ? 'es-US' : 'en-US')) : 'Time unavailable'));
         if (attempt.provider_message_id) add(section, 'p', 'Provider reference: ' + attempt.provider_message_id);
         if (attempt.error_code) add(section, 'p', 'Recorded error: ' + attempt.error_code);
         if ((attempt.state === 'unknown' || attempt.state === 'claimed') && Number(attempt.has_acceptance_receipt) === 1) {

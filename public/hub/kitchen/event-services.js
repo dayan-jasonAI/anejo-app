@@ -16,7 +16,7 @@
    var visits=el('a','Commissary visits & monthly hours');visits.className='btn ghost';visits.href='/hub/kitchen/commissary.html?quote_id='+encodeURIComponent(qid);host.appendChild(visits);
    var c=section(host,'Kitchen reservation'),cv=r.calendar||{},booking=cv.reservation;
    c.appendChild(el('p','Plan future kitchen hours here. Record actual use in Commissary visits; the sign-in form does not reserve time.'));
-   c.appendChild(el('p',booking?'Hours: '+new Date(booking.start_at).toLocaleString()+' – '+new Date(booking.end_at).toLocaleTimeString()+' · '+booking.status.replaceAll('_',' '):'No kitchen hours reserved.'));
+   c.appendChild(el('p',booking?'Hours: '+new Date(booking.start_at).toLocaleString((typeof window !== 'undefined' && window.AnejoLang && window.AnejoLang.get() === 'es' ? 'es-US' : 'en-US'))+' – '+new Date(booking.end_at).toLocaleTimeString((typeof window !== 'undefined' && window.AnejoLang && window.AnejoLang.get() === 'es' ? 'es-US' : 'en-US'))+' · '+booking.status.replaceAll('_',' '):'No kitchen hours reserved.'));
    if(booking?.error)c.appendChild(el('p',booking.error));if(cv.reason)c.appendChild(el('p',cv.reason));
    var times=el('div');times.className='es-fields';c.appendChild(times);var start=field(times,'Start · your local time','datetime-local',local(booking?.start_at)),end=field(times,'Finish · your local time','datetime-local',local(booking?.end_at));
    if(pending.start!=null)start.value=pending.start;if(pending.end!=null)end.value=pending.end;
@@ -27,7 +27,7 @@
    if(r.owner&&booking?.status==='draft'){
     var approve=button('Approve & reserve kitchen',function(){save({op:'approve_hours',expected_version:booking.version},approve);});approve.disabled=!cv.ready||pending.start!=null||pending.end!=null;c.appendChild(approve);
    }
-   if(booking?.provider_verified_at)c.appendChild(el('small','Calendar readback saved '+new Date(booking.provider_verified_at).toLocaleString()));
+   if(booking?.provider_verified_at)c.appendChild(el('small','Calendar readback saved '+new Date(booking.provider_verified_at).toLocaleString((typeof window !== 'undefined' && window.AnejoLang && window.AnejoLang.get() === 'es' ? 'es-US' : 'en-US'))));
    if(r.owner){var config=section(c,'⋯ Calendar destination');config.appendChild(el('p','Use the calendar where the kitchen accepts reservations. A personal reminder does not reserve kitchen space.'));var target=field(config,'Kitchen calendar ID','text',cv.settings?.calendar_id);var dest=button('Confirm reservation destination',function(){save({op:'calendar_destination',calendar_id:target.value.trim(),confirm_destination:true},dest);});config.appendChild(dest);}
    var labels=section(host,'Labels & table signs'),ld=r.labels;
    labels.appendChild(el('p',ld?(ld.stale?'Label source or template changed · update draft':ld.approved_at?'Owner-reviewed · ready to print':'Draft ready · review layouts'):'Three bands per 11 × 17 sheet · 100 lb glossy. Avery rounds and standing signs use their own layouts.'));

@@ -196,7 +196,7 @@
 
   Owner.clock = function (ms) {
     if (!ms) return '';
-    try { return new Date(ms).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }); } catch (e) { return ''; }
+    try { return new Date(ms).toLocaleTimeString((typeof window !== 'undefined' && window.AnejoLang && window.AnejoLang.get() === 'es' ? 'es-US' : 'en-US'), { hour: 'numeric', minute: '2-digit' }); } catch (e) { return ''; }
   };
 
   // A stat tile (card.stat) for the overview grid.

@@ -12,7 +12,7 @@
   function dateTime(value) {
     if (!value) return '';
     var parsed = new Date(value);
-    return isNaN(parsed.getTime()) ? String(value) : parsed.toLocaleString();
+    return isNaN(parsed.getTime()) ? String(value) : parsed.toLocaleString((typeof window !== 'undefined' && window.AnejoLang && window.AnejoLang.get() === 'es' ? 'es-US' : 'en-US'));
   }
   function itemById(id) {
     return inventory.find(function (item) { return String(item.id) === String(id); });

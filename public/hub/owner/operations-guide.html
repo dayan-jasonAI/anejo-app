@@ -1,9 +1,9 @@
 <!doctype html>
-<html lang="en">
+<html lang="es">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Añejo Hub · Owner operations guide</title>
+<title>Añejo Hub · Guía de operaciones</title>
 <meta name="robots" content="noindex">
 <meta name="theme-color" content="#1b3a2b">
 <link rel="manifest" href="/hub/manifest.webmanifest">
@@ -51,18 +51,18 @@
 @media(prefers-reduced-motion:reduce){*,*:before,*:after{scroll-behavior:auto!important;transition:none!important;animation:none!important}}
 </style>
 </head>
-<body>
+<body data-i18n-local-only>
 <div class="hub-bar">
   <h1>AÑEJO · HUB</h1>
-  <div class="hub-bar-actions"><button id="lang-toggle" type="button" aria-label="Change language">ES</button></div>
+  <div class="hub-bar-actions"><button id="lang-toggle" type="button" aria-label="Cambiar idioma a inglés">EN</button></div>
 </div>
 <main id="owner-root" class="hub-wrap guide" aria-live="polite">
-  <p class="hub-loading" data-i18n>Loading owner guide…</p>
+  <p class="hub-loading">Cargando guía de operaciones…</p><noscript>Activa JavaScript para abrir la guía y verificar tu acceso.</noscript>
 </main>
-<nav id="owner-nav" class="hub-nav" aria-label="Owner navigation"></nav>
+<nav id="owner-nav" class="hub-nav" aria-label="Navegación de dueña"></nav>
 <script src="/assets/js/i18n.js"></script>
 <script src="/hub/assets/hub.js"></script>
 <script src="/hub/owner/assets/owner.js"></script>
-<script src="/hub/owner/assets/operations-guide.js?v=2"></script>
+<script src="/hub/assets/operator-playbooks.js?v=1"></script>
 </body>
 </html>

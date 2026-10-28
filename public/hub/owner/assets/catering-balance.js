@@ -20,7 +20,7 @@
   function evidence(result){
     var host=byId('q-collection-history'),history=result.history||[];host.textContent='';
     if(!history.length){var empty=document.createElement('li');empty.textContent='No reminder send evidence recorded.';host.appendChild(empty);}
-    history.forEach(function(record){var li=document.createElement('li');li.textContent=String(record.status||'Unverified')+(record.sent_at?' · '+new Date(record.sent_at).toLocaleString():'')+(record.receipt_id?' · Provider receipt: '+record.receipt_id:'')+(record.error?' · '+record.error:'')+'. '+(record.provider_accepted?'Provider accepted; delivery and reading are not verified.':'No provider acceptance verified.');host.appendChild(li);});
+    history.forEach(function(record){var li=document.createElement('li');li.textContent=String(record.status||'Unverified')+(record.sent_at?' · '+new Date(record.sent_at).toLocaleString((typeof window !== 'undefined' && window.AnejoLang && window.AnejoLang.get() === 'es' ? 'es-US' : 'en-US')):'')+(record.receipt_id?' · Provider receipt: '+record.receipt_id:'')+(record.error?' · '+record.error:'')+'. '+(record.provider_accepted?'Provider accepted; delivery and reading are not verified.':'No provider acceptance verified.');host.appendChild(li);});
   }
   function renderContext(result){
     var q=result.quote||{},d=result.draft||{},host=byId('q-collection-context');host.textContent='';

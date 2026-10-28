@@ -529,7 +529,7 @@
       var m = roster.filter(function (s) { return s.id === r.target_staff_id; })[0];
       who = ' · ' + Hub.esc(m ? (m.name || m.id) : r.target_staff_id);
     }
-    var due = r.due_at ? new Date(r.due_at).toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : '';
+    var due = r.due_at ? new Date(r.due_at).toLocaleString((typeof window !== 'undefined' && window.AnejoLang && window.AnejoLang.get() === 'es' ? 'es-US' : 'en-US'), { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : '';
     return '<div class="row"><div class="row-main">' +
       '<div class="row-title">' + Hub.esc(r.title || r.reminder_type) + '</div>' +
       '<div class="row-sub">' + Hub.esc(r.team || '') + who + ' · ' + Hub.esc(r.reminder_type || '') + (due ? ' · ' + due : '') + '</div></div>' +

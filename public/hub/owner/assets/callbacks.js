@@ -14,10 +14,10 @@
     var target=document.getElementById('requests');target.replaceChildren();
     r.requests.forEach(function(row){
       var card=document.createElement('article');card.className='callback-card';
-      var when=new Date(row.requested_start_at).toLocaleString('en-US',{timeZone:'America/New_York',weekday:'long',month:'short',day:'numeric',year:'numeric',hour:'numeric',minute:'2-digit'});
+      var when=new Date(row.requested_start_at).toLocaleString((typeof window !== 'undefined' && window.AnejoLang && window.AnejoLang.get() === 'es' ? 'es-US' : 'en-US'),{timeZone:'America/New_York',weekday:'long',month:'short',day:'numeric',year:'numeric',hour:'numeric',minute:'2-digit'});
       var evidence=row.calendar_evidence||{state:row.status==='canceled'?'canceled':'requested',jobs:[]};
       var state=evidence.state==='confirmed'?'Confirmed · saved Google receipt':evidence.state==='canceled'?'Request canceled':evidence.state==='needs_review'?'Needs review':'Awaiting confirmation';
-      var receipt=evidence.verified_at?'<p class="callback-note">Google event verified '+esc(new Date(evidence.verified_at).toLocaleString('en-US',{timeZone:'America/New_York'}))+' Eastern · '+esc(evidence.event_id)+'</p>':'';
+      var receipt=evidence.verified_at?'<p class="callback-note">Google event verified '+esc(new Date(evidence.verified_at).toLocaleString((typeof window !== 'undefined' && window.AnejoLang && window.AnejoLang.get() === 'es' ? 'es-US' : 'en-US'),{timeZone:'America/New_York'}))+' Eastern · '+esc(evidence.event_id)+'</p>':'';
       if(evidence.state==='canceled'&&row.calendar_event_id)receipt+='<p class="callback-note">Customer messages are stopped. Review the existing Google event separately; canceling this request does not remove that event.</p>';
       if(evidence.reason&&evidence.reason!=='matching_provider_readback')receipt+='<p class="callback-note">Calendar: '+esc(evidence.reason.replaceAll('_',' '))+'.</p>';
       (evidence.jobs||[]).filter(function(j){return j.kind!=='calendar';}).forEach(function(j){receipt+='<p class="callback-note">'+esc(j.kind)+': '+esc(j.status==='accepted'?'Provider accepted · delivery unverified':j.status.replaceAll('_',' '))+(j.last_error?' · '+esc(j.last_error.replaceAll('_',' ')):'')+'</p>';});

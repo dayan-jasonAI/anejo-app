@@ -576,8 +576,8 @@
       invs.map(function (v) {
         // paid_at/sent_at only exist once migrations/0046 is applied; until then the status
         // word alone carries the state, exactly as it did before.
-        var when = v.paid_at ? ' ' + new Date(v.paid_at).toLocaleDateString()
-          : (v.sent_at ? ' ' + new Date(v.sent_at).toLocaleDateString() : '');
+        var when = v.paid_at ? ' ' + new Date(v.paid_at).toLocaleDateString((typeof window !== 'undefined' && window.AnejoLang && window.AnejoLang.get() === 'es' ? 'es-US' : 'en-US'))
+          : (v.sent_at ? ' ' + new Date(v.sent_at).toLocaleDateString((typeof window !== 'undefined' && window.AnejoLang && window.AnejoLang.get() === 'es' ? 'es-US' : 'en-US')) : '');
         // Void is the "edit" for a wrongly-scoped invoice: not open/sent already-paid money, just
         // release the days so the owner can re-generate the right range. Refused server-side once
         // status is 'paid' (see voidInvoice in contracts.js) — the button just never appears there.
@@ -609,7 +609,7 @@
     if (!devices || !devices.length) return '';
     var active = devices.filter(function (d) { return !d.revoked; }).length;
     var rows = devices.map(function (dv) {
-      var last = dv.last_used_at ? new Date(dv.last_used_at).toLocaleDateString() : '—';
+      var last = dv.last_used_at ? new Date(dv.last_used_at).toLocaleDateString((typeof window !== 'undefined' && window.AnejoLang && window.AnejoLang.get() === 'es' ? 'es-US' : 'en-US')) : '—';
       return '<div class="dev' + (dv.revoked ? ' rev' : '') + '"><span>📱 ' + esc(dv.contact_name || '—') +
         ' <span class="row-sub">' + esc(dv.phone_hint || '') + ' · last ' + esc(last) + '</span></span>' +
         (dv.revoked ? '<span class="row-sub">revoked</span>' : '<button class="rvk" onclick="__revoke(\'' + aid + '\',\'' + dv.id + '\')">Revoke</button>') + '</div>';
@@ -647,7 +647,7 @@
         var was = before[k];
         return (TERM_LABEL[k] || k) + ' ' + (was === undefined || was === null ? '' : fmt(was) + ' → ') + fmt(after[k]);
       }).join(' · '));
-      var when = e.created_at ? new Date(e.created_at).toLocaleDateString() : '';
+      var when = e.created_at ? new Date(e.created_at).toLocaleDateString((typeof window !== 'undefined' && window.AnejoLang && window.AnejoLang.get() === 'es' ? 'es-US' : 'en-US')) : '';
       return '<div class="evrow"><span>' + esc(names[e.site_id] || e.site_id || 'all sites') + ' · <b>' + esc(e.event) + '</b> ' +
         '<span class="row-sub">' + esc(diffs) + (e.note ? ' — ' + esc(e.note) : '') + '</span></span>' +
         '<span class="row-sub">' + esc(e.changed_by || '') + ' · ' + esc(when) + '</span></div>';
@@ -748,7 +748,7 @@
     if (!h) return '';
     var closed = (h.settings && h.settings.kitchen_closed) || [];
     var day = function (iso) {
-      return new Date(iso + 'T12:00:00Z').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', timeZone: 'UTC' });
+      return new Date(iso + 'T12:00:00Z').toLocaleDateString((typeof window !== 'undefined' && window.AnejoLang && window.AnejoLang.get() === 'es' ? 'es-US' : 'en-US'), { weekday: 'short', month: 'short', day: 'numeric', timeZone: 'UTC' });
     };
 
     var gaps = (h.sites || []).filter(function (x) { return x.email !== 'site' || x.sms !== 'ok'; });
@@ -846,7 +846,7 @@
     return (Math.floor(d / 7) % Math.max(1, weeks)) + 1;
   }
   function shortDate(iso) {
-    return new Date(iso + 'T12:00:00Z').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', timeZone: 'UTC' });
+    return new Date(iso + 'T12:00:00Z').toLocaleDateString((typeof window !== 'undefined' && window.AnejoLang && window.AnejoLang.get() === 'es' ? 'es-US' : 'en-US'), { weekday: 'short', month: 'short', day: 'numeric', timeZone: 'UTC' });
   }
 
   function menuBlock(aid) {
