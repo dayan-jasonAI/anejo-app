@@ -1,4 +1,4 @@
-/* global URL, console, process, document, AnejoLang, AnejoI18n */
+/* global URL, console, process, document, window, AnejoLang, AnejoI18n */
 /* Owned synthetic UI only: no client sessions, live database or provider calls. */
 const { chromium } = require('playwright');
 const fs=require('node:fs'),http=require('node:http'),path=require('node:path'),assert=require('node:assert/strict');
