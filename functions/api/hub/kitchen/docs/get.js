@@ -5,6 +5,7 @@ import { requireRole } from '../../../../_lib/roles.js';
 import { capture } from '../../../../_lib/track.js';
 import {getApprovedRecipeAuthority} from '../../../../_lib/recipe_authority.js';
 import { parseJson } from '../../../../_lib/hub.js';
+import { requestedReadingLocale, documentReadingEdition, legacyRecipeReadingEdition } from '../../../../_lib/localized_operating_content.js';
 
 function visibleTo(doc, role) {
   const scope = parseJson(doc.role_scope, null);
@@ -18,6 +19,7 @@ export const onRequestGet = async ({ request, env }) => {
   if (ctx instanceof Response) return ctx;
 
   const url = new URL(request.url);
+  const locale = requestedReadingLocale(request);
   const docId = (url.searchParams.get('id') || '').trim();
   if (!docId) return bad('Missing doc id.');
 
@@ -38,8 +40,11 @@ export const onRequestGet = async ({ request, env }) => {
         nutrition: parseJson(r.nutrition, null),
         tags: parseJson(r.tags, []),
       };
+      if (locale === 'es') recipe.reading_edition_es = await legacyRecipeReadingEdition(env, r.id, locale);
     }
   }
+
+  const reading_edition_es = locale === 'es' ? await documentReadingEdition(env, doc, locale) : null;
 
   await capture(env, {
     event: 'doc.viewed',
@@ -54,5 +59,6 @@ export const onRequestGet = async ({ request, env }) => {
       image_key: doc.image_key || null,
     },
     recipe,
+    ...(reading_edition_es ? { reading_edition_es } : {}),
   });
 };

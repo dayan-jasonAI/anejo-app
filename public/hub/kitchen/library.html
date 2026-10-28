@@ -10,12 +10,12 @@
 <link rel="stylesheet" href="/hub/assets/hub.css">
 <style>
   .type-tabs { display:flex; flex-wrap:wrap; gap:8px; margin-bottom:12px; }
-  .type-tabs button { padding:7px 12px; font-size:12px; border:1px solid var(--line); background:var(--white); border-radius:20px; cursor:pointer; color:var(--green); }
+  .type-tabs button { min-height:44px; padding:7px 12px; font-size:12px; border:1px solid var(--line); background:var(--white); border-radius:20px; cursor:pointer; color:var(--green); }
   .type-tabs button.active { background:var(--green); color:var(--cream); border-color:var(--green); }
   .doc-body { white-space:pre-wrap; line-height:1.55; }
   .recipe-block h3 { margin:14px 0 6px; font-size:14px; text-transform:uppercase; letter-spacing:1px; color:var(--muted); }
   .recipe-block ul, .recipe-block ol { margin-left:18px; }
-  .back-link { background:none;border:none;color:var(--green);cursor:pointer;font:inherit;padding:0;margin-bottom:10px; }
+  .back-link { min-height:44px; background:none;border:none;color:var(--green);cursor:pointer;font:inherit;padding:0;margin-bottom:10px; }
 </style>
 </head>
 <body>
@@ -49,29 +49,36 @@
 <script src="/assets/js/i18n.js"></script>
 <script src="/hub/assets/hub.js?v=c3d57860437f"></script>
 <script src="/hub/kitchen/kitchen.js?v=951474384cda"></script>
+<script src="/hub/assets/reading-edition.js"></script>
 <script>
 (function () {
   var Hub = window.Hub, K = window.Kitchen, $ = Hub.$, esc = Hub.esc;
-  var activeType = '', q = '';
+  var activeType = '', q = '', currentDoc = null, ready = false;
+  var reading = window.AnejoReadingEdition, listGate = reading.gate(), docGate = reading.gate();
 
   function load() {
-    var params = [];
+    var token = listGate.next();
+    var params = ['lang=' + reading.lang()];
+    $('#docs').setAttribute('aria-busy', 'true');
     if (activeType) params.push('type=' + encodeURIComponent(activeType));
     if (q) params.push('q=' + encodeURIComponent(q));
     var qs = params.length ? ('?' + params.join('&')) : '';
     K.get('/api/hub/kitchen/docs/list' + qs).then(function (d) {
-      var docs = (d && d.docs) || [];
+      if (!listGate.current(token)) return;
+      $('#docs').setAttribute('aria-busy', 'false');
+      if (!d || !Array.isArray(d.docs)) { $('#docs').textContent = reading.lang() === 'es' ? 'No se pudo cargar la biblioteca.' : 'The library could not be loaded.'; return; }
+      var docs = d.docs || [];
       $('#docs').innerHTML = docs.length ? docs.map(function (doc) {
-        return '<div class="row" data-open="' + esc(doc.id) + '" style="cursor:pointer">' +
-          '<div class="row-main"><div class="row-title">' + esc(doc.title) + '</div>' +
+        return '<button type="button" class="row" data-open="' + esc(doc.id) + '" style="cursor:pointer;width:100%;text-align:left;min-height:44px">' +
+          '<div class="row-main"><div class="row-title" translate="no">' + esc(doc.title) + '</div>' +
           '<div class="row-sub">' + esc(doc.doc_type) + ' · v' + (doc.version || 1) + '</div></div>' +
-          '<span class="badge">›</span></div>';
+          '<span class="badge" aria-hidden="true">›</span></button>';
       }).join('') : '<div class="hub-empty" data-i18n>No documents found.</div>';
       Array.prototype.forEach.call(document.querySelectorAll('[data-open]'), function (r) {
         r.addEventListener('click', function () { openDoc(r.getAttribute('data-open')); });
       });
       if (window.AnejoI18n) window.AnejoI18n.refresh();
-    });
+    }).catch(function () { if (listGate.current(token)) { $('#docs').setAttribute('aria-busy', 'false'); $('#docs').textContent = reading.lang() === 'es' ? 'No se pudo cargar la biblioteca.' : 'The library could not be loaded.'; } });
   }
 
   function recipeHtml(r) {
@@ -87,27 +94,31 @@
       [['equipment','Equipment'],['cook_temperature','Cooking & doneness'],['holding','Holding/service'],['cooling_reheating','Cooling/reheating'],['storage','Storage'],['shelf_life','Shelf life'],['allergens','Allergens'],['packaging','Packaging & plating'],['source_reference','Verified source'],['training_media','Training media']].forEach(function(pair){var v=standard[pair[0]];details+='<h3>'+pair[1]+'</h3><div class="doc-body">'+esc(Array.isArray(v)?v.join('\n'):v||'Not supplied')+'</div>';});
       details+='<div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:15px">'+standard.photos.map(function(url){return '<img src="'+esc(url)+'" alt="Approved recipe reference" style="max-width:180px;height:auto">';}).join('')+'</div>';
     }
-    return '<div class="recipe-block"><p class="row-sub">'+(authority?'Owner-approved recipe v'+esc(authority.version)+' · '+esc(new Date(authority.approved_at).toLocaleDateString((typeof window !== 'undefined' && window.AnejoLang && window.AnejoLang.get() === 'es' ? 'es-US' : 'en-US'))):'Unconfirmed legacy reference — Needs Dayan confirmation. Publication alone is not owner approval.')+'</p><a href="/hub/kitchen/recipes.html?recipe_id='+encodeURIComponent(r.id)+'">Open recipe standard / Revisar receta</a>' + details +
+    return '<div class="recipe-block" translate="no" lang="en"><p class="row-sub">'+(authority?'Owner-approved recipe v'+esc(authority.version)+' · '+esc(new Date(authority.approved_at).toLocaleDateString((typeof window !== 'undefined' && window.AnejoLang && window.AnejoLang.get() === 'es' ? 'es-US' : 'en-US'))):'Unconfirmed legacy reference — Needs Dayan confirmation. Publication alone is not owner approval.')+'</p><a href="/hub/kitchen/recipes.html?recipe_id='+encodeURIComponent(r.id)+'">Open recipe standard / Revisar receta</a>' + details +
       (ing ? '<h3>Ingredients</h3><ul>' + ing + '</ul>' : '') +
       (steps ? '<h3>Steps</h3><ol>' + steps + '</ol>' : '') + nut + '</div>';
   }
 
-  function openDoc(id) {
-    K.get('/api/hub/kitchen/docs/get?id=' + encodeURIComponent(id)).then(function (d) {
-      if (!d || !d.doc) return K.fail(d, 'Could not open doc.');
-      var doc = d.doc;
-      $('#doc-card').innerHTML = '<h2 style="margin-bottom:4px">' + esc(doc.title) + '</h2>' +
-        '<div class="row-sub" style="margin-bottom:12px">' + esc(doc.doc_type) + ' · v' + (doc.version || 1) + '</div>' +
-        (doc.image_key ? '<img src="' + esc(doc.image_key) + '" alt="" style="max-width:100%;border-radius:10px;margin-bottom:12px" />' : '') +
-        (doc.body ? '<div class="doc-body">' + esc(doc.body) + '</div>' : '') +
-        recipeHtml(d.recipe);
-      $('#list-view').hidden = true;
-      $('#doc-view').hidden = false;
-      window.scrollTo(0, 0);
-    });
+  function openDoc(id, keepPosition) {
+    currentDoc = id;
+    var token = docGate.next(), locale = reading.lang();
+    $('#list-view').hidden = true;
+    $('#doc-view').hidden = false;
+    $('#doc-card').innerHTML = reading.html(null, 'loading');
+    K.get(reading.query('/api/hub/kitchen/docs/get?id=' + encodeURIComponent(id), locale)).then(function (d) {
+      if (!docGate.current(token) || currentDoc !== id || locale !== reading.lang()) return;
+      if (!d || !d.doc) { $('#doc-card').innerHTML = reading.html(null, 'failed'); return; }
+      var doc = d.doc, edition = d.reading_edition_es;
+      var source = (doc.image_key ? '<img src="' + esc(doc.image_key) + '" alt="" style="max-width:100%;border-radius:10px;margin-bottom:12px" />' : '') +
+        (doc.body ? '<div class="doc-body" translate="no" lang="en">' + esc(doc.body) + '</div>' : '') + recipeHtml(d.recipe);
+      $('#doc-card').innerHTML = '<h2 style="margin-bottom:4px" translate="no">' + esc(locale === 'es' && edition && edition.status === 'current' && edition.title ? edition.title : doc.title) + '</h2>' +
+        '<div class="row-sub" style="margin-bottom:12px">' + esc(doc.doc_type) + ' · v' + esc(doc.version || 1) + '</div>' +
+        (locale === 'es' ? reading.html(edition) + (d.recipe ? reading.html(d.recipe.reading_edition_es) + '<p translate="no" lang="es">' + (d.recipe.authority ? 'Aprobación de la fuente: versión ' + esc(d.recipe.authority.version) + ' aprobada por el propietario.' : 'Referencia heredada sin confirmación. Se necesita confirmación de Dayan; la traducción no es una aprobación.') + '</p>' : '') + '<details class="reading-source"><summary>' + esc(reading.text('source')) + '</summary>' + source + '</details>' : source);
+      if (!keepPosition) window.scrollTo(0, 0);
+    }).catch(function () { if (docGate.current(token)) $('#doc-card').innerHTML = reading.html(null, 'failed'); });
   }
 
-  $('#back').addEventListener('click', function () { $('#doc-view').hidden = true; $('#list-view').hidden = false; });
+  $('#back').addEventListener('click', function () { currentDoc = null; docGate.next(); $('#doc-view').hidden = true; $('#list-view').hidden = false; });
 
   var searchT;
   $('#search').addEventListener('input', function () {
@@ -129,7 +140,8 @@
     lt.addEventListener('click', function () { var n = window.AnejoLang.get() === 'es' ? 'en' : 'es'; window.AnejoLang.set(n); lt.textContent = n === 'es' ? 'EN' : 'ES'; });
   }
 
-  K.boot('library', function () { load(); });
+  document.addEventListener('anejo:langchange', function () { if (!ready) return; load(); if (currentDoc) openDoc(currentDoc, true); });
+  K.boot('library', function () { ready = true; load(); });
 })();
 </script>
 </body>

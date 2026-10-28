@@ -69,7 +69,7 @@ test('Only canonical menu choices translate; custom menu text remains unchanged 
   const f = fixture(); f.change('es');
   assert.match(f.api.menu('Cuban Food, Individual Cajitas'), /Comida cubana/);
   assert.match(f.api.menu('Cuban Food, Individual Cajitas'), /Cajitas individuales/);
-  assert.equal(f.api.menu('Customer lunch <special>'), 'Customer lunch &lt;special&gt;');
+  assert.equal(f.api.menu('Customer lunch <special>'), '<span translate="no" data-catering-source>Customer lunch &lt;special&gt;</span>');
 });
 
 test('Language changes update only dedicated text nodes, preserving open details and form state', () => {
@@ -99,7 +99,9 @@ test('Summary markup escapes user text and opts out of remote translation', () =
 
 test('Kitchen page uses the website language toggle and keeps private request data local', () => {
   assert.match(kitchen, /<body data-i18n-local-only>/);
-  assert.match(kitchen, /id="app"[^>]*translate="no"/);
+  assert.doesNotMatch(kitchen, /id="app"[^>]*translate="no"/);
+  assert.match(kitchen, /C.source\(r.dietary_needs\)/);
+  assert.match(kitchen, /C.source\(r.event_details\)/);
   assert.match(kitchen, /id="lang-toggle"/);
   assert.match(kitchen, /\/assets\/js\/i18n.js/);
   assert.match(kitchen, /anejo:langchange',render/);
@@ -108,10 +110,18 @@ test('Kitchen page uses the website language toggle and keeps private request da
 });
 
 test('Owner requests retain original customer copy and protect attachments from automatic translation', () => {
-  assert.match(owner, /<article translate="no" class="rcard/);
+  assert.doesNotMatch(owner, /<article translate="no" class="rcard/);
+  assert.match(owner, /C.source\(r.name\)/);
+  assert.match(owner, /C.source\(r.company\)/);
+  assert.match(owner, /<pre translate="no" class="original-request-source"/);
   assert.match(owner, /C.label\('Original request \(as submitted\)'\)/);
   assert.match(owner, /C.summaryHtml\(r.cajita_configuration,r.cajita_summary\)/);
-  assert.match(owner, /C.label\('Preview'\) \+ ' ' \+ esc\(file.filename\)/);
-  assert.match(owner, /C.label\('Download'\) \+ ' ' \+ esc\(file.filename\)/);
+  assert.match(owner, /C.label\('Preview'\) \+ ' ' \+ C.source\(file.filename\)/);
+  assert.match(owner, /C.label\('Download'\) \+ ' ' \+ C.source\(file.filename\)/);
   assert.doesNotMatch(owner, /addEventListener\('anejo:langchange',\s*render/);
+});
+
+test('Source leaf markup escapes user text and retains it outside translation APIs', () => {
+  const {api} = fixture();
+  assert.equal(api.source('English <b> & "quoted"'), '<span translate="no" data-catering-source>English &lt;b&gt; &amp; &quot;quoted&quot;</span>');
 });

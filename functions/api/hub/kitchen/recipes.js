@@ -4,11 +4,12 @@ import {json,bad} from '../../../_lib/util.js';
 import {requireRole} from '../../../_lib/roles.js';
 import {putMedia} from '../../../_lib/media.js';
 import {recipeAuthorityMatrix,recipeRevisionView,createRecipeIdentity,saveRecipeRevision,submitRecipeRevision,approveRecipeRevision} from '../../../_lib/recipe_authority.js';
+import {requestedReadingLocale,legacyRecipeReadingEdition} from '../../../_lib/localized_operating_content.js';
 export const onRequestGet=async({request,env})=>{
  const ctx=await requireRole(request,env,['owner','kitchen']);if(ctx instanceof Response)return ctx;
  try{
-  const recipeId=new URL(request.url).searchParams.get('id');
-  if(recipeId){const view=await recipeRevisionView(env,recipeId);return view?json({ok:true,actor_role:ctx.role,...view}):bad('Recipe not found.',404);}
+  const url=new URL(request.url),recipeId=url.searchParams.get('id'),locale=requestedReadingLocale(request);
+  if(recipeId){const view=await recipeRevisionView(env,recipeId);if(!view)return bad('Recipe not found.',404);const reading_edition_es=locale==='es'?await legacyRecipeReadingEdition(env,recipeId,locale):undefined;return json({ok:true,actor_role:ctx.role,...view,...(reading_edition_es?{reading_edition_es}:{})});}
   return json({ok:true,actor_role:ctx.role,...await recipeAuthorityMatrix(env)});
  }catch{return bad('Recipe records unavailable. No empty or approved state can be inferred.',503);}
 };

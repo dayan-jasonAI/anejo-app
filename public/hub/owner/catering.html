@@ -38,7 +38,7 @@
   .q-catalog,.q-drafts{padding:16px;background:var(--cream);border:1px solid var(--line);border-radius:12px;margin:16px 0}.q-catalog-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,240px),1fr));gap:12px;margin-top:12px}.q-catalog-item{display:grid;grid-template-columns:68px minmax(0,1fr);gap:12px;background:#fff;padding:12px;border-radius:10px;border:1px solid var(--line)}.q-catalog-item img{width:68px;height:68px;object-fit:contain}.q-catalog-item button{min-height:44px;width:100%;margin-top:8px}.q-catalog-item small{display:block;line-height:1.5}.q-line label{display:block;font-size:13px;font-weight:650}.q-line-options{grid-column:1/-1;display:grid;gap:6px;padding:8px 0 12px;border-bottom:1px solid var(--line)}.q-line-options input[type=checkbox]{width:auto;min-width:24px!important}.q-line-options small{line-height:1.5;font-weight:400}.q-draft-row{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0}.q-draft-row button{min-height:44px}.q-review-check{display:flex;gap:12px;align-items:center;padding:14px;background:var(--cream)}.q-review-check input{width:24px;height:24px}.q-preview-failure{color:#7a2418}.q-plain-preview{white-space:pre-wrap;overflow-wrap:anywhere}.q-line input{min-height:44px}@media(max-width:560px){.q-line{grid-template-columns:minmax(0,1fr) minmax(0,1fr) 44px}.q-line>label:first-child{grid-column:1/-1}.q-line-options{grid-column:1/-1}.split .s{padding:8px}.split .s b{display:block}.q-drafts,.q-catalog{padding:12px}}
   .q-balance-tile{display:block;text-align:left;width:100%;min-height:115px;padding:20px;border:1px solid var(--gold);border-left:5px solid var(--gold);border-radius:12px;background:#fff;color:var(--green);cursor:pointer;font:inherit}.q-balance-tile strong{display:block;font-size:28px;line-height:1.2}.q-balance-tile span{display:block;margin-top:8px;font-size:13px;line-height:1.5}.q-due-section{scroll-margin-top:90px}.q-due-section:focus{outline:3px solid var(--gold);outline-offset:5px}.q-due-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr));gap:14px}.q-due-card{border:1px solid var(--line);border-top:4px solid var(--gold);border-radius:12px;padding:18px;background:#fff;overflow-wrap:anywhere}.q-due-card h3{font:600 25px/1.2 Georgia,serif;color:var(--green);margin:0 0 10px}.q-due-amount{font:700 30px/1.2 Georgia,serif;color:var(--green);margin:12px 0}.q-due-card .btn{min-height:48px;white-space:normal}.q-payment-links{display:flex;gap:10px;flex-wrap:wrap;margin:10px 0}.q-payment-links .btn{width:auto;flex:1;min-width:140px}.q-balance-note{padding:12px;background:var(--cream);border-radius:8px;line-height:1.6}.q-collection-dialog{width:min(860px,calc(100% - 24px));max-height:92vh;max-height:92dvh;overflow:auto;padding:clamp(16px,3vw,28px);border:1px solid var(--line);border-radius:16px;background:var(--cream);color:var(--green)}.q-collection-dialog::backdrop{background:rgba(12,32,22,.72)}.q-collection-top{position:sticky;top:0;z-index:2;background:var(--cream);padding-bottom:12px;display:flex;gap:14px;justify-content:space-between;align-items:center}.q-collection-top h2{font:600 28px/1.15 Georgia,serif;margin:0}.q-collection-dialog .btn{min-height:44px;width:auto;white-space:normal}.q-collection-dialog p,.q-collection-history{line-height:1.6;overflow-wrap:anywhere}.q-collection-dialog iframe{display:block;width:100%;height:460px;max-height:52vh;background:#fff;border:1px solid var(--line);border-radius:10px}.q-collection-dialog label{font-size:16px;display:flex;align-items:flex-start;gap:12px;padding:16px 0;line-height:1.5}.q-collection-dialog input[type=checkbox]{width:22px;height:22px;flex:0 0 auto;margin-top:2px}.q-collection-dialog [hidden]{display:none!important}.q-collection-dialog pre{white-space:pre-wrap;overflow-wrap:anywhere;font:inherit}.q-collection-dialog button:disabled{opacity:.55;cursor:not-allowed}.q-collection-history{padding-left:20px}.q-collection-links{display:flex;gap:12px;flex-wrap:wrap;margin:14px 0}.q-collection-links a{min-height:44px;display:flex;align-items:center}.q-collection-dialog summary{min-height:44px;padding:10px 0;cursor:pointer}button:focus-visible,a:focus-visible,input:focus-visible{outline:3px solid var(--gold);outline-offset:3px}
 .q-collection-dialog .q-message-field{display:block;font-weight:700}.q-message-field input,.q-message-field textarea{display:block;width:100%;min-height:44px;padding:12px;margin-top:8px;border:1px solid var(--line);border-radius:8px;background:#fff;font:inherit;color:var(--green)}
-</style>
+.original-request-source{white-space:pre-wrap;overflow-wrap:anywhere;font:inherit;margin:8px 0}</style>
 </head>
 <body>
 <div class="hub-bar">
@@ -54,7 +54,7 @@
 <nav id="owner-nav" class="hub-nav"></nav>
 
 <script src="/assets/js/i18n.js"></script>
-<script src="/hub/assets/catering-i18n.js"></script>
+<script src="/hub/assets/catering-i18n.js?v=8738cc4e1c93"></script>
 <script src="/hub/assets/hub.js?v=c3d57860437f"></script>
 <script src="/hub/owner/assets/owner.js"></script>
 <script src="/hub/owner/assets/catering-balance.js?v=20261024-collection1"></script>
@@ -95,7 +95,7 @@
   async function guardEditorSwitch(){return !editorDirty||await confirmOwnerAction('Unsaved quote changes','Your unsaved edits will be replaced. Save a draft first if you want to keep them. No checkout or message will be created.','Discard unsaved edits');}
   window.addEventListener('beforeunload',function(event){if(editorDirty){event.preventDefault();event.returnValue='';}});
   function mountEmailPreview(host,mail,current){
-    host.innerHTML='<p><b>Subject:</b> '+esc(mail.subject||'Quote')+'</p><iframe sandbox="" title="The email she would receive" style="width:100%;height:65vh;background:white;border:1px solid var(--line);border-radius:10px"></iframe><p class="row-sub q-frame-status" role="status">Loading the rendered email…</p><details><summary>Plain-text copy</summary><p class="q-plain-preview"></p></details>';
+    host.innerHTML='<p><b>Subject:</b> '+C.source(mail.subject||'Quote')+'</p><iframe sandbox="" title="The email she would receive" style="width:100%;height:65vh;background:white;border:1px solid var(--line);border-radius:10px"></iframe><p class="row-sub q-frame-status" role="status">Loading the rendered email…</p><details><summary>Plain-text copy</summary><p class="q-plain-preview" translate="no"></p></details>';
     host.querySelector('.q-plain-preview').textContent=mail.text||'Plain-text copy unavailable; the rendered email must load before approval.';
     var frame=host.querySelector('iframe'),say=host.querySelector('.q-frame-status');
     return new Promise(function(resolve,reject){var settled=false;var timer=setTimeout(function(){finish(Error('The rendered email did not load.'));},15000);if(timer.unref)timer.unref();
@@ -114,7 +114,7 @@
     host.querySelectorAll('[data-add-catalog]').forEach(function(button){button.onclick=function(){var item=catalogItems.find(function(i){return i.id===button.getAttribute('data-add-catalog');});if(!item)return;addLine(catalogLine(item,1));markEditorDirty();Hub.toast('Added one '+(item.unit_label||'unit')+'. Set the quantity on its line.');};});
   }
   var DRAFTS='/api/hub/owner/catering-drafts';
-  async function loadDrafts(){var host=document.getElementById('q-draft-list');try{var result=await Owner.get(DRAFTS);if(!result?.ok)throw Error(result?.error||'Unavailable');host.innerHTML=(result.drafts||[]).map(function(d){return '<div class="q-draft-row"><span>'+esc(typeof d.summary==='string'?d.summary:(d.summary?.customer_name||'Unfinished event'))+' · '+esc(d.state)+' · version '+esc(d.version)+'</span><button type="button" class="btn ghost" data-load-draft="'+esc(d.id)+'">'+(d.state==='prepared'?'View prepared quote':'Open draft')+'</button>'+(d.state==='draft'?'<button type="button" class="btn ghost" data-archive-draft="'+esc(d.id)+'" data-version="'+esc(d.version)+'">Archive</button>':'')+'</div>';}).join('')||'<p class="row-sub">No saved drafts.</p>';host.querySelectorAll('[data-load-draft]').forEach(function(b){b.onclick=function(){loadDraft(b.getAttribute('data-load-draft'));};});host.querySelectorAll('[data-archive-draft]').forEach(function(b){b.onclick=function(){archiveDraft(b.getAttribute('data-archive-draft'),Number(b.getAttribute('data-version')));};});}catch(error){host.textContent='Draft list unavailable: '+error.message;}}
+  async function loadDrafts(){var host=document.getElementById('q-draft-list');try{var result=await Owner.get(DRAFTS);if(!result?.ok)throw Error(result?.error||'Unavailable');host.innerHTML=(result.drafts||[]).map(function(d){return '<div class="q-draft-row"><span>'+C.source(typeof d.summary==='string'?d.summary:(d.summary?.customer_name||'Unfinished event'))+' · '+esc(d.state)+' · version '+esc(d.version)+'</span><button type="button" class="btn ghost" data-load-draft="'+esc(d.id)+'">'+(d.state==='prepared'?'View prepared quote':'Open draft')+'</button>'+(d.state==='draft'?'<button type="button" class="btn ghost" data-archive-draft="'+esc(d.id)+'" data-version="'+esc(d.version)+'">Archive</button>':'')+'</div>';}).join('')||'<p class="row-sub">No saved drafts.</p>';host.querySelectorAll('[data-load-draft]').forEach(function(b){b.onclick=function(){loadDraft(b.getAttribute('data-load-draft'));};});host.querySelectorAll('[data-archive-draft]').forEach(function(b){b.onclick=function(){archiveDraft(b.getAttribute('data-archive-draft'),Number(b.getAttribute('data-version')));};});}catch(error){host.textContent='Draft list unavailable: '+error.message;}}
   function setDraftControls(prepared){document.getElementById('q-save-draft').disabled=prepared;document.getElementById('q-recover-draft').disabled=prepared;}
   async function saveDraft(){var button=document.getElementById('q-save-draft');if(button.disabled)return;button.disabled=true;try{var payload=body();delete payload.draft_id;if(!payload.guests)payload.guests=null;if(!payload.lines&&!payload.total_cents)payload.total_cents=null;if(Number.isNaN(payload.delivery_fee_cents))throw Error('Check the delivery fee before saving.');var result=await Hub.api(DRAFTS,{method:'POST',body:{op:'save',id:draftRecord?.id||(draftPendingId||(draftPendingId=crypto.randomUUID())),expected_version:draftRecord?.version||0,payload:payload}});if(!result?.ok)throw Error(result?.error||'Draft not saved; refresh the draft list before retrying.');draftRecord=result.draft;draftPendingId=null;editorDirty=false;document.getElementById('q-draft-status').textContent='Draft saved · version '+draftRecord.version+'. No checkout created; nothing sent.';loadDrafts();}catch(error){document.getElementById('q-draft-status').textContent=error.message+' Your current edits remain here.';}finally{button.disabled=false;}}
   async function loadDraft(id){if(!await guardEditorSwitch())return;try{var result=await Owner.get(DRAFTS+'?id='+encodeURIComponent(id));if(!result?.ok)throw Error(result?.error||'Draft unavailable');var record=result.draft,p=record.payload||{};if(record.state==='prepared'){var q=quoteCache.find(function(q){return q.id===record.quote_id;});if(q){document.getElementById('quote-'+q.id)?.scrollIntoView({behavior:'smooth'});return;}throw Error('Prepared quote is not in the current list. Reload quotes.');}if(record.state!=='draft')throw Error('Archived drafts are read-only.');var q=p.quote_id&&quoteCache.find(function(q){return q.id===p.quote_id;});editorDirty=false;if(p.quote_id&&!q)throw Error('The original quote is unavailable. Reload before editing this draft.');if(q)await beginRevision(q,p.lead_id,p);else{revisionSource=null;leadId=p.lead_id||null;fillDraftPayload(p);}draftRecord=record;editorDirty=false;document.getElementById('q-draft-status').textContent='Opened saved draft · version '+record.version+'. No checkout or message created.';document.getElementById('quote-editor').scrollIntoView({behavior:'smooth'});}catch(error){document.getElementById('q-draft-status').textContent=error.message;}}
@@ -153,7 +153,7 @@
     }
     return '<details class="terms"><summary>Terms this customer agreed to · ' +
       esc(t.version || q.terms_version || 'unversioned') + '</summary><ul>' +
-      t.lines.map(function (line) { return '<li>' + esc(line) + '</li>'; }).join('') +
+      t.lines.map(function (line) { return '<li>' + C.source(line) + '</li>'; }).join('') +
       '</ul></details>';
   }
 
@@ -198,10 +198,10 @@
     var summary = {};
     try { summary = JSON.parse(q.quote_json || '{}'); } catch (e) { /* historical bare total */ }
     return '<div class="qcard" id="quote-' + esc(q.id) + '">' +
-      '<div class="nm">' + esc(q.customer_name || 'Quote ' + q.id) + '</div>' +
+      '<div class="nm">' + (q.customer_name ? C.source(q.customer_name) : 'Quote ' + esc(q.id)) + '</div>' +
       '<div class="row-sub">' + (q.guests || 0) + ' guests' +
         (q.event_date ? ' · event ' + esc(q.event_date) : ' · no event date') +
-        (q.customer_email ? ' · ' + esc(q.customer_email) : '') + '</div>' +
+        (q.customer_email ? ' · ' + C.source(q.customer_email) : '') + '</div>' +
 
       // A paid quote is an event somebody has to cook, and this is the way through to the work.
       // It used to be a 12px line of grey text below the Square payment links, at the bottom of a
@@ -214,7 +214,7 @@
 
       (summary.revised_from ? '<p class="row-sub">Revised from ' + esc(summary.revised_from) + '</p>' : '') +
       '<p class="row-sub">Delivery / setup: '+(Number.isInteger(fee)?money(fee)+' · confirmed': 'unconfirmed · not included in food subtotal')+'</p>'+
-      (Array.isArray(summary.lines) && summary.lines.length ? '<details class="terms"><summary>View quoted menu</summary>' + summary.lines.map(function (line) { return '<p class="row-sub">' + esc(line.qty || '') + ' ' + esc(line.name || '') + ' · ' + money(line.cents) + '</p>'; }).join('') + '</details>' : '') +
+      (Array.isArray(summary.lines) && summary.lines.length ? '<details class="terms"><summary>View quoted menu</summary>' + summary.lines.map(function (line) { return '<p class="row-sub">' + esc(line.qty || '') + ' ' + C.source(line.name || '') + ' · ' + money(line.cents) + '</p>'; }).join('') + '</details>' : '') +
       // The split, straight off the row: deposit + balance were computed by depositSplit() at
       // creation and stored, so they always sum to the total on screen exactly as they do in D1.
       '<div class="split">' +
@@ -338,18 +338,18 @@
     var files = (r.attachments || []).map(function (file) {
       var base = '/api/hub/owner/catering-attachments/' + encodeURIComponent(file.id);
       var size = Math.max(1, Math.round(Number(file.byte_size || 0) / 1024));
-      return '<a href="' + base + '" target="_blank" rel="noopener">' + C.label('Preview') + ' ' + esc(file.filename) + ' · ' + size + ' KB</a>' +
-        '<a href="' + base + '?download=1">' + C.label('Download') + ' ' + esc(file.filename) + '</a>';
+      return '<a href="' + base + '" target="_blank" rel="noopener">' + C.label('Preview') + ' ' + C.source(file.filename) + ' · ' + size + ' KB</a>' +
+        '<a href="' + base + '?download=1">' + C.label('Download') + ' ' + C.source(file.filename) + '</a>';
     }).join('');
-    return '<article translate="no" class="rcard' + (targetLead === r.id ? ' targeted' : '') + '"' + (targetLead === r.id ? ' id="selected-request"' : '') + '>' +
-      '<div class="nm">' + (r.name ? esc(r.name) : C.label('Catering request')) + '</div>' +
+    return '<article class="rcard' + (targetLead === r.id ? ' targeted' : '') + '"' + (targetLead === r.id ? ' id="selected-request"' : '') + '>' +
+      '<div class="nm">' + (r.name ? C.source(r.name) : C.label('Catering request')) + '</div>' +
       '<div class="row-sub">' + (r.interest ? C.menu(r.interest) : C.label('Menu not specified')) +
-        (r.company ? ' · ' + esc(r.company) : '') +
+        (r.company ? ' · ' + C.source(r.company) : '') +
         (r.created_at ? ' · ' + C.label('received') + ' ' + day(r.created_at) : '') + '</div>' +
-      (contact ? '<div class="row-sub">' + esc(contact) + '</div>' : '') +
+      (contact ? '<div class="row-sub" translate="no">' + esc(contact) + '</div>' : '') +
       (currentBooking?'<div class="rbody"><b>Current saved '+(currentBooking.deposit_status==='paid'?'booking':'quote')+'</b><br>'+esc(currentBooking.event_date||'Date not recorded')+' · '+esc(currentBooking.guests||'—')+' guests<br><b>'+money(currentBooking.total_cents)+'</b> · '+(currentBooking.balance_status==='paid'?'Paid in full':currentBooking.balance_status==='waived'?'Final payment waived':'deposit '+esc(currentBooking.deposit_status||'unpaid'))+'<br><a href="#quote-'+esc(currentBooking.id)+'">View saved booking details</a></div>':'')+
-      '<div class="rbody"><b>Original request · '+esc(msgField(r.message,'Event type')||'Event')+'</b><br>'+esc(msgField(r.message,'Event date'))+' · '+esc(msgField(r.message,'Serving time'))+'<br>'+esc(msgField(r.message,'Guest count'))+' guests · '+esc(msgField(r.message,'Location'))+'</div>'+
-      '<details class="rbody"><summary>' + C.label('Original request (as submitted)') + '</summary>' + (r.message ? esc(r.message) : C.label('No event details provided.')) + '</details>' +
+      '<div class="rbody"><b>Original request · '+(msgField(r.message,'Event type')?C.source(msgField(r.message,'Event type')):'Event')+'</b><br>'+esc(msgField(r.message,'Event date'))+' · '+esc(msgField(r.message,'Serving time'))+'<br>'+esc(msgField(r.message,'Guest count'))+' guests · '+C.source(msgField(r.message,'Location'))+'</div>'+
+      '<details class="rbody"><summary>' + C.label('Original request (as submitted)') + '</summary>' + (r.message ? '<pre translate="no" class="original-request-source">'+esc(r.message)+'</pre>' : C.label('No event details provided.')) + '</details>' +
       (r.cajita_configuration || r.cajita_summary ? '<details class="rbody"><summary>' + C.label('Exact Cajita configuration') + '</summary>' + C.summaryHtml(r.cajita_configuration,r.cajita_summary) + '</details>' : '') +
       (files ? '<div class="rfiles"><b>' + C.label('Private design files · owner only') + '</b>' + files + '</div>' : '') +
       (linkedQuotes.length?'<details class="terms"><summary>Original request menu suggestion · not the agreed quote</summary>'+suggestionHtml(r.suggested)+'</details>':suggestionHtml(r.suggested)) +
@@ -753,19 +753,19 @@
     var open = c.status === 'open';
     var when = c.created_at ? new Date(c.created_at).toLocaleString((typeof window !== 'undefined' && window.AnejoLang && window.AnejoLang.get() === 'es' ? 'es-US' : 'en-US')) : '';
     var items = (c.items || []).map(function (i) {
-      return '<li>' + esc(String(i.qty)) + ' × ' + esc(i.name) + '</li>';
+      return '<li>' + esc(String(i.qty)) + ' × ' + C.source(i.name) + '</li>';
     }).join('');
     var badge = open ? '<span class="pill crit">Waiting on you</span>'
       : c.status === 'accepted' ? '<span class="pill green">Accepted</span>'
         : '<span class="pill">Declined</span>';
     return '<div class="qcard" id="chg-' + esc(c.id) + '">' +
-      '<div class="nm">' + esc(c.customer_name || 'A customer') + ' ' + badge + '</div>' +
-      '<div class="row-sub">' + esc(when) + (c.customer_email ? ' · ' + esc(c.customer_email) : '') +
+      '<div class="nm">' + (c.customer_name?C.source(c.customer_name):'A customer') + ' ' + badge + '</div>' +
+      '<div class="row-sub">' + esc(when) + (c.customer_email ? ' · ' + C.source(c.customer_email) : '') +
         ' · ' + esc(KIND_LABEL[c.kind] || 'Change request') + '</div>' +
       (items ? '<ul style="margin:8px 0 0;padding-left:18px;font-size:14px">' + items + '</ul>' : '') +
       (c.guests ? '<p class="row-sub" style="margin:8px 0 0">New guest count asked for: <b>' + esc(String(c.guests)) + '</b></p>' : '') +
-      '<p style="margin:8px 0 0;white-space:pre-wrap;font-size:14px">' + esc(c.message || '') + '</p>' +
-      (c.owner_note ? '<p class="row-sub" style="margin:8px 0 0"><b>Your reply:</b> ' + esc(c.owner_note) + '</p>' : '') +
+      '<p style="margin:8px 0 0;white-space:pre-wrap;font-size:14px">' + C.source(c.message || '') + '</p>' +
+      (c.owner_note ? '<p class="row-sub" style="margin:8px 0 0"><b>Your reply:</b> ' + C.source(c.owner_note) + '</p>' : '') +
       (open
         ? '<div style="margin:10px 0 0">' +
           '<input class="chg-note" data-for="' + esc(c.id) + '" placeholder="What should she be told? (she sees this)" ' +
@@ -866,7 +866,7 @@
   }
 
   function isBalanceDue(q){return q.deposit_status==='paid'&&q.balance_status==='due'&&Number(q.balance_cents)>0;}
-  function dueCard(q){return '<article class="q-due-card"><h3>'+esc(q.customer_name||'Catering booking')+'</h3><p class="row-sub">Event '+esc(q.event_date||'date not recorded')+' · '+esc(q.guests||'—')+' guests</p><p>Deposit received: <b>'+money(q.deposit_cents)+'</b>'+ (q.deposit_paid_at?' · '+esc(day(q.deposit_paid_at)):'')+'</p><div class="q-due-amount">'+money(q.balance_cents)+'</div><p><b>Final payment due '+esc(q.balance_due_date||'date not recorded')+'</b></p><button class="btn gold block" type="button" data-collect-balance="'+esc(q.id)+'">Collect final balance</button><p class="row-sub">Review the branded payment email and client account before sending.</p><a class="btn ghost block" href="#quote-'+esc(q.id)+'">View booking and payment record</a></article>';}
+  function dueCard(q){return '<article class="q-due-card"><h3>'+(q.customer_name?C.source(q.customer_name):'Catering booking')+'</h3><p class="row-sub">Event '+esc(q.event_date||'date not recorded')+' · '+esc(q.guests||'—')+' guests</p><p>Deposit received: <b>'+money(q.deposit_cents)+'</b>'+ (q.deposit_paid_at?' · '+esc(day(q.deposit_paid_at)):'')+'</p><div class="q-due-amount">'+money(q.balance_cents)+'</div><p><b>Final payment due '+esc(q.balance_due_date||'date not recorded')+'</b></p><button class="btn gold block" type="button" data-collect-balance="'+esc(q.id)+'">Collect final balance</button><p class="row-sub">Review the branded payment email and client account before sending.</p><a class="btn ghost block" href="#quote-'+esc(q.id)+'">View booking and payment record</a></article>';}
   function openBalances(){var section=document.getElementById('balances-due');if(section){section.scrollIntoView({behavior:window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth',block:'start'});section.focus({preventScroll:true});}}
   function render() {
     revisionSource = null; revisionPreview = null;editorDirty=false;draftRecord=null;

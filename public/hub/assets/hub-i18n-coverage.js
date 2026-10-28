@@ -2811,4 +2811,263 @@
   if (window.AnejoI18n && typeof window.AnejoI18n.extendPatterns === "function") window.AnejoI18n.extendPatterns(boundaryPatterns);
   else window.__anejoI18nPatterns = (window.__anejoI18nPatterns || []).concat(boundaryPatterns);
 
+  // Authored HTML fragments and populated record labels; stored customer text is never translated.
+  var fragmentDictionary = {
+  "Save follow-up": "Guardar seguimiento",
+  "Inquiries": "Consultas",
+  "Quotes sent": "Cotizaciones enviadas",
+  "Responses recorded": "Respuestas registradas",
+  "Paid deposits": "Depósitos pagados",
+  "Owner marked won": "Ganados según el propietario",
+  "Latest 100 catering inquiries": "Últimas 100 consultas de catering",
+  "Needs first contact": "Primer contacto pendiente",
+  "Received": "Recibido",
+  "Contact and delivery evidence": "Pruebas de contacto y entrega",
+  "Customer response & quote reminder": "Respuesta del cliente y recordatorio de cotización",
+  "Response details not loaded": "Detalles de la respuesta sin cargar",
+  "Call or respond now.": "Llama o responde ahora.",
+  "Next follow-up": "Próximo seguimiento",
+  "Source:": "Origen:",
+  "Not recorded — do not infer a source": "Sin registrar; no deduzcas el origen",
+  "Browsing path not recorded": "Recorrido de navegación sin registrar",
+  "Open messages": "Abrir mensajes",
+  "Request & quote": "Solicitud y cotización",
+  "Owner Hub alert": "Alerta del Hub del propietario",
+  "Owner email": "Correo del propietario",
+  "accepted — receipt recorded": "aceptado; comprobante registrado",
+  "Customer acknowledgement:": "Confirmación de recepción al cliente:",
+  "Provider acceptance does not establish that the recipient read the message.": "La aceptación del proveedor no demuestra que el destinatario haya leído el mensaje.",
+  "Owner notification evidence unavailable": "Pruebas de notificación al propietario no disponibles",
+  "Customer response & reminder history": "Respuesta del cliente e historial de recordatorios",
+  "Review the request and contact the customer.": "Revisa la solicitud y contacta al cliente.",
+  "Separate from your call-task status. Recording a call attempt does not mean the customer replied.": "Es independiente del estado de tu tarea de llamada. Registrar un intento de llamada no significa que el cliente haya respondido.",
+  "Create and send a quote before reviewing a quote reminder.": "Crea y envía una cotización antes de revisar un recordatorio de cotización.",
+  "Suggested checkpoints: 24 hours, 72 hours and 7 days after the quote. These are owner actions; this panel does not schedule automatic customer emails.": "Revisiones sugeridas: 24 horas, 72 horas y 7 días después de la cotización. Son acciones del propietario; este panel no programa correos automáticos para el cliente.",
+  "Internal call-task status": "Estado interno de la tarea de llamada",
+  "Needs contact": "Contacto pendiente",
+  "Contacted": "Contactado",
+  "Closed — owner marked won": "Cerrado; ganado según el propietario",
+  "Closed — not proceeding": "Cerrado; no continúa",
+  "Call notes / next action": "Notas de llamada / próxima acción",
+  "Date to confirm": "Fecha por confirmar",
+  "Deposit recorded · booked": "Depósito registrado · reservado",
+  "Deposit recorded. Continue event planning.": "Depósito registrado. Continúa la planificación del evento.",
+  "Responses are owner-recorded. Owner-marked wins are separate from verified paid deposits. These counts do not establish email opens or link clicks.": "Las respuestas las registra el propietario. Los casos marcados como ganados por el propietario son independientes de los depósitos pagados verificados. Estos conteos no demuestran aperturas de correo ni clics en enlaces.",
+  "Contacted · follow-up planned": "Contactado · seguimiento planificado",
+  "Quote sent · deposit pending": "Cotización enviada · depósito pendiente",
+  "Closed · not proceeding": "Cerrado · no continúa",
+  "Owner marked won · payment not verified": "Ganado según el propietario · pago sin verificar",
+  "Review / send quote reminder": "Revisar / enviar recordatorio de cotización",
+  "Open to retrieve current evidence. Opening never sends a message.": "Abre para consultar las pruebas actuales. Abrir no envía ningún mensaje.",
+  "Provider accepted — delivery and reading unverified": "Aceptado por el proveedor; entrega y lectura sin verificar",
+  "Send outcome unknown — do not retry": "Resultado del envío desconocido; no reintentes",
+  "Suppressed — no reminder sent": "Suprimido; no se envió ningún recordatorio",
+  "Provider failed — acceptance not recorded": "Fallo del proveedor; aceptación sin registrar",
+  "Send pending — do not retry": "Envío pendiente; no reintentes",
+  "Outcome not verified": "Resultado sin verificar",
+  "Awaiting customer reply": "Esperando respuesta del cliente",
+  "Customer replied": "El cliente respondió",
+  "Customer requested a call": "El cliente solicitó una llamada",
+  "Customer requested changes": "El cliente solicitó cambios",
+  "Customer declined": "El cliente rechazó",
+  "Next action:": "Próxima acción:",
+  "Latest reminder:": "Último recordatorio:",
+  "Provider receipt:": "Comprobante del proveedor:",
+  "Customer response · owner recorded": "Respuesta del cliente · registrada por el propietario",
+  "Choose a response status": "Elige un estado de respuesta",
+  "Private response notes": "Notas privadas sobre la respuesta",
+  "These notes are internal. Saving does not send a message, book a call or record payment.": "Estas notas son internas. Guardar no envía mensajes, reserva llamadas ni registra pagos.",
+  "Save customer response": "Guardar respuesta del cliente",
+  "No reminder send evidence recorded.": "No hay pruebas registradas de envío de recordatorios.",
+  "Reminder availability:": "Disponibilidad del recordatorio:",
+  "Quote reminder": "Recordatorio de cotización",
+  "An alert fired": "Se activó una alerta",
+  "Asked the Studio AI for help": "Pidió ayuda a la IA del Estudio",
+  "Added a photo or voice note": "Agregó una foto o nota de voz",
+  "Started a Creative Studio session": "Inició una sesión del Estudio Creativo",
+  "Signed in": "Inició sesión",
+  "DRIVER PAY (EARNED)": "PAGO A CONDUCTORES (GANADO)",
+  "Trainer commissions — partners & clients →": "Comisiones de entrenadores · aliados y clientes →",
+  "Catering quotes — deposits & balances →": "Cotizaciones de catering · depósitos y saldos →",
+  "AUTOMATIC PAYMENTS": "PAGOS AUTOMÁTICOS",
+  "Charge contract invoices automatically": "Cobrar automáticamente las facturas de contratos",
+  "Both safeties always apply.": "Siempre se aplican ambas protecciones.",
+  "No contract accounts yet.": "Aún no hay cuentas con contrato.",
+  "Send an invoice to QuickBooks from the invoice page.": "Envía una factura a QuickBooks desde la página de la factura.",
+  "Disconnect": "Desconectar",
+  "finance": "finanzas",
+  "payroll": "nómina",
+  "deliveries": "entregas",
+  "accountability": "responsabilidad",
+  "temp_compliance": "cumplimiento de temperaturas",
+  "Export": "Exportar",
+  "sent": "enviado",
+  "open": "abierto",
+  "not approved": "sin aprobar",
+  "Contract accounts (B2B)": "Cuentas con contrato (B2B)",
+  "Añejo (Direct)": "Añejo (Directo)",
+  "Edit profile": "Editar perfil",
+  "Login link": "Enlace de acceso",
+  "Changing the email re-links their orders, points and founding benefit to the new address.": "Cambiar el correo vuelve a vincular sus pedidos, puntos y beneficio de fundador a la nueva dirección.",
+  "Street": "Calle",
+  "Unit / apt": "Unidad / apartamento",
+  "Allergens": "Alérgenos",
+  "Marketing email consent": "Consentimiento para correos de marketing",
+  "Marketing SMS consent": "Consentimiento para SMS de marketing",
+  "PROGRAM AT A GLANCE": "RESUMEN DEL PROGRAMA",
+  "POINTS OUT": "PUNTOS EN CIRCULACIÓN",
+  "EARNED": "GANADOS",
+  "REDEEMED": "CANJEADOS",
+  "REDEMPTIONS": "CANJES",
+  "MEMBERS BY TIER": "MIEMBROS POR NIVEL",
+  "TOP MEMBERS": "MIEMBROS DESTACADOS",
+  "Tier thresholds (lifetime $) & earn multiplier": "Umbrales de nivel ($ acumulados) y multiplicador de puntos ganados",
+  "Off": "Desactivado",
+  "Team lead": "Responsable del equipo",
+  "Missing reports": "Reportes faltantes",
+  "Calls": "Llamadas",
+  "CALL LIST": "LISTA DE LLAMADAS",
+  "Licensed facilities with a phone and no email we can use. Best first. A number called today is not offered again today.": "Centros con licencia que tienen teléfono y ningún correo utilizable. Los mejores aparecen primero. Un número llamado hoy no se vuelve a ofrecer hoy.",
+  "Ready to call": "Listos para llamar",
+  "Called today": "Llamados hoy",
+  "Last 7 days": "Últimos 7 días",
+  "What to say": "Qué decir",
+  "Outcome": "Resultado",
+  "Reached the decision-maker": "Hablé con quien toma las decisiones",
+  "Spoke to the front desk": "Hablé con recepción",
+  "Left a voicemail": "Dejé un mensaje de voz",
+  "Asked me to call back": "Pidió que volviera a llamar",
+  "Asked for information by email": "Pidió información por correo",
+  "Not interested": "No le interesa",
+  "Asked not to be contacted": "Pidió que no le contacten",
+  "Wrong or dead number": "Número incorrecto o fuera de servicio",
+  "How many attend daily": "Cuántas personas asisten a diario",
+  "Who decides (name)": "Quién decide (nombre)",
+  "Their title": "Su cargo",
+  "Email for the menu": "Correo para el menú",
+  "Notes": "Notas",
+  "Log this call": "Registrar esta llamada",
+  "adult day": "centro diurno para adultos",
+  "addiction treatment": "tratamiento de adicciones",
+  "not approved for production": "no aprobado para producción",
+  "Partners": "Aliados",
+  "Codes": "Códigos",
+  "Production planning": "Planificación de producción",
+  "Set up a plan": "Configurar un plan",
+  "Cost source and exact calculation": "Fuente del costo y cálculo exacto",
+  "Published recipe": "Receta publicada",
+  "Finished-item target": "Objetivo de productos terminados",
+  "VERSION HISTORY": "HISTORIAL DE VERSIONES",
+  "SNAPSHOT": "COPIA GUARDADA",
+  "Line items": "Artículos desglosados",
+  "Paid in full": "Pagado en su totalidad",
+  "· Paid in full": "· Pagado en su totalidad"
+};
+  var fragmentPatterns = [
+  {
+    "en": "{count} reminder record(s) · {accepted} provider acceptance receipt(s). Delivery and reading are not established.",
+    "es": "{count} registros de recordatorios · {accepted} comprobantes de aceptación del proveedor. La entrega y la lectura no están demostradas."
+  },
+  {
+    "en": "Menu reviewed and signed by a Florida-licensed dietitian ({count} prospects)",
+    "es": "Menú revisado y firmado por un dietista con licencia de Florida ({count} prospectos)"
+  },
+  {
+    "en": "Licensed for {count}. Ask how many attend on an average day.",
+    "es": "Con licencia para {count}. Pregunta cuántas personas asisten en un día habitual."
+  },
+  {
+    "en": "Three meals a day, seven days a week ({count} prospects)",
+    "es": "Tres comidas al día, siete días a la semana ({count} prospectos)"
+  },
+  {
+    "en": "License status on the state registry: {status}.",
+    "es": "Estado de licencia en el registro estatal: {status}."
+  },
+  {
+    "en": "Source: {source} · Browsing path not recorded",
+    "es": "Origen: {source} · Recorrido de navegación sin registrar"
+  },
+  {
+    "en": "Source: {source} · Submitted entry page: {page}",
+    "es": "Origen: {source} · Página de envío: {page}"
+  },
+  {
+    "en": "{count} follow-ups due · refreshed {time}",
+    "es": "{count} seguimientos pendientes · actualizado {time}"
+  },
+  {
+    "en": "Connected company {company} · sandbox",
+    "es": "Empresa conectada {company} · entorno de pruebas"
+  },
+  {
+    "en": "Customer acknowledgement: {status}",
+    "es": "Confirmación de recepción al cliente: {status}"
+  },
+  {
+    "en": "Token last refreshed {age} ago.",
+    "es": "Token actualizado por última vez hace {age}."
+  },
+  {
+    "en": "Reminder availability: {reason}",
+    "es": "Disponibilidad del recordatorio: {reason}"
+  },
+  {
+    "en": "Signed W-9 ({count} prospects)",
+    "es": "W-9 firmado ({count} prospectos)"
+  },
+  {
+    "en": "Proposed by {name} ({role}) · {date}",
+    "es": "Propuesto por {name} ({role}) · {date}"
+  },
+  {
+    "en": "Latest reminder: {status}",
+    "es": "Último recordatorio: {status}"
+  },
+  {
+    "en": "Recent changes ({count})",
+    "es": "Cambios recientes ({count})"
+  },
+  {
+    "en": "Next follow-up: {date}",
+    "es": "Próximo seguimiento: {date}"
+  },
+  {
+    "en": "Deposit paid · {date}",
+    "es": "Depósito pagado · {date}"
+  },
+  {
+    "en": "On hand ({unit})",
+    "es": "Disponible ({unit})"
+  },
+  {
+    "en": "Received {date}",
+    "es": "Recibido el {date}"
+  },
+  {
+    "en": "Approve {amount}",
+    "es": "Aprobar {amount}"
+  },
+  {
+    "en": "{count} ROUTES",
+    "es": "{count} RUTAS"
+  },
+  {
+    "en": "{count} guests",
+    "es": "{count} invitados"
+  },
+  {
+    "en": "{count}m ago",
+    "es": "hace {count} min"
+  },
+  {
+    "en": "{count}d ago",
+    "es": "hace {count} días"
+  }
+];
+  if (window.AnejoI18n && typeof window.AnejoI18n.extend === "function") window.AnejoI18n.extend(fragmentDictionary);
+  else (window.__hubI18nQueue = window.__hubI18nQueue || []).push(fragmentDictionary);
+  if (window.AnejoI18n && typeof window.AnejoI18n.extendPatterns === "function") window.AnejoI18n.extendPatterns(fragmentPatterns);
+  else window.__anejoI18nPatterns = (window.__anejoI18nPatterns || []).concat(fragmentPatterns);
+
 })();

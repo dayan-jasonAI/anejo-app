@@ -9,6 +9,7 @@
 
   // English -> Spanish. Brand names, bowl names, prices, emails, handles stay as-is (absent from dict).
   var ES = {
+    "English": "Inglés", "Spanish": "Español",
     // nav + hero
     "Story":"Historia","Menu":"Menú","Services":"Servicios","Wholesale":"Mayoreo","Macros":"Macros",
     "Reserve a Tasting":"Reserva una Degustación",
@@ -572,7 +573,7 @@
     if (document.getElementById('en') && document.getElementById('es')) return;
     // HUB pages have their own in-header language toggle (#lang-toggle). Don't add a second,
     // floating pill on top of them — it overlaps their bottom action buttons (e.g. "Start prep").
-    if (document.getElementById('lang-toggle')) return;
+    if (document.getElementById('lang-toggle') || document.getElementById('usage-lang')) return;
     var b = document.createElement('button');
     b.id = 'langToggle'; b.type = 'button';
     b.setAttribute('aria-label', 'Language / Idioma');
