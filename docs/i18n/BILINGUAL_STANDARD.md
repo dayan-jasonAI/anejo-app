@@ -2,7 +2,7 @@
 
 Every authored Añejo interface must work in English and Spanish. This includes public pages, owner/kitchen/driver/client screens, Studio, training, empty and populated states, errors, confirmations, accessibility labels, placeholders and dynamically rendered controls. A translated landing page alone does not meet this standard.
 
-Use the shared language preference and the existing switch. Preserve the canonical values of selects, form inputs, record IDs, amounts, permissions and workflow actions when changing language. Never derive a business action from a translated button label. Do not rebuild dirty editors when language changes.
+Use the shared language preference and the existing switch. Preserve the canonical values of selects, form inputs, record IDs, amounts, permissions and workflow actions when changing language. Never derive a business action from a translated button label. Do not rebuild dirty editors when language changes. Keep authored fallback labels in separate translatable text nodes; template captures must preserve actual record values, not accidentally freeze English UI defaults inside them.
 
 Names, contact details, IDs, customer-authored notes and reviewed outgoing message bodies retain their exact source values. Authored system labels surrounding them must translate. These are data-preservation rules, not exceptions for untranslated instructions. Internal/private content must not be sent to a public translation service.
 
