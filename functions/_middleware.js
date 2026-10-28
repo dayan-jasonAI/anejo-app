@@ -48,9 +48,16 @@ export async function onRequest(context) {
   if (request.method !== 'GET' || url.pathname.startsWith('/api/') ||
       !/text\/html/i.test(response.headers.get('content-type') || '') ||
       /attachment/i.test(response.headers.get('content-disposition') || '')) return response;
-  return new HTMLRewriter().on('head', {
+  return new HTMLRewriter().on('script[src]', {
     element(element) {
-      element.append('<script src="/assets/js/i18n.js?v=20261027-bilingual" defer data-anejo-language-bootstrap></script>', { html: true });
+      // Do not let an old service-worker copy of a legacy page tag replace the
+      // current engine after bootstrap. One first-party load owns the preference.
+      if (/^\/assets\/js\/i18n\.js(?:[?#]|$)/.test(element.getAttribute('src') || '') &&
+          element.getAttribute('data-anejo-language-bootstrap') === null) element.remove();
+    },
+  }).on('head', {
+    element(element) {
+      element.append('<script src="/assets/js/i18n.js?v=20261027-bilingual" charset="utf-8" data-anejo-language-bootstrap></script>', { html: true });
     },
   }).transform(response);
 }

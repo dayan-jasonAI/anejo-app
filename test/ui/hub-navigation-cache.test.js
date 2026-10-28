@@ -34,7 +34,7 @@ test('deployed header policy revalidates Hub extensionless documents and worker 
 });
 
 test('Hub code revalidates online and cannot serve a stale cache winner, including version queries',async()=>{
- for(const path of ['/hub/owner/assets/operator.js?v=private-strategy-7','/hub/assets/hub.js','/hub/assets/hub.css']){
+ for(const path of ['/hub/owner/assets/operator.js?v=private-strategy-7','/hub/assets/hub.js','/hub/assets/hub.css','/assets/js/i18n.js?v=20261027-bilingual','/assets/js/public-i18n-coverage.js?v=20261027-bilingual']){
   const fresh=response();const sw=worker((_req,opts)=>opts?.cache==='no-cache'?fresh:'old browser response');
   assert.equal(await sw.fetch(path,'cors'),fresh);assert.equal(sw.writes.length,1);
  }

@@ -16,7 +16,7 @@
       "withSharedEngine": 13,
       "withoutSharedEngine": 208,
       "withAuthoredSpanishCompanion": 89,
-      "withExplicitToggleControl": 1
+      "withExplicitToggleControl": 2
     },
     "hubExcluded": {
       "htmlRoutes": 77,
@@ -439,7 +439,6 @@
     "/legal/refund",
     "/legal/terms",
     "/lunch-card",
-    "/lunch-count",
     "/lunch-feedback",
     "/meal-prep/boca-raton",
     "/meal-prep/boynton-beach",
@@ -580,10 +579,10 @@
     "method": "Visible HTML text nodes plus placeholder/title/aria-label attributes; excludes script, style, SVG, translate=no, and Hub. Exact literal lookup against the merged authored EN→ES dictionaries; it does not include dynamically rendered JavaScript strings.",
     "publicTextNodeCount": 11161,
     "dictionaryCounts": {
-      "englishEntries": 2575,
-      "distinctSpanishValues": 2534,
+      "englishEntries": 2621,
+      "distinctSpanishValues": 2579,
       "inverseOnlyAliases": 6,
-      "repeatedSpanishValues": 46
+      "repeatedSpanishValues": 47
     },
     "inverseOnlyAliases": {
       "Saltar al contenido": "Skip to content",
@@ -11160,7 +11159,7 @@
       "route": "/lunch-count",
       "surface": "public-static",
       "sharedEngine": false,
-      "hasExplicitToggleControl": false,
+      "hasExplicitToggleControl": true,
       "authoredSpanishCompanion": null
     },
     {
