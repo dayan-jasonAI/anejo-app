@@ -11,3 +11,5 @@ Internal manuals and recipes use authenticated, read-only reading editions store
 Before release, run `npm test`, the strict authored-copy gate (`node scripts/hub-html-copy-policy.mjs`), the populated catering/customer browser checks and the joined recipe/library API/browser checks. Verify ordinary live navigation after deployment. Source extraction and synthetic fixtures do not establish that arbitrary stored/provider text is translated or that an operator has completed a real shift.
 
 The owner operating guide provides a daily routine and contextual instructions for each owner tab: purpose, timing, actions, evidence and escalation. New tabs require the same bilingual instructions.
+
+After editing the shared engine or dictionaries, run `npm run build:language` and commit the generated revision module. CI independently checks the four-file content fingerprint; a stale module fails the release checks. Dictionary URLs inherit the deployed bootstrap revision. Keep existing controller/helper asset versions current as well. Recipe requirements shown to operators must use human bilingual field labels, while canonical validation keys remain unchanged.
