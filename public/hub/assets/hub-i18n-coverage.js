@@ -2811,4 +2811,4594 @@
   if (window.AnejoI18n && typeof window.AnejoI18n.extendPatterns === "function") window.AnejoI18n.extendPatterns(boundaryPatterns);
   else window.__anejoI18nPatterns = (window.__anejoI18nPatterns || []).concat(boundaryPatterns);
 
+  // Authored HTML fragments and populated record labels; stored customer text is never translated.
+  var fragmentDictionary = {
+  "A customer": "Un cliente",
+  "The library could not be loaded.": "No se pudo cargar la biblioteca.",
+  "Provider accepted; local receipt needs reconciliation": "Aceptado por el proveedor; el comprobante local necesita conciliación",
+  "Text accepted by provider; delivery unverified": "Texto aceptado por el proveedor; entrega sin verificar",
+  "A saved prep request belongs to another signed-in operator. Reconcile it before starting again.": "Una solicitud de preparación guardada pertenece a otro operador con sesión iniciada. Concíliala antes de volver a empezar.",
+  "Arriving-soon sent": "Aviso de próxima llegada enviado",
+  "Batch timer stopped · Cronómetro detenido": "Cronómetro del lote detenido",
+  "Confirmed ✓": "Confirmado ✓",
+  "Could not archive the item.": "No se pudo archivar el artículo.",
+  "Could not close the run": "No se pudo cerrar la ronda",
+  "Could not file that": "No se pudo registrar",
+  "Could not save today’s count.": "No se pudo guardar el conteo de hoy.",
+  "Customer notified — on the way": "Cliente avisado: en camino",
+  "Delivered — customer notified": "Entregado: cliente avisado",
+  "Deliveries started": "Entregas iniciadas",
+  "Enter valid non-negative amounts.": "Ingresa importes válidos que no sean negativos.",
+  "Give it a title": "Ponle un título",
+  "Instagram provider acceptance recorded. Delivery and read status are not verified.": "Aceptación del proveedor de Instagram registrada. La entrega y la lectura no están verificadas.",
+  "Marked unavailable": "Marcado como no disponible",
+  "Navigation opened": "Navegación abierta",
+  "No new reply was sent by your request. Your text is retained; review a new request separately.": "Tu solicitud no envió ninguna respuesta nueva. El texto se conserva; revisa una solicitud nueva por separado.",
+  "Order accepted": "Pedido aceptado",
+  "Order denied — passing to another driver": "Pedido rechazado: se ofrece a otro conductor",
+  "Photo saved · Foto guardada": "Foto guardada",
+  "Recovery storage unavailable. No preparation change was sent.": "Almacenamiento de recuperación no disponible. No se envió ningún cambio de preparación.",
+  "Reply history unavailable; sending paused.": "Historial de respuestas no disponible; envío pausado.",
+  "Saved — missing bowls flagged": "Guardado: bowls faltantes señalados",
+  "Say what you found": "Indica qué encontraste",
+  "Submitted + vendor notified": "Enviado y proveedor avisado",
+  "Take a photo, or check “couldn’t take a photo”.": "Toma una foto o marca «no pude tomar una foto».",
+  "The photo could not be read. Please retake it. · No se pudo leer la foto.": "No se pudo leer la foto. Vuelve a tomarla.",
+  "Today’s run is already closed": "La ronda de hoy ya está cerrada",
+  "Use 1–1,000 characters with no leading or trailing whitespace. The reviewed text will be sent exactly.": "Usa de 1 a 1,000 caracteres, sin espacios al inicio ni al final. El texto revisado se enviará exactamente como aparece.",
+  "Write at least one line": "Escribe al menos una línea",
+  "You’re available for orders": "Estás disponible para pedidos",
+  "Say what you are starting. · ¿Qué vas a empezar?": "Indica qué vas a empezar.",
+  "🔔 New order — Order": "🔔 Nuevo pedido: Pedido",
+  "+ ½ avocado": "+ ½ aguacate",
+  "Continue prep & packing": "Continuar preparación y empaque",
+  "Driver handoff": "Entrega al conductor",
+  "Fresh stock, recipe, and target checks allow this batch.": "La vigencia del conteo de existencias, la receta y el objetivo permiten este lote.",
+  "Stock checks pass; this plan remains off until an owner enables it.": "Las comprobaciones de existencias pasan; este plan sigue desactivado hasta que un propietario lo active.",
+  "About notifications and progress": "Sobre los avisos y este progreso",
+  "Address confirmed by the customer but not verified": "Dirección confirmada por el cliente, pero sin verificar",
+  "Adjust cooking duration": "Ajustar tiempo de cocción",
+  "As purchased": "Tal como se compra",
+  "At the kitchen": "En la cocina",
+  "Below par": "Por debajo del mínimo",
+  "Change your PIN": "Cambiar tu PIN",
+  "Close editor": "Cerrar editor",
+  "Confirm count": "Confirmar conteo",
+  "Cook temperature": "Temperatura de cocción",
+  "Cooked / Cocido": "Cocido",
+  "Cooking & doneness": "Cocción y punto",
+  "Count / Unidades": "Unidades",
+  "Create draft": "Crear borrador",
+  "Draft recipe": "Borrador de receta",
+  "Eastern time. Cooking and packing reflect the saved actions above. Purchases are recorded per item. Other checkboxes are planning reminders.": "Hora del Este. Cocina y empaque reflejan las acciones guardadas arriba. Las compras se registran por artículo. Las demás casillas son recordatorios de planificación.",
+  "Edit event quantity / note": "Editar cantidad / nota",
+  "Equipment cleaned + off": "Equipo limpio y apagado",
+  "Equipment powered + checked": "Equipo encendido y revisado",
+  "Estimated kitchen hours": "Horas de cocina estimadas",
+  "Event workspace": "Espacio del evento",
+  "Event-specific adjustment": "Ajustado para este evento",
+  "Expired stock": "Existencias vencidas",
+  "Loading saved event progress…": "Cargando progreso guardado del evento…",
+  "Mark purchased": "Marcar comprado",
+  "Needs confirmation": "Necesita confirmación",
+  "No count timestamp recorded": "Fecha y hora del conteo sin registrar",
+  "No documents found.": "No se encontraron documentos.",
+  "No ingredients calculated. Confirm recipes or add items for this event.": "No hay ingredientes calculados. Confirma las recetas o agrega artículos para este evento.",
+  "No items yet.": "Aún no hay artículos.",
+  "No reviewed production plans yet.": "Aún no hay planes de producción revisados.",
+  "Not needed": "No se necesita",
+  "Not supplied": "No proporcionado",
+  "Not today": "Hoy no",
+  "Open / edit master recipe": "Ver / editar receta maestra",
+  "Open reference": "Abrir referencia",
+  "Ordered quantities. Each dish keeps its own saved progress.": "Cantidades del pedido. Cada plato conserva su progreso guardado.",
+  "Packaging & plating": "Empaque y presentación",
+  "Packaging/plating": "Empaque/presentación",
+  "Production plans are reviewed and enabled by an owner. You can work queued kitchen tasks below.": "Los planes de producción los revisa y activa un propietario. Puedes trabajar en las tareas de cocina en cola que aparecen abajo.",
+  "Quantities for this event. Edits do not change the master recipe.": "Cantidades para este evento. Los cambios no alteran la receta maestra.",
+  "Raw / Crudo": "Crudo",
+  "Reconfirm changed menu": "Reconfirmar cambio de menú",
+  "Recorded yield: Unavailable": "Rendimiento registrado: no disponible",
+  "Remove from needed purchases": "Quitar de compras pendientes",
+  "Review production plan": "Revisar plan de producción",
+  "Review standard": "Revisar estándar",
+  "Sauces prepped + labeled": "Salsas preparadas y etiquetadas",
+  "Schedule and task checklist": "Cronograma y lista de tareas",
+  "Serving time is when the food must be ready at the event. Travel and setup are separate durations.": "La hora de servicio es cuando la comida debe estar lista en el evento. Viaje y montaje son duraciones distintas.",
+  "Serving time needed": "Falta hora de servicio",
+  "Setup duration · minutes": "Duración del montaje · minutos",
+  "Source: event recipes": "Fuente: recetas del evento",
+  "Temperature and carrier": "Temperatura y transporte",
+  "These are durations, not clock times. Change the event serving time under Details.": "Estas son duraciones, no horas del reloj. Cambia la hora de servicio del evento en Detalles.",
+  "Travel duration · minutes": "Duración del viaje · minutos",
+  "Unconfirmed legacy reference — Needs Dayan confirmation. Publication alone is not owner approval.": "Referencia heredada sin confirmar — Necesita confirmación de Dayan. Publicarla por sí solo no equivale a la aprobación del propietario.",
+  "Unresolved questions": "Preguntas pendientes",
+  "Vegetables washed + cut": "Vegetales lavados y cortados",
+  "Verified source": "Fuente verificada",
+  "View action": "Ver acción",
+  "in range": "dentro del rango",
+  "out of range": "fuera del rango",
+  "⚠️ Customer confirmed this address, but we couldn't verify it — double-check on arrival.": "⚠️ El cliente confirmó esta dirección, pero no pudimos verificarla; compruébala al llegar.",
+  "⚠️ Unverified": "⚠️ Sin verificar",
+  "📍 Arriving soon": "📍 Próxima llegada",
+  "🧭 Navigate (notify customer)": "🧭 Navegar (avisar al cliente)",
+  "🧭 Re-open navigation": "🧭 Volver a abrir navegación",
+  "(reduce other fats to hold target)": "(reducir otras grasas para mantener el objetivo)",
+  "(reduce other fats to keep target)": "(reducir otras grasas para mantener el objetivo)",
+  "0/7 checked": "0/7 revisados",
+  "1 · Inside · 2 · Closed & packed": "1 · Interior · 2 · Cerrado y empacado",
+  "28 bowls today (16 lunch / 12 dinner) · ⚠ 2 low": "28 bowls hoy (16 almuerzo / 12 cena) · ⚠ 2 bajos",
+  "3 lb / 30 pieces": "3 lb / 30 piezas",
+  "4 stops on today": "4 paradas hoy",
+  "A reservation is a planning record. Stock is not consumed and finished food is not counted until completion is recorded.": "Una reserva es un registro de planificación. Las existencias no se consumen y los productos terminados no se contabilizan hasta registrar la finalización.",
+  "All stops handled 🎉": "Todas las paradas atendidas 🎉",
+  "Approved recipe reference": "Referencia de receta aprobada",
+  "Ask the owner to assign you a role (kitchen, driver, marketing, or vendor).": "Pídele al propietario que te asigne un rol (cocina, conductor, marketing o proveedor).",
+  "Batch yield:": "Rendimiento del lote:",
+  "Catalog SKU": "SKU del catálogo",
+  "Choose exact menu item": "Elige el artículo exacto del menú",
+  "Choose item": "Elige artículo",
+  "Choose measure": "Elige medida",
+  "Choose menu item": "Elige artículo del menú",
+  "Choose published recipe": "Elige receta publicada",
+  "Choose type": "Elige tipo",
+  "Confirm date · Confirm serving time": "Confirmar fecha · Confirmar hora de servicio",
+  "ETA 7:38": "Llegada estimada 7:38",
+  "End of session report": "Reporte de fin de sesión",
+  "Event date · Eastern time": "Fecha del evento · Hora del Este",
+  "Exact menu unit conversions": "Conversiones exactas de unidades del menú",
+  "Historical paid cost · current stock unknown from receipt": "Costo pagado histórico · existencias actuales desconocidas según el recibo",
+  "Ingredient amounts are reserved for the planned batch. Any shortfall must be explained.": "Las cantidades de ingredientes se reservan para el lote planificado. Debe explicarse cualquier faltante.",
+  "Inventory ID": "ID de inventario",
+  "Item / Ingrediente": "Ingrediente",
+  "Loading production plans, recipes, and tasks…": "Cargando planes de producción, recetas y tareas…",
+  "Make me available for more orders": "Hacerme disponible para más pedidos",
+  "Measured now": "Medido ahora",
+  "My quick card": "Mi tarjeta rápida",
+  "No bowls to load.": "No hay bowls que cargar.",
+  "No matching catalog items.": "No hay artículos del catálogo que coincidan.",
+  "No specific assignee": "Sin persona asignada específica",
+  "Nothing to show.": "No hay nada que mostrar.",
+  "Nutrition (approx)": "Nutrición (aproximada)",
+  "One line": "Una línea",
+  "Please sign in to use the Añejo HUB.": "Inicia sesión para usar Añejo HUB.",
+  "Portion & batch yield": "Porción y rendimiento del lote",
+  "Prep / cook:": "Preparación / cocción:",
+  "Recipe portions per sale unit": "Porciones de receta por unidad de venta",
+  "Record completion": "Registrar finalización",
+  "Remove catalog link": "Quitar enlace del catálogo",
+  "Reserved requirements": "Requisitos reservados",
+  "Reviewed requirements and stock basis": "Requisitos revisados y base de existencias",
+  "Run this once a day": "Ejecuta esto una vez al día",
+  "Saved recipe reference": "Referencia de receta guardada",
+  "Saving any count stamps the current time automatically; it cannot be backdated here.": "Guardar cualquier conteo registra automáticamente la hora actual; aquí no puede fecharse retroactivamente.",
+  "Steak 5.6oz · Quinoa 3.4oz…": "Bistec 5.6oz · Quinoa 3.4oz…",
+  "Submit to vendor": "Enviar al proveedor",
+  "Suggested batch: Unavailable · Plan enabled": "Lote sugerido: no disponible · Plan activado",
+  "Suggested batch: Unavailable · Plan off": "Lote sugerido: no disponible · Plan desactivado",
+  "Tap “Complete route” above, then make yourself available for more orders.": "Toca «Completar ruta» arriba y luego ponte disponible para más pedidos.",
+  "Training & tutorials": "Capacitación y tutoriales",
+  "Unit / Unidad": "Unidad",
+  "Waiting for the owner to carry it out.": "Esperando que el propietario lo ejecute.",
+  "Weight basis": "Base del peso",
+  "Your account is signed in but has no HUB role yet.": "Tu cuenta inició sesión, pero aún no tiene un rol del HUB.",
+  "on hand 3 · par 12 · $0.90/ea": "disponibles 3 · mínimo 12 · $0.90/unidad",
+  "oz / lb / each": "oz / lb / unidad",
+  "per bowl": "por bowl",
+  "· 45 min · Ready by": "· 45 min · Listo para",
+  "· ordered": "· pedidos",
+  "½ avocado": "½ aguacate",
+  "− no pickled onion": "− sin cebolla encurtida",
+  "⏱ 12:40 left": "⏱ Quedan 12:40",
+  "☀️ Good morning": "☀️ Buenos días",
+  "☀️ Morning briefing": "☀️ Resumen matutino",
+  "⚡ RUSH": "⚡ URGENTE",
+  "✓ confirmed": "✓ confirmado",
+  "📷 Photos / Fotos — Upload & start a post": "📷 Fotos · Cargar e iniciar una publicación",
+  "🧭 Navigate full route": "🧭 Navegar por la ruta completa",
+  "Publish Reel": "Publicar Reel",
+  "Publish now": "Publicar ahora",
+  "Publish to Story": "Publicar en historia",
+  "This makes the saved content available for answers; it does not send or publish anything.": "Esto permite usar el contenido guardado para responder; no envía ni publica nada.",
+  "📊 Stories report different metrics (views, replies, exits) that this HUB does not fetch yet — check them in the Instagram app.": "📊 Las historias tienen métricas distintas (visualizaciones, respuestas, salidas) que este HUB aún no consulta; revísalas en Instagram.",
+  "📷 Upload a photo": "📷 Subir una foto",
+  "Checks saved media processing at Meta. Does not publish or schedule.": "Consulta el procesamiento de los archivos guardados en Meta. No publica ni programa.",
+  "One photo or video — Instagram allows only one on a Story.": "Una foto o un video: Instagram solo permite uno por historia.",
+  "One video — Instagram allows only one on a Reel.": "Un video: Instagram solo permite uno por Reel.",
+  "Paste the key of an MP4/MOV already staged in R2 below — video upload from this screen is not available yet.": "Pega abajo la clave de un MP4/MOV ya almacenado en R2; esta pantalla aún no permite subir videos.",
+  "Post it at": "Publicarlo a las",
+  "Review saved source design": "Revisar el diseño de origen guardado",
+  "itself, in which case the design is left alone.": "por sí misma; en ese caso, el diseño no se modifica.",
+  "or paste a Studio image key": "o pega una clave de imagen de Studio",
+  "or paste a Studio image/video key": "o pega una clave de imagen/video de Studio",
+  "📊 No performance data yet — the daily sweep collects it.": "📊 Aún no hay datos de rendimiento; la revisión diaria los recopila.",
+  "(no caption)": "(sin texto)",
+  "AI retouch — experimental preview / Retoque IA experimental": "Retoque con IA · vista previa experimental",
+  "Advanced creative tools / Herramientas creativas avanzadas": "Herramientas creativas avanzadas",
+  "Attention / Atención": "Atención",
+  "Audit saved draft": "Auditar borrador guardado",
+  "Auto-publish ON": "Publicación automática ACTIVADA",
+  "Blank line starts a new paragraph.": "Una línea en blanco inicia un párrafo nuevo.",
+  "Bright and clean / Luminoso y limpio": "Luminoso y limpio",
+  "Category is inferred from the provider diagnostic; it does not prove the underlying cause. Raw provider content is not stored.": "La categoría se deduce del diagnóstico del proveedor; no demuestra la causa subyacente. No se guarda el contenido sin procesar del proveedor.",
+  "Comma-separated, max 5. Only these addresses receive it — no customer is touched. Consent is not checked here (you do not need your own permission to email yourself), but a bounced address is still skipped.": "Separadas por comas, máximo 5. Solo estas direcciones lo reciben; no se contacta a ningún cliente. Aquí no se comprueba el consentimiento (no necesitas darte permiso para enviarte un correo), pero se omiten las direcciones que hayan rebotado.",
+  "Could not count that segment.": "No se pudo contar ese segmento.",
+  "Dates to confirm": "Fechas por confirmar",
+  "Drafts / Borradores": "Borradores",
+  "Editorial design": "Diseño editorial",
+  "Event or lifestyle": "Evento o ambiente",
+  "Every text ends with “Reply STOP to opt out.” — added automatically if you don’t write it. Only people who gave express consent for": "Cada mensaje termina con «Reply STOP to opt out.»; se agrega automáticamente si no lo escribes. Solo se incluye a las personas que dieron consentimiento expreso para",
+  "Evidence gate: structured claim review. Original model judgment (unverified): —": "Control de evidencia: revisión estructurada de afirmaciones. Evaluación original del modelo (sin verificar): —",
+  "Generated by AI — replace with a real photo when you have one": "Generada con IA: reemplázala por una foto real cuando tengas una",
+  "JPEG from your phone/computer uploads here; an MP4/MOV Story needs a key already staged in R2, pasted above — video upload from this screen is not available yet.": "Aquí puedes subir un JPEG desde tu teléfono o computadora; una historia MP4/MOV necesita una clave ya almacenada en R2, pegada arriba. Esta pantalla aún no permite subir videos.",
+  "Live / Publicadas": "Publicadas",
+  "MP4 or MOV, already staged in R2 — video upload from this screen is not available yet, paste the key above.": "MP4 o MOV ya almacenado en R2; esta pantalla aún no permite subir videos. Pega la clave arriba.",
+  "Made by the image provider — still just a preview.": "Creada por el proveedor de imágenes; sigue siendo una vista previa.",
+  "Message format": "Formato del mensaje",
+  "Natural polish / Mejora natural": "Mejora natural",
+  "No CTA link specified": "No se especificó un enlace de llamada a la acción",
+  "No links yet.": "Aún no hay enlaces.",
+  "No reference photos yet.": "Aún no hay fotos de referencia.",
+  "No rules yet.": "Aún no hay reglas.",
+  "Nothing has been attributed to a rule, brief, category or format yet.": "Aún no se ha atribuido nada a una regla, un brief, una categoría o un formato.",
+  "Off — internal HUB guidance only": "Desactivado: solo orientación interna del HUB",
+  "Only an owner can enable an active saved rule with a current update timestamp.": "Solo un propietario puede habilitar una regla guardada activa con una fecha de actualización vigente.",
+  "PO Box": "Apartado postal",
+  "Paste the full HTML document, or pick a file above.": "Pega el documento HTML completo o elige un archivo arriba.",
+  "Photo polish — original pixels / Ajuste fotográfico": "Ajuste fotográfico · píxeles originales",
+  "Photo to make:": "Foto que se creará:",
+  "Pick a .html file and it loads into the box below. Nothing is uploaded — the file is read here in the browser.": "Elige un archivo .html para cargarlo en el cuadro de abajo. No se sube nada: el archivo se lee aquí, en el navegador.",
+  "Postal address on marketing email": "Dirección postal en los correos de marketing",
+  "Preview it": "Ver vista previa",
+  "Previous audit details": "Detalles de la auditoría anterior",
+  "Recheck assets": "Volver a comprobar archivos",
+  "Removed / Eliminadas": "Eliminadas",
+  "Resume sending": "Reanudar envío",
+  "Review covers the saved Hub source design, not independent verification of Instagram pixels. It does not change the live post.": "La revisión abarca el diseño de origen guardado en Hub, sin verificar por separado los píxeles de Instagram. No modifica la publicación en vivo.",
+  "Review findings": "Hallazgos de la revisión",
+  "Review the actual food, packaging, emblem and wording before using. Template placement is not automatic food recognition.": "Revisa la comida, el empaque, el emblema y el texto reales antes de usarlo. La posición en la plantilla no reconoce automáticamente los alimentos.",
+  "Review the files and their order, then upload. Uploading alone does not attach them.": "Revisa los archivos y su orden antes de subirlos. Subirlos no los adjunta.",
+  "Send test to": "Enviar prueba a",
+  "Several products together": "Varios productos juntos",
+  "Single product": "Un producto",
+  "Still queued": "Sigue en cola",
+  "Template file": "Archivo de plantilla",
+  "The center is protected geometrically. Review the actual food, packaging, emblem and wording before using. Template placement is not automatic food recognition.": "El centro se protege geométricamente. Revisa la comida, el empaque, el emblema y el texto reales antes de usarlo. La posición en la plantilla no reconoce automáticamente los alimentos.",
+  "The scheduler is not configured yet, so a scheduled campaign would not send.": "El programador aún no está configurado, por lo que una campaña programada no se enviaría.",
+  "The scheduler is not configured, so this will": "El programador no está configurado, así que esto",
+  "The upload outcome is unknown. No media attachment was requested. Refresh the saved post before starting a new selection.": "Se desconoce el resultado de la subida. No se solicitó adjuntar archivos. Actualiza la publicación guardada antes de iniciar una nueva selección.",
+  "There is a": "Hay una",
+  "This is a rejected auditor observation, not a verified defect in your design.": "Esta es una observación rechazada del auditor, no un defecto verificado de tu diseño.",
+  "This is a rejected review request, not a verified defect in your design.": "Esta es una solicitud de revisión rechazada, no un defecto verificado de tu diseño.",
+  "Training rules": "Reglas de capacitación",
+  "Try refreshing. Your campaign status has not been verified.": "Intenta actualizar. El estado de tu campaña no se ha verificado.",
+  "Turn on": "Activar",
+  "Validate assets": "Validar archivos",
+  "View on Instagram →": "Ver en Instagram →",
+  "Warm editorial / Editorial cálido": "Editorial cálido",
+  "Your local time. The audience is worked out when it fires, not now — so anyone who joins between now and then is included.": "Tu hora local. La audiencia se calcula cuando se ejecuta, no ahora; incluye a quienes se sumen entre este momento y el envío.",
+  "both satisfy it; you do not have to publish your home address. Fine to leave while you are only testing yourself.": "ambos cumplen este requisito; no tienes que publicar la dirección de tu casa. Puedes dejarlo así mientras solo haces pruebas contigo misma.",
+  "by email": "por correo",
+  "by text": "por mensaje de texto",
+  "item(s)": "artículo(s)",
+  "left to send": "pendientes de enviar",
+  "or a": "o un",
+  "or upload a real one with 📷 below": "o sube una foto real con 📷 abajo",
+  "recorded, but no brief, intel, or rules were attributed to it.": "registrado, pero no se le atribuyeron un brief, información de mercado ni reglas.",
+  "send on its own. Use “Send now” instead.": "se enviará por sí solo. Usa «Enviar ahora».",
+  "texts are included.": "mensajes de texto de marketing.",
+  "virtual mailbox": "buzón virtual",
+  "— a county is not a postal address, so marketing email does not yet meet CAN-SPAM. A": "; un condado no es una dirección postal, por lo que los correos de marketing aún no cumplen CAN-SPAM. Un",
+  "✍️ Drafted for you — review before it goes anywhere": "✍️ Borrador preparado: revísalo antes de enviarlo a cualquier destino",
+  "(paste into branding):": "(pegar en identidad de marca):",
+  "A compliance footer will be": "Se agregará un pie de cumplimiento",
+  "A designed template gets that footer added underneath it — unless the template places": "Ese pie se agrega debajo de una plantilla diseñada, salvo que la plantilla incluya",
+  "AI budget": "Presupuesto de IA",
+  "AI budget unavailable": "Presupuesto de IA no disponible",
+  "Accent line — poster only (optional)": "Línea de acento · solo en póster (opcional)",
+  "Adaptive — one brand colour": "Adaptable · un color de marca",
+  "All posts": "Todas las publicaciones",
+  "Approval is recorded only after the server accepts this exact version. It does not prove Instagram delivery.": "La aprobación solo queda registrada cuando el servidor acepta esta versión exacta. No demuestra la entrega en Instagram.",
+  "Approve this version & schedule": "Aprobar esta versión y programar",
+  "Asset validation:": "Validación de archivos:",
+  "Attaching replaces this post’s saved media in the shown order and requires a fresh audit and review. Caption edits stay separate. Discarding does not delete staged uploads.": "Al adjuntar, se reemplazan los archivos guardados de esta publicación en el orden mostrado y se requiere una auditoría y revisión nuevas. Los cambios de texto se guardan aparte. Descartar no elimina las subidas almacenadas.",
+  "Auto — calmest spot": "Automático · zona más despejada",
+  "Auto — read the photo": "Automático · analizar la foto",
+  "Available training also exceeded the 16,000-character cap; some rows were omitted.": "La capacitación disponible también superó el límite de 16.000 caracteres; se omitieron algunas filas.",
+  "AÑEJO · YOUR PHOTOS": "AÑEJO · TUS FOTOS",
+  "Background, surface, camera angle, lighting, theme — whatever this campaign needs. The food never changes.": "Fondo, superficie, ángulo de cámara, iluminación, tema: lo que necesite esta campaña. La comida nunca cambia.",
+  "Before you send": "Antes de enviar",
+  "Bottom centre": "Abajo, al centro",
+  "Bottom left": "Abajo, a la izquierda",
+  "Bottom right": "Abajo, a la derecha",
+  "Brand Auditor · not scored yet": "Auditor de marca · aún sin evaluar",
+  "Campaign could not load": "No se pudo cargar la campaña",
+  "Campaign look": "Estilo de campaña",
+  "Campaign post counts": "Recuento de publicaciones de la campaña",
+  "Campaign view": "Vista de campaña",
+  "Cancel schedule": "Cancelar programación",
+  "Caption — lower left": "Texto · abajo, a la izquierda",
+  "Checked: not yet": "Comprobado: aún no",
+  "Closing line — poster only (optional)": "Línea de cierre · solo en póster (opcional)",
+  "Copies the plan structure only. New copy, media and review are required.": "Copia solo la estructura del plan. Se necesitan texto y archivos nuevos, además de una nueva revisión.",
+  "Could not load links.": "No se pudieron cargar los enlaces.",
+  "Could not load the inbox.": "No se pudo cargar la bandeja de entrada.",
+  "Could not load the ledger.": "No se pudo cargar el registro.",
+  "Could not load the performance watch.": "No se pudo cargar el seguimiento de rendimiento.",
+  "Could not load the rollup.": "No se pudo cargar el resumen.",
+  "Create next draft cycle": "Crear el próximo ciclo en borrador",
+  "Current automated audits · unavailable": "Auditorías automáticas actuales · no disponibles",
+  "Dates marked suggested have not been scheduled.": "Las fechas sugeridas no se han programado.",
+  "EXACT VERSION REVIEW": "REVISIÓN DE LA VERSIÓN EXACTA",
+  "Each post must have a current audit and the exact caption, assets, and time reviewed before scheduling.": "Antes de programar, cada publicación debe tener una auditoría vigente y una revisión de su texto, archivos y hora exactos.",
+  "Editorial — lower centre": "Editorial · abajo, al centro",
+  "Emblem — tree only": "Emblema · solo el árbol",
+  "English + Español": "Inglés + español",
+  "Enhance photo / Mejorar foto": "Mejorar foto",
+  "Exact saved-image hashes and registered render declarations. These do not prove public Instagram pixels, food ingredients, readability, or owner approval. Audit explanations above remain model judgments.": "Hashes exactos de las imágenes guardadas y declaraciones de renderizado registradas. No demuestran los píxeles públicos de Instagram, los ingredientes de la comida, la legibilidad ni la aprobación del propietario. Las explicaciones de auditoría anteriores siguen siendo evaluaciones del modelo.",
+  "Explain the example in plain language…": "Explica el ejemplo con palabras sencillas…",
+  "Export review manifest": "Exportar manifiesto de revisión",
+  "Filter posts / Filtrar publicaciones": "Filtrar publicaciones",
+  "Full lockup": "Logotipo completo",
+  "Full-frame Reposado keeps the entire photograph and its original shape, adds the real emblem and a fine editorial frame, and chooses readable branding colors. Keep the wording short and inspect the food before using. The named social templates use fixed editorial positions and a consistent shape; where needed, sampled background colors fill extra edges without cropping food. Choose a template with clear space in its title area. The alternate poster style adds height above a short photograph. Accent and closing lines apply to the poster only.": "Reposado a cuadro completo conserva toda la foto y su forma original, agrega el emblema real y un marco editorial fino, y elige colores de marca legibles. Usa un texto breve y revisa la comida antes de utilizarlo. Las plantillas sociales con nombre usan posiciones editoriales fijas y una forma uniforme; cuando hace falta, colores tomados del fondo completan los bordes sin recortar la comida. Elige una plantilla con espacio despejado en el área del título. El estilo alternativo de póster agrega altura sobre una foto corta. Las líneas de acento y cierre solo se aplican al póster.",
+  "Generate caption preview / Generar texto": "Generar vista previa del texto",
+  "Gmail clips messages around that size and hides the rest behind “View entire message” — including the unsubscribe link, which sits at the bottom.": "Gmail recorta los mensajes de ese tamaño y oculta el resto tras «Ver el mensaje completo», incluido el enlace para cancelar la suscripción, situado al final.",
+  "Help me write · Ayúdame a escribir": "Ayúdame a escribir",
+  "I reviewed every caption and media asset above, watched each video, and approve this exact version and its dates and times.": "Revisé todos los textos y archivos de arriba, vi cada video y apruebo esta versión exacta con sus fechas y horas.",
+  "Internal name": "Nombre interno",
+  "JPEG, PNG or WebP. 5MB max.": "JPEG, PNG o WebP. Máximo 5 MB.",
+  "Language as written · Format unset": "Idioma tal como está escrito · formato sin definir",
+  "Latest 60 posts returned · Últimas 60 publicaciones devueltas": "Últimas 60 publicaciones devueltas",
+  "Link not specified": "Enlace sin especificar",
+  "Loading replaces the subject, format and message below. It does not change the segment, and it never touches a campaign already sent.": "Al cargar, se reemplazan el asunto, el formato y el mensaje de abajo. No cambia el segmento ni modifica una campaña ya enviada.",
+  "Long-lived tokens expire after ~60 days — this usually means it needs renewing.": "Los tokens de larga duración vencen después de unos 60 días; esto suele indicar que hay que renovarlo.",
+  "MEDIA FOR ONE POST": "ARCHIVOS DE UNA PUBLICACIÓN",
+  "Made by the image provider. Still a draft; add it or discard it.": "Creada por el proveedor de imágenes. Sigue siendo un borrador; agrégala o descártala.",
+  "Mark finish": "Acabado de la marca",
+  "Mark position": "Posición de la marca",
+  "Masthead — top": "Cabecera · arriba",
+  "Media not attached": "Archivo sin adjuntar",
+  "Media unavailable": "Archivo no disponible",
+  "Media, approval and schedule values in the file are ignored. This creates private drafts only. If an import stops, select the same unchanged file to resume.": "Se ignoran los valores de archivos, aprobación y programación del documento. Solo crea borradores privados. Si la importación se interrumpe, selecciona el mismo archivo sin cambios para reanudarla.",
+  "Model-classified scope: unknown. Exact caption and registered overlay excerpts are checked against saved source text; this does not prove the model found every claim.": "Alcance clasificado por el modelo: desconocido. Los fragmentos exactos del texto de la publicación y del texto superpuesto registrado se comparan con el texto de origen guardado; esto no demuestra que el modelo haya detectado todas las afirmaciones.",
+  "New paid calls pause at the recorded limit or when the ledger is unavailable. In-flight calls and delayed recording can affect the final total.": "Las nuevas llamadas de pago se detienen al alcanzar el límite registrado o cuando el registro no está disponible. Las llamadas en curso y los registros demorados pueden afectar el total final.",
+  "Next month": "Próximo mes",
+  "No campaign has been drafted yet.": "Aún no se ha preparado ninguna campaña en borrador.",
+  "No plate behind the mark and no band behind the wording. The photo underneath is read first, and the mark and the type are inked in whichever kit colour separates from it — gold, cream or deep forest — so they sit on the image instead of on a box.": "Sin placa detrás de la marca ni banda detrás del texto. Primero se analiza la foto de fondo y luego se dibujan la marca y la tipografía con el color de la paleta que más contraste ofrezca: dorado, crema o verde bosque oscuro. Así quedan sobre la imagen, sin un recuadro.",
+  "No posts in this view.": "No hay publicaciones en esta vista.",
+  "No saved templates yet — write or load one below, then “Save as template”.": "Aún no hay plantillas guardadas: escribe o carga una abajo y luego elige «Guardar como plantilla».",
+  "No warnings returned for this version.": "No se devolvieron advertencias para esta versión.",
+  "Nobody has opted in to marketing texts yet. That is expected: the consent already on file was collected for order and delivery updates, and nobody was carried over into marketing. This list fills up only as people tick a box that specifically says marketing texts.": "Nadie ha aceptado recibir mensajes de marketing todavía. Es lo esperado: el consentimiento existente se obtuvo para novedades de pedidos y entregas, y no se trasladó a marketing. Esta lista solo se llena cuando alguien marca una casilla que dice específicamente mensajes de marketing.",
+  "Nobody in this segment is being excluded.": "No se excluye a nadie de este segmento.",
+  "Not attached": "Sin adjuntar",
+  "Not audited · current audit not verified": "Sin auditar · auditoría actual sin verificar",
+  "Not audited · current snapshot": "Sin auditar · instantánea actual",
+  "Offer: Unspecified · CTA: Unspecified": "Oferta: sin especificar · Llamada a la acción: sin especificar",
+  "One restrained italic line, and one is enough — the style says so, and the field is capped to keep it that way.": "Una línea breve en cursiva es suficiente: el estilo lo indica y el campo tiene un límite para mantenerlo así.",
+  "Optional refinements": "Ajustes opcionales",
+  "Or send it later": "O enviarlo después",
+  "Original colours": "Colores originales",
+  "Original photo preserved. Preview uses an upright sRGB PNG; color handling is browser-declared and needs visual review.": "Foto original conservada. La vista previa usa un PNG sRGB vertical; el navegador declara el tratamiento del color y se necesita revisión visual.",
+  "Original photo preserved. This format was not normalized; review its orientation and colors.": "Foto original conservada. Este formato no se normalizó; revisa su orientación y sus colores.",
+  "Over 100 KB.": "Más de 100 KB.",
+  "Overlay — mark and wording on the photo": "Superposición · marca y texto sobre la foto",
+  "Owner reviewed media & warnings · unavailable": "Revisión de archivos y advertencias por el propietario · no disponible",
+  "Photo evidence": "Evidencia fotográfica",
+  "Plan with Marketing": "Planificar con Marketing",
+  "Post details & caption": "Detalles de la publicación y texto",
+  "Post type": "Tipo de publicación",
+  "Posts / Publicaciones": "Publicaciones",
+  "Preview digest: Unavailable · approval cannot be bound": "Resumen de integridad de la vista previa: no disponible · no puede vincularse la aprobación",
+  "Preview rebuilt from the preserved photo before recorded editorial overlays. Inspect any branding already present in that photo. Preview uses an upright sRGB PNG; color handling is browser-declared and needs visual review.": "Vista previa reconstruida a partir de la foto conservada, antes de las superposiciones editoriales registradas. Revisa cualquier marca que ya aparezca en esa foto. La vista previa usa un PNG sRGB vertical; el navegador declara el tratamiento del color y se necesita revisión visual.",
+  "Preview rebuilt from the preserved photo before recorded editorial overlays. Inspect any branding already present in that photo. This format was not normalized; review its orientation and colors.": "Vista previa reconstruida a partir de la foto conservada, antes de las superposiciones editoriales registradas. Revisa cualquier marca que ya aparezca en esa foto. Este formato no se normalizó; revisa su orientación y sus colores.",
+  "Preview — merge tokens shown as sample values": "Vista previa · variables mostradas con valores de ejemplo",
+  "Product claim scope": "Alcance de las afirmaciones del producto",
+  "Readiness & audit details": "Preparación y detalles de auditoría",
+  "Recipients frozen at send": "Destinatarios fijados al enviar",
+  "Reference examples": "Ejemplos de referencia",
+  "Removed draft": "Borrador eliminado",
+  "Removed from the active queue. Restoring keeps it unscheduled.": "Retirado de la cola activa. Al restaurarlo, permanece sin programar.",
+  "Reposado poster — full editorial layout": "Póster Reposado · diseño editorial completo",
+  "Reposado — Signature Cajita launch": "Reposado · lanzamiento de La Cajita Signature",
+  "Reposado — dense food spread": "Reposado · composición de comida abundante",
+  "Reposado — full-frame photograph": "Reposado · fotografía a cuadro completo",
+  "Reposado — square, lower-edge title": "Reposado · cuadrado, título en el borde inferior",
+  "Reposado — tall tray, side title": "Reposado · bandeja vertical, título lateral",
+  "Reposado — wide photo, lower-left title": "Reposado · foto horizontal, título abajo a la izquierda",
+  "Resolve without retry": "Resolver sin reintentar",
+  "Review audit evidence": "Revisar evidencia de auditoría",
+  "Review caption changes": "Revisar cambios del texto",
+  "Review every image and watch each video. This approval applies only to the captions, assets, and times below.": "Revisa cada imagen y mira cada video. Esta aprobación solo abarca los textos, archivos y horarios de abajo.",
+  "Review in Comms →": "Revisar en Comunicaciones →",
+  "Review method": "Método de revisión",
+  "Review warnings": "Revisar advertencias",
+  "Save as template": "Guardar como plantilla",
+  "Save changes below. Saving invalidates the previous review; media and scheduling need a fresh review.": "Guarda los cambios abajo. Al guardar, se invalida la revisión anterior; los archivos y la programación requieren una nueva revisión.",
+  "Save draft plan": "Guardar plan en borrador",
+  "Save example": "Guardar ejemplo",
+  "Save the draft first, then you can schedule it.": "Guarda primero el borrador; después podrás programarlo.",
+  "Save this draft plan?": "¿Guardar este plan en borrador?",
+  "Saved AI declaration: enhanced. Stored history is not proof of authenticity.": "Declaración de IA guardada: mejorada. El historial almacenado no demuestra autenticidad.",
+  "Saved AI declaration: not AI-enhanced (declared). Stored history is not proof of authenticity.": "Declaración de IA guardada: sin mejora con IA (declarado). El historial almacenado no demuestra autenticidad.",
+  "Saved AI declaration: unknown. Stored history is not proof of authenticity.": "Declaración de IA guardada: desconocida. El historial almacenado no demuestra autenticidad.",
+  "Saved design source records": "Registros de origen del diseño guardado",
+  "Saved drafts": "Borradores guardados",
+  "Saved post IDs and media stay attached. This updates private dates, offer details and the captions shown below; it does not approve or schedule.": "Los IDs de publicaciones guardadas y sus archivos siguen adjuntos. Esto actualiza fechas privadas, detalles de la oferta y los textos de abajo; no aprueba ni programa.",
+  "Saved templates": "Plantillas guardadas",
+  "Saving text changes resets customer eligibility. Review the updated rule before enabling it again.": "Guardar cambios de texto restablece la elegibilidad para clientes. Revisa la regla actualizada antes de habilitarla de nuevo.",
+  "Scheduling unlocks after asset validation and a current review. Each validation step checks up to three assets.": "La programación se habilita después de validar los archivos y contar con una revisión vigente. Cada paso de validación comprueba hasta tres archivos.",
+  "Send now…": "Enviar ahora…",
+  "Set in Cormorant Garamond, in your own capitalisation. Drawn from these exact characters, never generated — it cannot be misspelled. It resizes and wraps itself to fit the photo.": "Compuesto en Cormorant Garamond, respetando tus mayúsculas y minúsculas. Se dibuja a partir de estos caracteres exactos, sin generarlos, para evitar errores de escritura. Ajusta su tamaño y sus líneas a la foto.",
+  "Set up, but Instagram refused the token.": "Configurado, pero Instagram rechazó el token.",
+  "Skipped (bounced or complained before)": "Omitidos (rebotaron o presentaron una queja anteriormente)",
+  "Small line above (optional)": "Línea pequeña arriba (opcional)",
+  "Some of your training did not fit.": "Parte de tu capacitación no cupo.",
+  "Source selection reached its 500-row limit; older rows may be omitted.": "La selección de fuentes alcanzó su límite de 500 filas; podrían haberse omitido filas anteriores.",
+  "Start with this month’s results and a fresh offer. The next cycle needs its own draft, media review, and approval.": "Empieza con los resultados de este mes y una oferta nueva. El próximo ciclo necesita su propio borrador, revisión de archivos y aprobación.",
+  "Stored declarations are not brand approval. Review the actual photo and run its current audit.": "Las declaraciones guardadas no constituyen aprobación de marca. Revisa la foto real y ejecuta su auditoría actual.",
+  "Styled variant of the real photo — made by the image provider. Still a draft; add it or discard it.": "Variante estilizada de la foto real, creada por el proveedor de imágenes. Sigue siendo un borrador; agrégala o descártala.",
+  "Subject line": "Asunto",
+  "Team Lead": "Líder del equipo",
+  "The Team Lead reads your cover and plans the rest as ONE story — distinct on-brand frames that flow from it and end on a call-to-action — and writes the wording for each frame so you can paste it straight into branding. Costs against the weekly AI budget: one provider call per new slide.": "El líder del equipo analiza la portada y planifica el resto como UNA historia: fotogramas distintos, acordes con la marca, que fluyen desde ella y terminan con una llamada a la acción. También escribe el texto de cada fotograma para pegarlo directamente en la herramienta de identidad de marca. Se descuenta del presupuesto semanal de IA: una llamada al proveedor por cada diapositiva nueva.",
+  "The design or source guidance must be checked again. Visual comparison does not prove image or logo provenance. An audit is not permission to publish.": "Hay que volver a revisar el diseño o las indicaciones de origen. La comparación visual no demuestra la procedencia de la imagen o del logotipo. Una auditoría no autoriza a publicar.",
+  "The ledger could not be verified. Paid AI calls are paused; spend and remaining budget are unknown.": "No se pudo verificar el registro. Las llamadas de IA de pago están pausadas; se desconocen el gasto y el presupuesto restante.",
+  "The letterspaced line above the headline. Always set in capitals. On a poster this is the subtitle under the title — e.g. PLANT-BASED WELLNESS BOWL.": "La línea con espaciado entre letras sobre el titular. Siempre en mayúsculas. En un póster es el subtítulo bajo el título; por ejemplo, BOWL DE BIENESTAR A BASE DE PLANTAS.",
+  "This channel is not configured on the server, so sending will be refused.": "Este canal no está configurado en el servidor, por lo que se rechazará el envío.",
+  "This makes a styled variant of a real Añejo photo": "Esto crea una variante estilizada de una foto real de Añejo",
+  "This screen is a read-only preview. Review the full captions and every media asset, then give explicit approval for this exact version. Scheduling and provider acceptance require separate evidence.": "Esta pantalla es una vista previa de solo lectura. Revisa los textos completos y todos los archivos; luego da tu aprobación explícita para esta versión exacta. La programación y la aceptación del proveedor requieren evidencia por separado.",
+  "Top centre": "Arriba, al centro",
+  "Top left": "Arriba, a la izquierda",
+  "Top right": "Arriba, a la derecha",
+  "Topic / Tema": "Tema",
+  "Traditional / Tradicional": "Tradicional",
+  "Training read incomplete. One or more sources are unavailable; this is not proof that no guidance exists.": "Lectura de capacitación incompleta. Una o más fuentes no están disponibles; esto no demuestra que no existan indicaciones.",
+  "Update private draft plan": "Actualizar plan privado en borrador",
+  "Update this private draft plan?": "¿Actualizar este plan privado en borrador?",
+  "Use a library photo / Usar foto de biblioteca": "Usar foto de biblioteca",
+  "Use caption / Usar texto": "Usar texto",
+  "Validation: Not run.": "Validación: no ejecutada.",
+  "Visual comparison does not prove image or logo provenance. An audit is not permission to publish.": "La comparación visual no demuestra la procedencia de la imagen o del logotipo. Una auditoría no autoriza a publicar.",
+  "What should the rest be about? (optional) — e.g. “the Palm Beach cities we deliver to”. Leave blank and it infers from the cover.": "¿De qué debe tratar el resto? (opcional). Por ejemplo: «las ciudades de Palm Beach donde entregamos». Si lo dejas vacío, se deduce a partir de la portada.",
+  "Which bowl": "Qué bowl",
+  "Which photo": "Qué foto",
+  "Who will NOT get this, and why": "Quién NO lo recibirá y por qué",
+  "Why this audit needs review": "Por qué esta auditoría necesita revisión",
+  "Wording (optional)": "Texto (opcional)",
+  "Wording for each new frame": "Texto de cada fotograma nuevo",
+  "You can also use": "También puedes usar",
+  "Your template carries the unsubscribe link and postal address itself, so": "Tu plantilla ya incluye el enlace para cancelar la suscripción y la dirección postal, así que",
+  "added below your design": "debajo de tu diseño",
+  "anywhere in the template.": "en cualquier parte de la plantilla.",
+  "declaration readback unavailable or no slides recorded.": "lectura de las declaraciones no disponible o sin diapositivas registradas.",
+  "e.g. Clean sips to pair with your bowl.": "Ej.: Bebidas frescas para acompañar tu bowl.",
+  "e.g. Order by Thursday": "Ej.: Pide antes del jueves",
+  "e.g. Rooted. Warm. Nourishing.": "Ej.: Raíces. Calidez. Nutrición.",
+  "e.g. This week only": "Ej.: Solo esta semana",
+  "e.g. beach picnic, golden hour": "Ej.: picnic en la playa, luz del atardecer",
+  "in your own footer. Both are needed; one on its own still gets the added block.": "en tu propio pie. Ambos son necesarios; si solo incluyes uno, se agrega el bloque de todos modos.",
+  "median reach": "mediana del alcance",
+  "no campaign context recorded — review the caption before approval.": "no hay un contexto de campaña registrado; revisa el texto antes de aprobar.",
+  "nothing is added": "no se agrega nada",
+  "people in this segment are excluded.": "personas de este segmento quedan excluidas.",
+  "people will receive this": "personas recibirán esto",
+  "renders more predictably.": "se muestra de forma más predecible.",
+  "stylesheet (usually a webfont). Gmail and Outlook strip it, so the email falls back to the fonts named inline. That is normal, not a fault — it just will not look like the browser.": "como hoja de estilo (normalmente una fuente web). Gmail y Outlook la eliminan, por lo que el correo usa las fuentes indicadas en línea. Es normal, no un fallo; simplemente no se verá igual que en el navegador.",
+  "tag. It is removed before sending — no email client runs scripts.": "como etiqueta. Se elimina antes del envío; ningún cliente de correo ejecuta scripts.",
+  "vs. without": "frente a sin ella",
+  "· browser declaration saved · image bytes matched · layout unverified": "· declaración del navegador guardada · bytes de la imagen coincidentes · diseño sin verificar",
+  "· no registered design declaration": "· sin declaración de diseño registrada",
+  "· registered output matched": "· salida registrada coincidente",
+  "· render receipt unavailable": "· recibo de renderizado no disponible",
+  "— it carries the unsubscribe link and the postal address, both legally required. To place them yourself instead, put": ": incluye el enlace para cancelar la suscripción y la dirección postal, ambos obligatorios por ley. Para incluirlos tú misma, coloca",
+  "— pick a template —": "— elige una plantilla —",
+  "— the design goes out exactly as written.": "; el diseño se envía exactamente como está escrito.",
+  "— your local time.": ": tu hora local.",
+  "✓ Good example — do this": "✓ Buen ejemplo · haz esto",
+  "✕ Avoid — never do this": "✕ Evita esto · nunca lo hagas",
+  "🎞️ Generate the rest of a carousel": "🎞️ Generar el resto del carrusel",
+  "🏷️ Add branding (logo + optional wording)": "🏷️ Agregar identidad de marca (logo y texto opcional)",
+  "🏷️ Category:": "🏷️ Categoría:",
+  "📋 Campaign brief:": "📋 Brief de campaña:",
+  "📐 Training rules active:": "📐 Reglas de capacitación activas:",
+  "📷 Change photo": "📷 Cambiar foto",
+  "📷 Photos / Fotos": "📷 Fotos",
+  "🖼️ Format:": "🖼️ Formato:",
+  "🖼️ Reference variant — same bowl, new scene": "🖼️ Variante de referencia · mismo bowl, nueva escena",
+  "off": "desactivado",
+  "draft": "borrador",
+  "skipped": "omitido",
+  "English": "Inglés",
+  "Sent": "Enviado",
+  "Attach": "Adjuntar",
+  "Clear": "Borrar",
+  "Currently": "Actualmente",
+  "Delete": "Eliminar",
+  "Link": "Enlace",
+  "not": "no",
+  "Audit": "Auditoría",
+  "CTA:": "Llamada a la acción:",
+  "Calendar": "Calendario",
+  "Campaign": "Campaña",
+  "Campaigns": "Campañas",
+  "Categories": "Categorías",
+  "Channel": "Canal",
+  "Drafts": "Borradores",
+  "Format": "Formato",
+  "Layout": "Diseño",
+  "List": "Lista",
+  "Load": "Cargar",
+  "Mark": "Marca",
+  "Offer": "Oferta",
+  "Published": "Publicado",
+  "Reading": "Lectura",
+  "Rules": "Reglas",
+  "Segment": "Segmento",
+  "Show": "Mostrar",
+  "Signal": "Señal",
+  "Teach": "Enseñar",
+  "Thread": "Conversación",
+  "comment": "comentario",
+  "sample": "muestra",
+  "scheduled": "programado",
+  "sending": "enviando",
+  "Auto-publish on": "Publicación automática activada",
+  "Back to manual approval": "Volver a la aprobación manual",
+  "Branded slide saved as draft with source record — review before scheduling": "Diapositiva con identidad de marca guardada como borrador con registro de origen; revísala antes de programar",
+  "Branded slide source record confirmed — post is currently scheduled": "Registro de origen de la diapositiva con identidad de marca confirmado; la publicación está programada actualmente",
+  "Carousel updated": "Carrusel actualizado",
+  "Could not add that rule": "No se pudo agregar esa regla",
+  "Could not attach the branded photo. Your original is preserved.": "No se pudo adjuntar la foto con identidad de marca. Se conserva tu original.",
+  "Could not change that": "No se pudo cambiar eso",
+  "Could not publish": "No se pudo publicar",
+  "Could not remove": "No se pudo quitar",
+  "Could not restore": "No se pudo restaurar",
+  "Could not save that example": "No se pudo guardar ese ejemplo",
+  "Could not save the branded photo": "No se pudo guardar la foto con identidad de marca",
+  "Describe the campaign look first.": "Describe primero el estilo de la campaña.",
+  "Draft removed. Restore it from Removed.": "Borrador eliminado. Restáuralo desde Eliminadas.",
+  "Example saved": "Ejemplo guardado",
+  "Explain the example first": "Explica primero el ejemplo",
+  "Give the template a name.": "Dale un nombre a la plantilla.",
+  "Nothing to preview yet.": "Aún no hay nada para mostrar en la vista previa.",
+  "Paste a video key first.": "Pega primero una clave de video.",
+  "Paste the image key first.": "Pega primero la clave de la imagen.",
+  "Photo attached, but the list could not refresh. Refresh before adding it again.": "La foto se adjuntó, pero no se pudo actualizar la lista. Actualiza antes de agregarla de nuevo.",
+  "Photo attached. Caption edits preserved.": "Foto adjunta. Se conservaron los cambios del texto.",
+  "Photo saved in your shared library.": "Foto guardada en tu biblioteca compartida.",
+  "Pick a date first.": "Elige primero una fecha.",
+  "Pick a photo first.": "Elige primero una foto.",
+  "Pick a size first.": "Elige primero un tamaño.",
+  "Pick a valid date and time.": "Elige una fecha y una hora válidas.",
+  "Pick an image first.": "Elige primero una imagen.",
+  "Postal address saved": "Dirección postal guardada",
+  "Posted to Instagram": "Publicado en Instagram",
+  "Previous request closed without saving. Your edits are preserved.": "La solicitud anterior se cerró sin guardar. Se conservaron tus cambios.",
+  "Previous save confirmed. Refresh the queue for its current status.": "Guardado anterior confirmado. Actualiza la cola para consultar su estado actual.",
+  "Reply not saved—do not repeat actions blindly.": "La respuesta no se guardó; no repitas acciones sin comprobar el resultado.",
+  "Restored as an unscheduled draft": "Restaurado como borrador sin programar",
+  "Rule added": "Regla agregada",
+  "Rule saved": "Regla guardada",
+  "Save your caption changes before auditing": "Guarda los cambios del texto antes de auditar",
+  "Save your caption changes before testing": "Guarda los cambios del texto antes de probar",
+  "Save your draft changes before switching queues.": "Guarda los cambios del borrador antes de cambiar de cola.",
+  "Saved as a draft": "Guardado como borrador",
+  "Schedule cancelled — it is a draft again.": "Programación cancelada: vuelve a ser un borrador.",
+  "Test recipients saved": "Destinatarios de prueba guardados",
+  "That date did not parse.": "No se pudo interpretar esa fecha.",
+  "That was already live": "Eso ya estaba publicado",
+  "There is nothing to save yet.": "Aún no hay nada que guardar.",
+  "Too large — 5MB max.": "Demasiado grande: máximo 5 MB.",
+  "Too large — 5MB max. Export a smaller JPEG.": "Demasiado grande: máximo 5 MB. Exporta un JPEG más pequeño.",
+  "Unconfirmed previous save retained. Current edits preserved; use Recover previous save.": "Se conserva el guardado anterior sin confirmar. Tus cambios actuales se mantienen; usa Recuperar guardado anterior.",
+  "Upload a photo first": "Sube primero una foto",
+  "Deleted": "Eliminado",
+  "Resolve the pending kitchen save first.": "Resuelve el guardado pendiente de cocina primero.",
+  "Equipment powered off and cooled down": "Equipo apagado y enfriado",
+  "All prep surfaces cleaned and sanitized": "Todas las superficies de preparación limpias y desinfectadas",
+  "Walk-in cooler at safe temperature at close": "Cámara frigorífica a temperatura segura al cerrar",
+  "Trash and recycling taken out": "Basura y reciclaje retirados",
+  "Leftover product labeled with date and stored": "Producto sobrante etiquetado con fecha y almacenado",
+  "Floors swept and mopped": "Pisos barridos y fregados",
+  "Kitchen Prep": "Preparación de cocina",
+  "Today's recipes/prep list confirmed": "Recetas y lista de preparación de hoy confirmadas",
+  "Ingredients pulled and staged": "Ingredientes retirados y preparados en el área de trabajo",
+  "Portion sizes checked against spec": "Tamaños de porción revisados contra la especificación",
+  "Allergen labels checked and applied": "Etiquetas de alérgenos revisadas y colocadas",
+  "Cook temperatures logged for hot-held items": "Temperaturas de cocción registradas para alimentos mantenidos calientes",
+  "Kitchen Sanitation": "Higiene de cocina",
+  "Handwashing supplies stocked": "Suministros para lavado de manos abastecidos",
+  "Sanitizer solution mixed to correct concentration": "Solución desinfectante preparada con la concentración correcta",
+  "Dish/wash area clean and organized": "Área de lavado de utensilios limpia y organizada",
+  "Food-contact surfaces sanitized between tasks": "Superficies en contacto con alimentos desinfectadas entre tareas",
+  "No signs of pests observed": "No se observaron señales de plagas",
+  "Driver Vehicle Check": "Revisión del vehículo del conductor",
+  "Vehicle interior clean and free of debris": "Interior del vehículo limpio y sin residuos",
+  "Fuel level checked and adequate for route": "Nivel de combustible revisado y suficiente para la ruta",
+  "Delivery coolers at safe temperature": "Neveras de entrega a temperatura segura",
+  "Tires and lights visually checked": "Neumáticos y luces revisados visualmente",
+  "Route sheet and delivery docs onboard": "Hoja de ruta y documentos de entrega a bordo",
+  "Driver Loadout": "Carga del conductor",
+  "Order count matches route manifest": "El conteo de pedidos coincide con el manifiesto de ruta",
+  "Bags and containers sealed and labeled": "Bolsas y envases sellados y etiquetados",
+  "Cold items packed in coolers with ice packs": "Alimentos fríos empacados en neveras con acumuladores de hielo",
+  "Fragile and liquid items secured upright": "Artículos frágiles y líquidos asegurados en posición vertical",
+  "Photo of loaded vehicle taken": "Foto del vehículo cargado tomada",
+  "Driver Drop-off": "Entrega del conductor",
+  "Delivery address confirmed against order": "Dirección de entrega confirmada contra el pedido",
+  "Handed to recipient or proof photo taken": "Entregado al destinatario o foto de prueba tomada",
+  "Product still within safe temperature at drop-off": "Producto aún dentro del rango de temperatura segura al entregar",
+  "Signature captured when required": "Firma registrada cuando se requiere",
+  "Delivery marked complete in the app": "Entrega marcada como completada en la aplicación",
+  "Open the kitchen Google form. Submitting records the time; it does not reserve hours. Keep the emailed copy.": "Abre el formulario de Google de la cocina. El envío registra la hora; no reserva horas. Conserve la copia recibida por correo.",
+  "Open kitchen record": "Abrir registro de la cocina",
+  "Update unconfirmed. Retry the saved request.": "Actualización sin confirmar. Reintente la solicitud guardada.",
+  "Loading event progress…": "Cargando progreso del evento…",
+  "Cooking · minutes": "Cocción · minutos",
+  "Confirm the actual visit and complete the required fields.": "Confirme la visita real y complete los campos requeridos.",
+  "I confirm this record describes actual kitchen use.": "Confirmo que este registro describe uso real de la cocina.",
+  "Correct actual hours": "Corregir horas reales",
+  "Email for the copy": "Correo para la copia",
+  "Details for the form": "Datos para el formulario",
+  "Edit form details": "Editar datos del formulario",
+  "Recovery storage is unavailable. The update was not sent.": "El almacenamiento de recuperación no está disponible. No se envió la actualización.",
+  "These are durations, not clock times. The serving time is changed in Details.": "Estas son duraciones, no horas del reloj. La hora de servicio se cambia en Detalles.",
+  "This records your declaration. The Hub does not submit the form or verify your receipt.": "Esto registra su declaración. El Hub no envía el formulario ni verifica su comprobante.",
+  "I am at the shared kitchen and starting this visit now.": "Estoy en la cocina compartida e inicio esta visita ahora.",
+  "I am ending this visit now.": "Estoy finalizando esta visita ahora.",
+  "Related catering event · optional": "Evento de catering relacionado · opcional",
+  "Actual end · your local time": "Final real · su hora local",
+  "End actual visit": "Finalizar visita real",
+  "Saved. No external form was submitted.": "Guardado. No se envió ningún formulario externo.",
+  "Saved. Reload the records to see the current status.": "Guardado. Vuelva a cargar los registros para ver el estado actual.",
+  "Recorded history": "Historial registrado",
+  "Start actual visit": "Iniciar visita real",
+  "Actual start · your local time": "Inicio real · su hora local",
+  "My actual hours": "Mis horas reales",
+  "My records": "Mis registros",
+  "Correction reason": "Motivo de corrección",
+  "No ingredients calculated. Confirm the recipes or add items for this event.": "No hay ingredientes calculados. Confirme las recetas o agregue artículos para este evento.",
+  "No visit in progress": "No hay visita en curso",
+  "No actual visits recorded this month.": "No hay visitas reales registradas este mes.",
+  "Business name": "Nombre del negocio",
+  "Visit note · optional": "Nota de la visita · opcional",
+  "License number · digits only": "Número de licencia · solo dígitos",
+  "Visit options": "Opciones de la visita",
+  "Time and quantity source": "Origen del tiempo y cantidades",
+  "Pending owner review": "Pendiente de revisión del dueño",
+  "Delivery plan · travel and setup": "Plan de entrega · viaje y montaje",
+  "Email receipt reference or note · optional": "Referencia o nota del comprobante por correo · opcional",
+  "Record form submission": "Registrar envío del formulario",
+  "Record actual use here. Proposed hours remain in the event reservation.": "Registre el uso real aquí. Las horas propuestas permanecen en la reserva del evento.",
+  "External record: user-declared submission · receipt unverified": "Registro externo: envío declarado por el usuario · comprobante no verificado",
+  "Team records": "Registros del equipo",
+  "Owner reviewed": "Revisado por el dueño",
+  "Review visit": "Revisar visita",
+  "Original history is preserved. A correction resets the external-submission status for review.": "Se conserva el historial original. Una corrección reinicia el estado de envío externo para revisarlo.",
+  "The latest 500 visits are shown; totals include the full month.": "Se muestran las últimas 500 visitas; los totales incluyen el mes completo.",
+  "Select…": "Seleccione…",
+  "Services actually used": "Servicios realmente utilizados",
+  "No submission declared for the kitchen form": "Sin envío declarado al formulario de la cocina",
+  "No related event": "Sin evento relacionado",
+  "License type": "Tipo de licencia",
+  "Event work": "Trabajo del evento",
+  "A saved update belongs to another operator. That operator must reconcile it first.": "Una actualización guardada pertenece a otro operador. Ese operador debe conciliarla primero.",
+  "An update needs confirmation. Retry the saved request before recording another action.": "Una actualización necesita confirmación. Reintente la solicitud guardada antes de registrar otra acción.",
+  "Order units": "Unidades del pedido",
+  "Use your verified business and license details in the external form. Saving these details does not submit it.": "Use los datos verificados de su negocio y licencia en el formulario externo. Guardar estos datos no lo envía.",
+  "Shared kitchen use": "Uso de cocina compartida",
+  "Visit in progress": "Visita en curso",
+  "Completed staff visits": "Visitas del personal finalizadas",
+  "Completed visits": "Visitas finalizadas",
+  "Real visits. Clear records.": "Visitas reales. Registros claros.",
+  "Reload records": "Volver a cargar registros",
+  "I submitted the kitchen form for this actual visit.": "Yo envié el formulario de la cocina para esta visita real.",
+  "📋 Open the production plan →": "📋 Abre el plan de producción →",
+  "· Paid in full": "· Pagado en su totalidad",
+  "Final payment received": "Pago final recibido",
+  "Dish / pack": "Plato / paquete",
+  "Line total ($)": "Total de la partida ($)",
+  "Pricing note (optional)": "Nota de precio (opcional)",
+  "Open the branded email preview, payment link and client account. Nothing sends until you approve.": "Abre la vista previa del correo con la marca, el enlace de pago y la cuenta del cliente. No se envía nada hasta que lo apruebes.",
+  "Review both branded emails, approve their timing and see feedback saved with this event.": "Revisa ambos correos con la marca, aprueba cuándo se enviarán y consulta los comentarios guardados con este evento.",
+  "New guest count asked for:": "Nuevo número de invitados solicitado:",
+  "What should she be told? (she sees this)": "¿Qué quieres decirle? (ella verá este mensaje)",
+  "Your reply:": "Tu respuesta:",
+  "Remove line": "Quitar partida",
+  "View / recover replacement": "Ver / recuperar reemplazo",
+  "Published price × quantity of the stated pack / serving. This is not an individual-piece count unless the unit says so.": "Precio publicado × cantidad del paquete / porción indicado. Esto no representa piezas individuales, salvo que la unidad así lo indique.",
+  "Edit quote · save changes": "Editar cotización · guardar cambios",
+  "Agreed quote rate × quantity; no current-price overwrite.": "Tarifa acordada en la cotización × cantidad; no reemplaza el precio vigente.",
+  "Deposit received:": "Depósito recibido:",
+  "Lead follow-up & response status": "Seguimiento del prospecto y estado de respuesta",
+  "Review the branded payment email and client account before sending.": "Revisa el correo de pago con la marca y la cuenta del cliente antes de enviarlo.",
+  "Catering booking": "Reserva de catering",
+  "No catering quotes yet.": "Aún no hay cotizaciones de catering.",
+  "Final payment due date not recorded": "No se registró la fecha de vencimiento del pago final",
+  "I reviewed this saved quote email and recipient.": "Revisé este correo de cotización guardado y su destinatario.",
+  "Saved quote preview loaded. Nothing has been sent by this action.": "Se cargó la vista previa de la cotización guardada. Esta acción no envió nada.",
+  "Send reviewed quote": "Enviar cotización revisada",
+  "Gift for this customer": "Regalo para este cliente",
+  "No phone number on this quote — email only": "Esta cotización no incluye un número de teléfono; solo se enviará por correo electrónico.",
+  "Or send it yourself:": "O envíalo tú misma:",
+  "Date not recorded · — guests": "Fecha no registrada · — invitados",
+  "Event date not recorded · — guests": "Fecha del evento no registrada · — invitados",
+  "Read the preview above one more time. When you are happy, this emails it to the address on the quote and texts her if she consented to texts.": "Vuelve a leer la vista previa de arriba. Cuando estés conforme, se enviará por correo a la dirección de la cotización y por mensaje de texto a la clienta si dio su consentimiento.",
+  "· Final payment waived": "· Pago final exonerado",
+  "· deposit unpaid": "· depósito pendiente",
+  "On. The reveal appears once she pays the": "Activado. La revelación aparecerá cuando ella pague el",
+  "— not before.": "— no antes.",
+  "Off. Nothing is promised and nothing is shown.": "Desactivado. No se promete ni se muestra nada.",
+  "On. She has paid in full, so the reveal is showing on her quote page now.": "Activado. Ella pagó el total, así que la revelación ya aparece en la página de su cotización.",
+  "Choose a quote": "Elige una cotización",
+  "Existing quotes for this request": "Cotizaciones existentes para esta solicitud",
+  "Compare the amounts and choose the correct quote. Paid quotes are read-only. Nothing is sent.": "Compara los importes y elige la cotización correcta. Las cotizaciones pagadas son de solo lectura. No se envía nada.",
+  "Historical records are preserved here. These checkouts are no longer active; use the active quote above for the current offer.": "Aquí se conservan los registros históricos. Estos pagos ya no están activos; usa la cotización activa de arriba para la oferta vigente.",
+  "No active catering quotes.": "No hay cotizaciones de catering activas.",
+  "Open selected quote": "Abrir cotización seleccionada",
+  "Revise selected quote with my draft": "Revisar la cotización seleccionada con mi borrador",
+  "Your current draft will be copied into the selected unpaid quote revision after you choose it. No message is sent.": "Tu borrador actual se copiará en la revisión de la cotización impaga seleccionada cuando la elijas. No se enviará ningún mensaje.",
+  "No matching published dishes.": "No hay platos publicados que coincidan.",
+  "Prices below are per stated serving or pack. New lines use this published price; existing agreed lines remain unchanged.": "Los precios de abajo corresponden a la porción o paquete indicado. Las partidas nuevas usarán este precio publicado; las partidas acordadas no cambiarán.",
+  "Waiting on you": "Pendiente de tu acción",
+  "Agreed food subtotal (dollars)": "Subtotal de comida acordado (dólares)",
+  "Checkout to retire:": "Pago que se retirará:",
+  "Choose the correct quote": "Elige la cotización correcta",
+  "Correct quote to keep": "Cotización correcta que se conservará",
+  "Could not load catering quotes.": "No se pudieron cargar las cotizaciones de catering.",
+  "I compared the quotes and confirm the checkout above is the obsolete duplicate.": "Comparé las cotizaciones y confirmo que el pago de arriba es el duplicado obsoleto.",
+  "It sends nothing.": "No se envía nada.",
+  "Leave blank until confirmed": "Déjalo en blanco hasta confirmarlo",
+  "Line items": "Artículos desglosados",
+  "No terms snapshot on this quote — it predates stored terms. Do not quote terms from this screen; check what was sent.": "Esta cotización no tiene una copia de las condiciones; es anterior al registro de condiciones. No las cites desde esta pantalla; verifica qué se envió.",
+  "Only the obsolete checkout is retired. Order history remains. This does not refund or charge money and sends no email or text.": "Solo se retira el pago obsoleto. El historial del pedido permanece. Esto no reembolsa ni cobra dinero y no envía correos ni mensajes de texto.",
+  "Optional signature croquetas": "Croquetas de la casa (opcional)",
+  "Retire an obsolete duplicate": "Retirar un duplicado obsoleto",
+  "Retire only the obsolete checkout": "Retirar solo el pago obsoleto",
+  "Terms this customer agreed to · unversioned": "Condiciones aceptadas por este cliente · sin versión registrada",
+  "Whatever she used on the site": "Lo que ella indicó en el sitio",
+  "Call or respond now.": "Llama o responde ahora.",
+  "Call notes / next action": "Notas de llamada / próxima acción",
+  "Contact and delivery evidence": "Pruebas de contacto y entrega",
+  "Internal call-task status": "Estado interno de la tarea de llamada",
+  "Next follow-up": "Próximo seguimiento",
+  "Open messages": "Abrir mensajes",
+  "Provider acceptance does not establish that the recipient read the message.": "La aceptación del proveedor no demuestra que el destinatario haya leído el mensaje.",
+  "Save follow-up": "Guardar seguimiento",
+  "Customer response · owner recorded": "Respuesta del cliente · registrada por el propietario",
+  "Private response notes": "Notas privadas sobre la respuesta",
+  "Save customer response": "Guardar respuesta del cliente",
+  "These notes are internal. Saving does not send a message, book a call or record payment.": "Estas notas son internas. Guardar no envía mensajes, reserva llamadas ni registra pagos.",
+  "No email": "Sin correo electrónico",
+  "Owner notification evidence unavailable": "Pruebas de notificación al propietario no disponibles",
+  "Customer response & quote reminder": "Respuesta del cliente y recordatorio de cotización",
+  "Customer response & reminder history": "Respuesta del cliente e historial de recordatorios",
+  "Customer response and quote reminder": "Respuesta del cliente y recordatorio de cotización",
+  "Open to retrieve current evidence. Opening never sends a message.": "Abre para consultar las pruebas actuales. Abrir no envía ningún mensaje.",
+  "Separate from your call-task status. Recording a call attempt does not mean the customer replied.": "Es independiente del estado de tu tarea de llamada. Registrar un intento de llamada no significa que el cliente haya respondido.",
+  "Suggested checkpoints: 24 hours, 72 hours and 7 days after the quote. These are owner actions; this panel does not schedule automatic customer emails.": "Revisiones sugeridas: 24 horas, 72 horas y 7 días después de la cotización. Son acciones del propietario; este panel no programa correos automáticos para el cliente.",
+  "Customer acknowledgement: not recorded": "Confirmación del cliente: no registrada",
+  "Create and send a quote before reviewing a quote reminder.": "Crea y envía una cotización antes de revisar un recordatorio de cotización.",
+  "Response details not loaded": "Detalles de la respuesta sin cargar",
+  "Review the lead and choose your next action.": "Revisa el prospecto y elige la próxima acción.",
+  "Provider receipt:": "Comprobante del proveedor:",
+  "Quote reminder": "Recordatorio de cotización",
+  "Closed — not proceeding": "Cerrado; no continúa",
+  "Closed — owner marked won": "Cerrado; ganado según el propietario",
+  "Could not retrieve response evidence. No message was sent.": "No se pudo obtener la evidencia de respuesta. No se envió ningún mensaje.",
+  "Needs contact": "Contacto pendiente",
+  "No catering inquiries yet.": "Aún no hay solicitudes de catering.",
+  "Owner marked won": "Ganados según el propietario",
+  "Paid deposits": "Depósitos pagados",
+  "Quotes sent": "Cotizaciones enviadas",
+  "Responses are owner-recorded. Owner-marked wins are separate from verified paid deposits. These counts do not establish email opens or link clicks.": "Las respuestas las registra el propietario. Los casos marcados como ganados por el propietario son independientes de los depósitos pagados verificados. Estos conteos no demuestran aperturas de correo ni clics en enlaces.",
+  "Responses recorded": "Respuestas registradas",
+  "Summary scope not recorded": "Alcance del resumen no registrado",
+  "Active request": "Solicitud activa",
+  "Internal note": "Nota interna",
+  "Open catering desk": "Abrir el panel de catering",
+  "Request state": "Estado de la solicitud",
+  "Save request": "Guardar solicitud",
+  "Customer messages are stopped. Review the existing Google event separately; canceling this request does not remove that event.": "Los mensajes al cliente están detenidos. Revisa por separado el evento existente en Google; cancelar esta solicitud no elimina ese evento.",
+  "A branded Añejo email is staged here. Opening this screen does not send an email or charge the customer.": "Aquí está preparado un correo con la marca Añejo. Abrir esta pantalla no envía correos ni cobra al cliente.",
+  "Branded client email": "Correo para el cliente con la marca",
+  "Collect final payment": "Cobrar el pago final",
+  "Email activity and provider receipts": "Actividad de correo y comprobantes del proveedor",
+  "Enable future reminders with this template": "Activar recordatorios futuros con esta plantilla",
+  "I approve this rendered template for future final-payment reminders in this language.": "Apruebo esta plantilla renderizada para futuros recordatorios de pago final en este idioma.",
+  "I reviewed the named recipient, subject and complete rendered email and approve this one send.": "Revisé el destinatario indicado, el asunto y el correo completo renderizado; apruebo este único envío.",
+  "I reviewed this recipient, amount, due date and complete rendered email, and approve this one send.": "Revisé el destinatario, el importe, la fecha de vencimiento y el correo completo renderizado; apruebo este único envío.",
+  "Preview branded email": "Vista previa del correo con la marca",
+  "Refresh payment and reminder status": "Actualizar el estado del pago y los recordatorios",
+  "Reminder activity and provider receipts": "Actividad de recordatorios y comprobantes del proveedor",
+  "Send branded payment reminder once": "Enviar una vez el recordatorio de pago con la marca",
+  "Send reviewed branded email once": "Enviar una vez el correo con la marca revisado",
+  "Send through Añejo’s branded Resend email. No email app opens. Drafting and previewing send nothing.": "Envíalo mediante el correo de Resend con la marca Añejo. No se abre una aplicación de correo. Redactar y previsualizar no envía nada.",
+  "Write your message. Añejo branding and contact details are included automatically.": "Escribe tu mensaje. La marca y los datos de contacto de Añejo se incluyen automáticamente.",
+  "15 or more days before the event": "15 días o más antes del evento",
+  "8–14 days before the event": "8–14 días antes del evento",
+  "3–7 days before the event": "3–7 días antes del evento",
+  "less than 3 days before the event": "menos de 3 días antes del evento",
+  "Confirm the kitchen’s actual booking calendar.": "Confirma el calendario real de reservas de la cocina.",
+  "Calendar runtime credentials are not configured.": "Las credenciales de ejecución del calendario no están configuradas.",
+  "Confirm the exact kitchen reservation calendar ID.": "Confirma el ID exacto del calendario de reservas de la cocina.",
+  "Review this request before preparing a quote.": "Revisa esta solicitud antes de preparar una cotización.",
+  "Deposit recorded. Continue event planning.": "Depósito registrado. Continúa la planificación del evento.",
+  "Customer declined. Do not send further quote reminders.": "El cliente rechazó la cotización. No envíes más recordatorios.",
+  "Review the requested call time and arrange the call.": "Revisa la hora solicitada y coordina la llamada.",
+  "Review requested changes before sending another quote.": "Revisa los cambios solicitados antes de enviar otra cotización.",
+  "Review the customer response and record the next agreed action.": "Revisa la respuesta del cliente y registra la próxima acción acordada.",
+  "All three reviewed email steps are used. Review the plans or arrange a call; the lead remains open until you decide otherwise.": "Ya se usaron los tres pasos de correo revisados. Revisa los planes o coordina una llamada; el prospecto seguirá abierto hasta que decidas lo contrario.",
+  "Owner decision: call to confirm plans or close this follow-up. No automatic message.": "Decisión de la propietaria: llama para confirmar los planes o cierra este seguimiento. No se enviará ningún mensaje automáticamente.",
+  "Owner check: ask whether anything needs clarification. No automatic message.": "Revisión de la propietaria: pregunta si algo necesita aclaración. No se enviará ningún mensaje automáticamente.",
+  "Review the quote response after 24 hours. Sending always requires a reviewed owner action.": "Revisa la respuesta a la cotización después de 24 horas. El envío siempre requiere una acción revisada por la propietaria.",
+  "No active quote is strongly linked to this lead.": "No hay una cotización activa vinculada claramente a este prospecto.",
+  "Only unpaid active quotes may receive a review reminder.": "Solo las cotizaciones activas sin pagar pueden recibir un recordatorio de revisión.",
+  "This lead is closed. No reminder will be sent.": "Este prospecto está cerrado. No se enviará ningún recordatorio.",
+  "The event date is missing, invalid or past.": "La fecha del evento falta, no es válida o ya pasó.",
+  "The quote needs a valid recipient email.": "La cotización necesita una dirección de correo válida para el destinatario.",
+  "A valid quote must already have been sent before following up.": "La cotización válida debe haberse enviado antes de hacer seguimiento.",
+  "A quote revision or duplicate retirement is still in progress.": "Aún se está procesando una revisión de la cotización o el retiro de un duplicado.",
+  "This recipient is suppressed or opted out. Do not send.": "Este destinatario está suprimido o canceló su suscripción. No envíes el mensaje.",
+  "A customer response has been recorded. Review it instead of sending this reminder.": "Se registró una respuesta del cliente. Revísala en vez de enviar este recordatorio.",
+  "An inbound reply is recorded. Review the conversation first.": "Se registró una respuesta entrante. Revisa primero la conversación.",
+  "A call was requested. Review the request first.": "Se solicitó una llamada. Revisa primero la solicitud.",
+  "Order changes were requested. Review them first.": "Se solicitaron cambios al pedido. Revísalos primero.",
+  "Reconcile the unconfirmed email before any further send.": "Reconcilia el correo sin confirmar antes de realizar otro envío.",
+  "Follow-up closed. No further quote reminders; owner-marked wins do not establish payment.": "Seguimiento cerrado. No envíes más recordatorios de cotización; marcar una oportunidad como ganada no demuestra que se haya pagado.",
+  "Arrange the requested call.": "Coordina la llamada solicitada.",
+  "Review the requested quote changes.": "Revisa los cambios solicitados a la cotización.",
+  "Respond to the customer and agree on the next step.": "Responde al cliente y acuerda el próximo paso.",
+  "Confirm plans by call or record the outcome. No automatic closure.": "Confirma los planes por llamada o registra el resultado. No se cerrará automáticamente.",
+  "Review the next quote reminder or make a call.": "Revisa el próximo recordatorio de cotización o llama.",
+  "Review the request and contact the customer.": "Revisa la solicitud y contacta al cliente.",
+  "Connect QuickBooks": "Conectar QuickBooks",
+  "Content briefs": "Resúmenes de contenido",
+  "Copy link": "Copiar enlace",
+  "Could not ask.": "No se pudo hacer la pregunta.",
+  "Could not file this to the queue; it is shown here only.": "No se pudo añadir esto a la cola; solo se muestra aquí.",
+  "Currently using the built-in defaults — nothing has been set here yet.": "Se están usando los valores predeterminados incluidos; todavía no se ha configurado nada aquí.",
+  "Database backup": "Copia de seguridad de la base de datos",
+  "Delivered / opened": "Entregado / abierto",
+  "Deposit paid · balance": "Depósito pagado · saldo pendiente",
+  "Discover new organizations": "Buscar nuevas organizaciones",
+  "Employment type": "Tipo de empleo",
+  "Every location can be reached by email and by text.": "Se puede contactar cada ubicación por correo electrónico y mensaje de texto.",
+  "Filed in AI Suggestions below — approve or dismiss it there. Nothing happens until you do.": "Se guardó en Sugerencias de IA, abajo; apruébala o descártala allí. No ocurre nada hasta que lo hagas.",
+  "Fix before the next holiday": "Corregir antes del próximo feriado",
+  "Flagged claims:": "Afirmaciones señaladas:",
+  "Good news (green)": "Buenas noticias (verde)",
+  "Grant it": "Conceder el beneficio",
+  "Hourly rate in dollars — used only when they are paid hourly": "Tarifa por hora en dólares; solo se usa cuando se paga por hora",
+  "How they are paid": "Cómo se les paga",
+  "I have read the flags and want to send it as written.": "Leí las advertencias y quiero enviarlo tal como está escrito.",
+  "In force": "Vigente",
+  "Invoices cannot be sent until you add one — and without it the only people Añejo can reach here are the office staff who count heads, who never see pricing.": "No se pueden enviar facturas hasta que agregues un contacto. Sin él, las únicas personas a las que Añejo puede llegar aquí son el personal de oficina que cuenta a los comensales y que nunca ve los precios.",
+  "Last 2 weeks (biweekly)": "Últimas 2 semanas (quincenal)",
+  "Last week": "La semana pasada",
+  "Launch list": "Lista de lanzamiento",
+  "Launch list — not yet purchased": "Lista de lanzamiento — aún no comprada",
+  "Legacy Member": "Miembro anterior",
+  "Library unavailable — see above.": "Biblioteca no disponible — consulta arriba.",
+  "Mileage rate ($/mi)": "Tarifa por milla ($/mi)",
+  "Mobile e.g. 561-555-0142": "Celular; por ejemplo, 561-555-0142",
+  "Neutral (dark green)": "Neutro (verde oscuro)",
+  "No activity.": "Sin actividad.",
+  "No area set — orders are accepted from anywhere.": "No se definió un área; se aceptan pedidos desde cualquier lugar.",
+  "No billing contact.": "No hay contacto de facturación.",
+  "No brief yet. “Generate account brief” writes one from the evidence below.": "Todavía no hay un resumen. «Generar resumen de cuenta» crea uno a partir de la evidencia de abajo.",
+  "No criteria earned points — check before sending.": "Ningún criterio obtuvo puntos; revisa antes de enviar.",
+  "No evidence captured yet.": "Todavía no se ha recopilado evidencia.",
+  "No flagged claims.": "No hay afirmaciones señaladas.",
+  "No members yet.": "Todavía no hay miembros.",
+  "No office order has been measured yet.": "Todavía no se ha medido ningún pedido de oficina.",
+  "No organizations yet. Add one below, import a CSV, or run discovery.": "Todavía no hay organizaciones. Agrega una abajo, importa un CSV o inicia una búsqueda.",
+  "No reports yet. Briefings, end-of-service checklists, standups and the weekly summary appear here.": "Todavía no hay informes. Aquí aparecen los informes, las listas de cierre del servicio, las reuniones breves y el resumen semanal.",
+  "No sources recorded.": "No se registraron fuentes.",
+  "Nobody is due. Either the list is worked, or everyone is resting.": "Nadie tiene seguimiento pendiente. O ya se trabajó la lista o todos están descansando.",
+  "None chosen yet — until you choose, no closure notice is ever sent.": "Todavía no elegiste ninguno; no se enviará un aviso de cierre hasta que elijas.",
+  "Not applicable": "No corresponde",
+  "Not available": "No disponible",
+  "Not connected": "No conectado",
+  "Not entered": "No ingresado",
+  "Not running:": "No está en ejecución:",
+  "Nothing logged yet.": "Todavía no hay registros.",
+  "Nothing measured and no estimates set yet.": "Todavía no hay mediciones ni estimaciones.",
+  "Nothing recorded yet. It fills up on its own as orders are marked ready.": "Todavía no hay registros. Se completará a medida que los pedidos se marquen como listos.",
+  "Nothing required is missing for the categories in your pipeline.": "No falta ningún requisito para las categorías de tu proceso.",
+  "Nothing sent or drafted yet.": "Todavía no se ha enviado ni redactado nada.",
+  "Nothing showing.": "No hay nada para mostrar.",
+  "Nothing waiting for approval.": "No hay nada pendiente de aprobación.",
+  "Nothing written yet.": "Todavía no se ha escrito nada.",
+  "Notices sent and what they answered": "Avisos enviados y sus respuestas",
+  "Off — internal HUB content only": "Desactivado — solo contenido interno del HUB",
+  "Office contact — receives the verification code & SMS receipts": "Contacto de oficina — recibe el código de verificación y los recibos por SMS",
+  "Only an owner can change eligibility for an active document with a saved update timestamp.": "Solo el propietario puede cambiar la elegibilidad de un documento activo que tenga una fecha de actualización guardada.",
+  "Only these ZIPs can check out.": "Solo se puede finalizar la compra desde estos códigos postales.",
+  "Open Readiness": "Abrir preparación",
+  "Open the Catering desk": "Abrir el panel de catering",
+  "Out of stock": "Agotado",
+  "Owner’s daily rhythm": "Rutina diaria de la propietaria",
+  "Pop-up in the middle (shown once)": "Ventana emergente en el centro (se muestra una vez)",
+  "Preview their page": "Previsualizar su página",
+  "Read them below first. Each is re-previewed and approved against its own rendered text; anything that changed since you looked is refused by name.": "Léelos primero abajo. Cada uno se vuelve a previsualizar y aprobar según su propio texto renderizado; cualquier elemento que haya cambiado desde que lo revisaste será rechazado y se identificará por nombre.",
+  "Reconnect QuickBooks": "Volver a conectar QuickBooks",
+  "Retype the staff id to confirm.": "Vuelve a escribir el ID del personal para confirmar.",
+  "Run again": "Ejecutar de nuevo",
+  "Rush fees": "Cargos por urgencia",
+  "Save answer": "Guardar respuesta",
+  "Scheduled-ahead only — customers pick a future day. Same-day is off regardless of the clock.": "Solo se programa con anticipación: los clientes eligen un día futuro. Los pedidos para el mismo día están desactivados, independientemente de la hora.",
+  "Send emails this invoice to the billing contact and moves it to": "Envía esta factura por correo al contacto de facturación y la mueve a",
+  "Service ended. Ordering link disabled; historical records below.": "El servicio terminó. El enlace para pedir está desactivado; los registros históricos aparecen abajo.",
+  "Settings could not be read — treating both switches as OFF.": "No se pudieron leer los ajustes; ambos controles se consideran DESACTIVADOS.",
+  "Shipped version": "Versión publicada",
+  "Showing on the site right now.": "Se muestra en el sitio ahora mismo.",
+  "Social planner": "Planificador de redes sociales",
+  "Subscription delivery": "Entrega de suscripciones",
+  "Target net margin": "Margen neto objetivo",
+  "The weekly price of each meal plan. Saving one changes what the NEXT subscriber is charged and what /subscribe shows. People already subscribed keep the price they signed up at until they change plans.": "El precio semanal de cada plan de comidas. Guardar un precio cambia lo que pagará el PRÓXIMO suscriptor y lo que aparece en /subscribe. Quienes ya tienen una suscripción conservan el precio al que se inscribieron hasta que cambien de plan.",
+  "Their answer": "Su respuesta",
+  "This cannot be undone.": "Esta acción no se puede deshacer.",
+  "This email cannot be approved: the recipient is suppressed.": "No se puede aprobar este correo: el destinatario está suprimido.",
+  "This invoice is void.": "Esta factura está anulada.",
+  "This order cannot be canceled.": "Este pedido no se puede cancelar.",
+  "This order cannot be refunded here.": "Este pedido no se puede reembolsar desde aquí.",
+  "Unanswered — the research attempt failed.": "Sin respuesta — falló el intento de investigación.",
+  "Unanswered — waiting on research, or answer it yourself below.": "Sin respuesta — a la espera de la investigación, o responde tú misma abajo.",
+  "Unbilled this period": "Sin facturar en este período",
+  "Unknown handle": "Identificador desconocido",
+  "Urgent (red)": "Urgente (rojo)",
+  "Void — nothing due": "Anular — no hay saldo pendiente",
+  "You can read every content file here. To change one, open it and send the change to Dayan for approval.": "Aquí puedes leer todos los archivos de contenido. Para cambiar uno, ábrelo y envía el cambio a Dayan para que lo apruebe.",
+  "Your estimate": "Tu estimado",
+  "Your version is live": "Tu versión está activa",
+  "active staff are up to date on their role training.": "miembros activos del personal tienen al día la capacitación de su puesto.",
+  "already counted": "ya contado",
+  "container + lid + sauce cup + label": "envase + tapa + vasito para salsa + etiqueta",
+  "could not load pricing": "no se pudieron cargar los precios",
+  "dish price": "precio del plato",
+  "fraction: 0.25 = 25%": "fracción: 0.25 = 25%",
+  "fraction: 0.30 = 30%": "fracción: 0.30 = 30%",
+  "fraction: 0.50 = 50%": "fracción: 0.50 = 50%",
+  "gym / trainer": "gimnasio / entrenador",
+  "have never been trained.": "nunca han recibido capacitación.",
+  "lead days": "días de anticipación",
+  "next week": "la próxima semana",
+  "no address": "sin dirección",
+  "no photo": "sin foto",
+  "of the Founding Hundred": "de los Cien Miembros Fundadores",
+  "on request only": "solo a solicitud",
+  "padding:7px 12px;border-radius:8px;font-size:12.5px;opacity:0;pointer-events:none;transition:opacity .25s;z-index:9998}": "padding:7px 12px;border-radius:8px;font-size:12.5px;opacity:0;pointer-events:none;transition:opacity .25s;z-index:9998}",
+  "prep + travel + service + breakdown": "preparación + traslado + servicio + desmontaje",
+  "the email has changed since": "el correo cambió desde",
+  "this week": "esta semana",
+  "unconfirmed, worth a human read": "sin confirmar; conviene que una persona lo revise",
+  "we ask if they are open": "preguntamos si les interesa",
+  "· not approved": "· no aprobado",
+  "— distance scoring uses contract sites only": "— la puntuación de distancia solo usa las ubicaciones con contrato",
+  "— team —": "— equipo —",
+  "— type —": "— tipo —",
+  "…loading the rest…": "…cargando el resto…",
+  "▭ Top bar": "▭ Barra superior",
+  "⚠️ CRON_KEY not set — scheduled jobs will not run": "⚠️ CRON_KEY no está configurada — las tareas programadas no se ejecutarán",
+  "⚠️ RESEND_API_KEY not set": "⚠️ RESEND_API_KEY no está configurada",
+  "Nothing in the queue covers today.": "No hay nada en la cola que cubra el día de hoy.",
+  "Write one below.": "Escribe uno abajo.",
+  "high confidence": "confianza alta",
+  "kitchen closed": "cocina cerrada",
+  "⏱ Measured": "⏱ Medido",
+  "💳 Create Square payment link": "💳 Crear enlace de pago de Square",
+  "📋 Copy": "📋 Copiar",
+  "+ Add to CRM": "+ Añadir al CRM",
+  "No opportunity yet. Create one to start outreach.": "Aún no hay oportunidades. Crea una para iniciar el contacto.",
+  "Payment reference (check #, ACH, Square…)": "Referencia del pago (n.º de cheque, ACH, Square…)",
+  "location price": "precio por ubicación",
+  "on approval": "al aprobar",
+  "✓ Mark paid": "✓ Marcar como pagado",
+  "📗 Send to QuickBooks": "📗 Enviar a QuickBooks",
+  "(as verified 9/18/2026)": "(según se verificó el 18/9/2026)",
+  "(your visits are not counted)": "(tus visitas no se cuentan)",
+  "+ Write another message": "+ Escribir otro mensaje",
+  ". Mark paid closes it — it stops counting as outstanding.": ". Marcar como pagado lo cierra: deja de contarse como pendiente.",
+  "25-30 is a common start": "25-30 es un punto de partida habitual",
+  "2× points for life ✓": "2× puntos de por vida ✓",
+  "AI Ops:": "Operaciones con IA:",
+  "Accepting records your decision — the HUB does not carry this out for you.": "Aceptar registra tu decisión; HUB no ejecuta esta acción por ti.",
+  "Acknowledge flagged claims and readiness gaps": "Reconoce las afirmaciones señaladas y las brechas de preparación",
+  "Add to the queue": "Añadir a la cola",
+  "All un-invoiced": "Todo lo que aún no se ha facturado",
+  "An answer is drafted and waiting in Approvals.": "La respuesta está redactada y espera en Aprobaciones.",
+  "An out-of-area customer can pay for food you cannot deliver.": "Un cliente fuera del área puede pagar por comida que no puedes entregar.",
+  "Approve & queue this exact email": "Aprobar y poner en cola este correo exacto",
+  "Approve several": "Aprobar varios",
+  "Ask on the first call:": "Pregunta en la primera llamada:",
+  "Balance outstanding": "Saldo pendiente",
+  "Bar across the top of every page": "Barra en la parte superior de cada página",
+  "Before it can be confirmed:": "Antes de poder confirmarlo:",
+  "Benefit MISSING": "FALTA el beneficio",
+  "Blocking deals in your pipeline right now:": "Negocios que ahora mismo bloquean tu cartera:",
+  "Bowl checked": "Cuenco marcado",
+  "Bowl unchecked": "Cuenco sin marcar",
+  "Brief change": "Cambio en el resumen",
+  "Buyers will ask for things Añejo cannot hand over yet.": "Los compradores pedirán cosas que Añejo todavía no puede entregar.",
+  "CSV import": "Importación de CSV",
+  "Cancel this order": "Cancelar este pedido",
+  "Card link:": "Enlace de tarjeta:",
+  "Coming soon": "Próximamente",
+  "Demand forecast": "Pronóstico de demanda",
+  "How we know": "Cómo lo sabemos",
+  "Total due": "Total adeudado",
+  "Vendor lead time (days) — used for Ops order timing": "Plazo de entrega del proveedor (días), usado para programar pedidos de Operaciones",
+  "⚠️ The connection expired": "⚠️ La conexión venció",
+  "✉️ Re-send to client": "✉️ Reenviar al cliente",
+  "✉️ Send to client": "✉️ Enviar al cliente",
+  "✓ Brief drafted — see Library": "✓ Resumen redactado; consulta la Biblioteca",
+  "✓ Nothing outstanding on this event.": "✓ No hay pendientes para este evento.",
+  "🔑 Login link": "🔑 Enlace de inicio de sesión",
+  "Read them below first, or the request will be refused by name.": "Léelos abajo primero; de lo contrario, la solicitud será rechazada y se identificará por nombre.",
+  "Account brief": "Resumen de la cuenta",
+  "Account name": "Nombre de la cuenta",
+  "AI briefs": "Resúmenes con IA",
+  "Add a contact": "Añadir un contacto",
+  "Add a prospect with a sendable contact to see it.": "Añade un prospecto con un contacto al que se pueda escribir para verlo.",
+  "Add an organization": "Añadir una organización",
+  "Add and score": "Añadir y puntuar",
+  "Add contact": "Añadir contacto",
+  "Anonymous proof line — only if true": "Frase de respaldo anónima — solo si es cierta",
+  "Anything else": "Algo más",
+  "Anything to tell the writer": "Algo que quieras indicarle a quien redacta",
+  "Are we ready to close?": "¿Estamos listos para cerrar?",
+  "At most": "Como máximo",
+  "Automatic intro email": "Correo electrónico introductorio automático",
+  "Call list": "Lista de llamadas",
+  "Campaign name": "Nombre de la campaña",
+  "Capacity (only if known)": "Capacidad (solo si se conoce)",
+  "Capacity / onboarding note": "Capacidad / nota de incorporación",
+  "Category (locks it)": "Categoría (queda fijada)",
+  "Category fit (0–1)": "Afinidad con la categoría (0–1)",
+  "Claims this email relies on": "Afirmaciones en las que se basa este correo",
+  "Create opportunity": "Crear oportunidad",
+  "Created with the first opportunity.": "Se crea junto con la primera oportunidad.",
+  "Dayan at Añejo": "Dayan en Añejo",
+  "Days per week": "Días por semana",
+  "Decide from the record": "Decidir según el registro",
+  "Delivery days text": "Texto de los días de entrega",
+  "Delivery fee per day ($)": "Tarifa de entrega por día ($)",
+  "Delivery locations": "Ubicaciones de entrega",
+  "Delivery/open events": "Eventos de entrega/apertura",
+  "Detect automatically": "Detectar automáticamente",
+  "Discovery sources": "Fuentes de descubrimiento",
+  "Do not contact": "No contactar",
+  "Edit organization": "Editar organización",
+  "Edited — preview again before approving.": "Editado — vuelve a previsualizar antes de aprobar.",
+  "Email provider": "Proveedor de correo electrónico",
+  "Est. monthly ($)": "Estimado mensual ($)",
+  "Estimates & next action": "Estimaciones y próximo paso",
+  "Exact email preview": "Vista previa exacta del correo electrónico",
+  "First email": "Primer correo electrónico",
+  "Follow-up sequence": "Secuencia de seguimiento",
+  "From (hour)": "Desde (hora)",
+  "From address (verified sending domain)": "Dirección de envío (dominio verificado)",
+  "From name": "Nombre del remitente",
+  "Generate account brief": "Generar resumen de la cuenta",
+  "Headcount cutoff": "Límite de comensales",
+  "Headcount cutoff text": "Texto del límite de comensales",
+  "+ Location": "+ Ubicación",
+  "+ Person": "+ Persona",
+  ". Nothing changes until you approve it there.": ". Nada cambia hasta que lo apruebes allí.",
+  "A price, a menu, a callback, a date. Optional.": "Un precio, un menú, una llamada de seguimiento o una fecha. Opcional.",
+  "Accepting head counts — unchecking pauses this location's intake link": "Aceptar recuentos de comensales — desmarcar pausa el enlace de solicitud de esta ubicación",
+  "Also text each location’s primary contact (English and Spanish)": "Enviar también un mensaje de texto al contacto principal de cada ubicación (en inglés y español)",
+  "Before every federal holiday we ask each location whether they are open. If our kitchen is closed, they hear it at least 7 days ahead.": "Antes de cada feriado federal, preguntamos a cada ubicación si abrirá. Si nuestra cocina está cerrada, se les avisa con al menos 7 días de anticipación.",
+  "Billing model": "Modelo de facturación",
+  "Biweekly invoice": "Factura quincenal",
+  "Coming up": "Próximamente",
+  "Contact name": "Nombre de contacto",
+  "Dish name": "Nombre del plato",
+  "Each person gets their own 6-digit code by text when they order. The main contact is copied on every receipt.": "Cada persona recibe su propio código de 6 dígitos por mensaje de texto al hacer un pedido. El contacto principal recibe una copia de cada recibo.",
+  "For a count phoned or texted in, or a day the office could not use the form. No text is sent to the client. Overwrites the day if it already has a count.": "Para anotar un recuento comunicado por llamada o mensaje, o un día en que la oficina no pudo usar el formulario. No se envía ningún mensaje al cliente. Si ese día ya tiene un recuento, se reemplaza.",
+  "Holiday & operations contact": "Contacto para feriados y operaciones",
+  "Kitchen window": "Horario de cocina",
+  "Lands as": "Se registra como",
+  "Loading the menu…": "Cargando el menú…",
+  "Monthly invoice": "Factura mensual",
+  "Name (optional)": "Nombre (opcional)",
+  "No contract accounts yet — onboard one above.": "Todavía no hay cuentas con contrato — incorpora una arriba.",
+  "No counts yet.": "Todavía no hay recuentos.",
+  "No delivery days in the next two weeks.": "No hay días de entrega durante las próximas dos semanas.",
+  "No federal holiday in the next 90 days.": "No hay feriados federales en los próximos 90 días.",
+  "No location on this account has delivery days yet — set them with ✏️ Edit terms first.": "Ninguna ubicación de esta cuenta tiene días de entrega configurados — primero configúralos con ✏️ Editar condiciones.",
+  "Note (optional) — e.g. renegotiated on the 7/25 call": "Nota (opcional) — p. ej., renegociado en la llamada del 25/7",
+  "Note (optional) — goes on Terms history": "Nota (opcional) — aparecerá en el historial de condiciones",
+  "Notes — allergens, sides (optional)": "Notas — alérgenos, acompañamientos (opcional)",
+  "Offboard account — stop service": "Dar de baja la cuenta — detener el servicio",
+  "Only the main contact above can order — add a backup so a sick day never blocks the count.": "Solo el contacto principal de arriba puede hacer pedidos — añade un contacto suplente para que una enfermedad no impida enviar el recuento.",
+  "Ops emails, who decides if this location is open": "Correos de Operaciones, quién decide si esta ubicación abre",
+  "Same day": "El mismo día",
+  "Save holiday settings": "Guardar la configuración de feriados",
+  "Spanish name (optional)": "Nombre en español (opcional)",
+  "Text them the ordering link now": "Enviarles ahora el enlace para hacer pedidos",
+  "Week 1 starts (a Monday)": "La semana 1 comienza un lunes",
+  "Weekly autopay": "Pago automático semanal",
+  "Where it came from — e.g. texted by Roxana": "De dónde provino — p. ej., mensaje de texto de Roxana",
+  "Which holidays is our kitchen closed?": "¿Durante qué feriados estará cerrada nuestra cocina?",
+  "all sites ·": "todas las ubicaciones ·",
+  "head count. Days already submitted keep the price they were quoted.": "recuento de comensales. Los días ya enviados conservan el precio que se les cotizó.",
+  "in their invoice emails": "en sus correos de factura",
+  "“Pay now” card button": "Botón de tarjeta «Pagar ahora»",
+  "✍️ Record a count yourself": "✍️ Registrar un recuento manualmente",
+  "🍽️ Weekly menu & per-dish prices": "🍽️ Menú semanal y precios por plato",
+  "📊 Pricing & margin model": "📊 Precios y modelo de margen",
+  "🗓️ Holidays": "🗓️ Feriados",
+  "🧾 Generate invoice (choose period)": "🧾 Generar factura (elegir período)",
+  "(not set).": "(sin configurar).",
+  "🟢 Same-day ordering is OPEN right now": "🟢 Los pedidos para el mismo día están ABIERTOS ahora mismo",
+  "= Broward) or a full 5-digit ZIP. Leave blank for no limit.": "= Broward) o un código postal completo de 5 dígitos. Déjalo en blanco para no establecer un límite.",
+  "= Palm Beach County,": "= condado de Palm Beach,",
+  "A price you save here is charged on the next order immediately — but /order is still shipping a hardcoded copy of the menu, so customers will keep SEEING the old price while being charged the new one. Get that page wired to /api/menu before you change a price.": "El precio que guardes aquí se cobrará inmediatamente en el próximo pedido; pero /order todavía publica una copia fija del menú, así que los clientes seguirán VIENDO el precio anterior mientras se les cobra el nuevo. Conecta esa página con /api/menu antes de cambiar un precio.",
+  "Anything other than Available keeps the item on the site but blocks it at checkout — customers see the wording you pick. To remove it from the site entirely, untick “Show on the website” below.": "Cualquier estado que no sea Disponible mantiene el artículo en el sitio, pero lo bloquea al pagar; los clientes verán el texto que elijas. Para quitarlo por completo del sitio, desmarca «Mostrar en el sitio web» abajo.",
+  "Closed dates": "Fechas de cierre",
+  "Comma-separated. Use 3 digits for a whole area (": "Separados por comas. Usa 3 dígitos para indicar un área completa (",
+  "Contract orders, measured end to end, against the office lunch estimate in": "Pedidos con contrato, medidos de principio a fin, comparados con la estimación del almuerzo de oficina en",
+  "Could not load ordering settings.": "No se pudo cargar la configuración de pedidos.",
+  "Delivery area": "Área de entrega",
+  "Dinner window opens": "Apertura del horario de cena",
+  "How long one takes to make, start to packed. The kitchen uses it to show when to start and a countdown. An order takes as long as its slowest item. Leave blank and the kitchen shows no timer for it.": "Cuánto tiempo se tarda en prepararlo, desde el inicio hasta que queda empacado. La cocina lo usa para indicar cuándo empezar y mostrar una cuenta regresiva. Un pedido tarda lo que tarde su artículo más lento. Déjalo en blanco y la cocina no mostrará un temporizador.",
+  "How many today": "Cuántos hoy",
+  "How many you made today. Leave blank for no limit. What is LEFT counts down from this as orders come in, and resets overnight.": "Cuántos preparaste hoy. Déjalo en blanco para no establecer un límite. La cantidad RESTANTE disminuye a medida que llegan pedidos y se reinicia durante la noche.",
+  "Live prices are NOT coming from this page": "Los precios en vivo NO provienen de esta página",
+  "Lunch window opens": "Apertura del horario de almuerzo",
+  "Name, description, photo, order": "Nombre, descripción, foto, pedido",
+  "No bowls are on sale right now": "No hay bowls a la venta en este momento",
+  "No modifier prices found.": "No se encontraron precios para modificadores.",
+  "No price changes recorded yet.": "Todavía no se han registrado cambios de precio.",
+  "Office lunch prep time (minutes)": "Tiempo de preparación del almuerzo de oficina (minutos)",
+  "Office orders have no menu item, so their estimate is set here. Their window comes from each site.": "Los pedidos de oficina no tienen un artículo de menú, así que su estimación se configura aquí. El horario proviene de cada ubicación.",
+  "On the menu, impossible to buy": "En el menú, imposible de comprar",
+  "Order-by deadline & windows": "Fecha límite y horarios para pedir",
+  "Palm Beach & Broward County": "Condados de Palm Beach y Broward",
+  "Prep time (minutes)": "Tiempo de preparación (minutos)",
+  "Ready before delivery (minutes)": "Tiempo antes de la entrega (minutos)",
+  "Same-day window (Eastern) and daily cap per bowl.": "Horario para pedidos el mismo día (hora del Este) y límite diario por bowl.",
+  "Save all changes": "Guardar todos los cambios",
+  "Scheduled-ahead orders only": "Solo pedidos programados con anticipación",
+  "Show on the website": "Mostrar en el sitio web",
+  "The kitchen records what it really takes — every order records itself when it is marked ready, and cooks time batches with the stopwatch on the kitchen board. Nothing here changes an estimate. You do, with": "La cocina registra el tiempo real: cada pedido se registra cuando se marca como listo y los cocineros cronometran los lotes con el temporizador del tablero de cocina. Nada aquí cambia una estimación. Tú la cambias con",
+  "The kitchen shows each order a": "La cocina muestra a cada pedido un",
+  "The order page loads /api/menu and /api/menu is answering from these rows, so a saved price shows up for customers within about a minute (the menu is edge-cached 60s).": "La página de pedidos carga /api/menu y este responde con estas filas; por eso, el precio guardado aparece para los clientes en aproximadamente un minuto (el menú permanece en caché perimetral durante 60 s).",
+  "The order page still shows its own prices": "La página de pedidos todavía muestra sus propios precios",
+  "The photo must already exist under /assets/img/ — this box names the file, it does not upload one. A subfolder is fine: menu-launch/combo-bites.webp.": "La foto debe existir previamente en /assets/img/; este campo indica el nombre del archivo, pero no lo carga. Puedes usar una subcarpeta: menu-launch/combo-bites.webp.",
+  "The site reads this menu": "El sitio lee este menú",
+  "Time for packing and the driver to load. 30 is only a starting point.": "Tiempo para empacar y para que el conductor cargue el pedido. 30 es solo un punto de partida.",
+  "Turns off same-day ordering completely. Customers order for a future day instead. Use it when the kitchen is at capacity or you are away.": "Desactiva por completo los pedidos para el mismo día. Los clientes hacen pedidos para una fecha futura. Úsalo cuando la cocina esté a plena capacidad o no estés disponible.",
+  "What customers see": "Lo que ven los clientes",
+  "What each extra costs when someone customizes a bowl. These keys are fixed in code — you set the price, not the list.": "Cuánto cuesta cada extra cuando alguien personaliza un bowl. Estas opciones están fijadas en el código; tú defines el precio, no la lista.",
+  "What the kitchen recorded, newest first — batches the cooks timed, and orders that timed themselves.": "Lo que registró la cocina, empezando por lo más reciente: lotes cronometrados por los cocineros y pedidos que registraron su propio tiempo.",
+  "Which weekdays customers can choose. Unticking a day removes it from the storefront.": "Qué días de la semana pueden elegir los clientes. Al desmarcar un día, se quita de la tienda en línea.",
+  "can’t be bought": "no se puede comprar",
+  "is measured minutes divided by how many were made — the estimate has no quantity in it, so this is the column that will eventually say whether it needs one.": "se calcula como los minutos medidos divididos por la cantidad preparada. La estimación no incluye la cantidad, así que esta columna indicará si hace falta incorporarla.",
+  "matches your estimate": "coincide con tu estimación",
+  "no limit": "sin límite",
+  "per unit": "por unidad",
+  "ready by": "listo para",
+  "start by": "empezar a",
+  "time and a countdown. Ready by = when the delivery window opens, minus the time below. Start by = ready by, minus the order’s prep time.": "tiempo y cuenta regresiva. «Listo para» = hora de apertura del horario de entrega, menos el tiempo indicado abajo. «Empezar a» = hora de «Listo para», menos el tiempo de preparación del pedido.",
+  "time, a": "tiempo, un",
+  "· …”. The ZIPs above decide who can check out; this is just how you name the area.": "· …». Los códigos postales de arriba determinan quién puede pagar; esto solo sirve para nombrar el área.",
+  "At different prices": "Con distintos precios",
+  "Dial in your real numbers — everything recalculates live. Then set the price + per-office delivery fee on the account.": "Introduce tus cifras reales; todo se recalcula en vivo. Luego configura en la cuenta el precio y la tarifa de entrega por oficina.",
+  "Food %": "Costo de alimentos %",
+  "Fully-loaded cost per lunch": "Costo total por almuerzo",
+  "Margin / lunch": "Margen / almuerzo",
+  "Margin%": "Margen %",
+  "Margin/lunch": "Margen/almuerzo",
+  "Per head": "Por persona",
+  "Price/lunch": "Precio/almuerzo",
+  "Profit/day·office": "Ganancia/día·oficina",
+  "Recommended price per lunch": "Precio recomendado por almuerzo",
+  "To hit your target margin on the lunch itself (delivery fee should separately cover the run).": "Para alcanzar tu margen objetivo en el almuerzo mismo (la tarifa de entrega debe cubrir el recorrido por separado).",
+  "Your all-in revenue / lunch": "Tus ingresos totales / almuerzo",
+  "Automatic payments": "Pagos automáticos",
+  "Could not load the QuickBooks status.": "No se pudo cargar el estado de QuickBooks.",
+  "Could not load the automatic-payment switches.": "No se pudieron cargar los controles de pago automático.",
+  "Redirect URI to register on the Intuit app:": "URI de redirección que debes registrar en la aplicación de Intuit:",
+  "company · sandbox": "empresa · entorno de pruebas",
+  "✅ Connected": "✅ Conectado",
+  "Date / item": "Fecha / artículo",
+  "Delivery — shared route": "Entrega — ruta compartida",
+  "Invoice actions": "Acciones de factura",
+  "Thank you for your business. Please remit to Añejo Catering Co. LLC. Questions about this invoice? Reply to the email it was sent with.": "Gracias por su preferencia. Envíe el pago a Añejo Catering Co. LLC. ¿Tiene preguntas sobre esta factura? Responda al correo con el que se envió.",
+  "Could not plan.": "No se pudo planificar.",
+  "Dinner (5–8)": "Cena (5–8)",
+  "Enable automated dispatch": "Activar despacho automático",
+  "Lunch (11–2)": "Almuerzo (11–2)",
+  "No drivers yet": "Todavía no hay conductores",
+  "No unassigned orders to plan for this date.": "No hay pedidos sin asignar para planificar en esta fecha.",
+  "Unassigned ⚡": "Sin asignar ⚡",
+  "max wait": "espera máx.",
+  "min stops": "paradas mín.",
+  "pending · late": "pendiente · tarde",
+  "pending · on time": "pendiente · a tiempo",
+  "total driver pay": "pago total al conductor",
+  "⚡ Smart route planner": "⚡ Planificador inteligente de rutas",
+  "🛵 ASAP · DISPATCH": "🛵 LO ANTES POSIBLE · DESPACHAR",
+  "🤖 Automated dispatch": "🤖 Despacho automático",
+  "Boca Raton": "Boca Raton",
+  "% off": "% de descuento",
+  "Active subs": "Suscripciones activas",
+  "Añejo credit (1.5×)": "Crédito de Añejo (1.5×)",
+  "Cash (monthly)": "Efectivo (mensual)",
+  "Commission %": "Comisión %",
+  "Create a promo code": "Crear un código promocional",
+  "Create code": "Crear código",
+  "Create partner": "Crear socio",
+  "Expires in (days)": "Vence en (días)",
+  "Free Fit drink on first order": "Bebida Fit gratis con el primer pedido",
+  "Free delivery": "Entrega gratis",
+  "Instagram handle": "Usuario de Instagram",
+  "Mark paid": "Marcar como pagado",
+  "Max uses": "Usos máximos",
+  "No codes yet.": "Todavía no hay códigos.",
+  "No extra benefit": "Sin beneficio adicional",
+  "Onboard a creator partner": "Incorporar a un socio creador",
+  "Owed to partners": "Adeudado a los socios",
+  "Paid to date": "Pagado hasta la fecha",
+  "Payout method": "Método de pago",
+  "Points multiplier": "Multiplicador de puntos",
+  "Resend onboarding": "Reenviar incorporación",
+  "Sales credited": "Ventas atribuidas",
+  "Send the onboarding email now": "Enviar ahora el correo de incorporación",
+  "Summer campaign": "Campaña de verano",
+  "credit (1.5×)": "crédito (1.5×)",
+  "legacy member": "miembro antiguo",
+  "— review & decide below": "— revisa y decide abajo",
+  "Amount to refund (USD)": "Importe a reembolsar (USD)",
+  "Cancelling never returns money.": "Cancelar nunca devuelve el dinero.",
+  "Kitchen PIN trail": "Registro del PIN de cocina",
+  "No kitchen actions recorded for this order.": "No hay acciones de cocina registradas para este pedido.",
+  "Owner actions are unavailable for this order.": "Las acciones del propietario no están disponibles para este pedido.",
+  "Reason (recorded on the order)": "Motivo (registrado en el pedido)",
+  "Reason (sent to Square and recorded on the order)": "Motivo (enviado a Square y registrado en el pedido)",
+  "This returns real money to the customer through Square and cannot be undone from the HUB.": "Esto devuelve dinero real al cliente a través de Square y no se puede deshacer desde HUB.",
+  "We could not read a Square payment for this order": "No pudimos leer un pago de Square para este pedido",
+  "check Square before telling the customer they were not charged.": "verifica Square antes de decirle al cliente que no se le cobró.",
+  "e.g. customer called to cancel": "p. ej., el cliente llamó para cancelar",
+  "e.g. order never delivered": "p. ej., el pedido nunca se entregó",
+  "is still held from this customer — use Refund below to give it back.": "sigue retenido de este cliente; usa Reembolsar abajo para devolverlo.",
+  "← Back to orders": "← Volver a los pedidos",
+  "No answer.": "Sin respuesta.",
+  "Could not load schedule health.": "No se pudo cargar el estado del calendario.",
+  "No forecast yet. It runs nightly (~10pm ET), or tap “Run forecast now”.": "Todavía no hay pronóstico. Se ejecuta cada noche (aprox. 10 p. m., hora del Este); también puedes tocar «Ejecutar pronóstico ahora».",
+  "What this answer was based on": "En qué se basa esta respuesta",
+  "📊 Demand forecast & prep sheet": "📊 Pronóstico de demanda y hoja de preparación",
+  "Get their email on Instagram, then add to CRM": "Consigue su correo electrónico por Instagram y luego añádelo al CRM",
+  "✉️ Email": "✉️ Correo electrónico",
+  "📷 Instagram": "📷 Instagram",
+  "Inquiry not found. Go back and reopen.": "No se encontró la consulta. Vuelve atrás y ábrela de nuevo.",
+  "No inquiries yet.": "Todavía no hay consultas.",
+  "SMS opt-in": "Consentimiento para recibir SMS",
+  "View the Instagram conversation in the inbox →": "Ver la conversación de Instagram en la bandeja de entrada →",
+  "Website inquiries": "Consultas del sitio web",
+  "in CRM": "en el CRM",
+  "launch list": "lista de lanzamiento",
+  "← Back to inquiries": "← Volver a las consultas",
+  "Could not load roster.": "No se pudo cargar la lista del personal.",
+  "Language for texts sent to them": "Idioma de los mensajes de texto que se les envían",
+  "Share it with them now — it will not be shown again. They'll set their own PIN on first sign-in.": "Compártelo con ellos ahora; no volverá a mostrarse. Configurarán su propio PIN al iniciar sesión por primera vez.",
+  "👋 Remind to clock out": "👋 Recordatorio para marcar la salida",
+  "🗣 EN": "🗣 EN",
+  "🗣 ES": "🗣 ES",
+  "Could not read the library.": "No se pudo leer la biblioteca.",
+  "Internal by default.": "De forma predeterminada, es interno.",
+  "Nothing relevant found.": "No se encontró nada pertinente.",
+  "PDF, Word, scans, spreadsheets, text. 20MB each.": "PDF, Word, escaneos, hojas de cálculo y texto. 20 MB cada uno.",
+  "Searching…": "Buscando…",
+  "The Studio would tell the chef the documents on hand do not cover this, instead of guessing. Upload a document covering it, or reword the question.": "Studio le indicaría al chef que los documentos disponibles no cubren este tema, en vez de adivinar. Sube un documento que lo cubra o reformula la pregunta.",
+  "Use the Search panel above to inspect retrieved excerpts; excerpts do not prove the full source was reviewed.": "Usa el panel de búsqueda de arriba para revisar los extractos encontrados; los extractos no demuestran que se haya revisado la fuente completa.",
+  "Note to staff (required to reject or request more info)": "Nota para el personal (obligatoria para rechazar o pedir más información)",
+  "Preview this version": "Previsualizar esta versión",
+  "Version history": "Historial de versiones",
+  "View full proposed Brief": "Ver el resumen propuesto completo",
+  "Could not load rewards.": "No se pudieron cargar las recompensas.",
+  "Members by tier": "Miembros por nivel",
+  "Points out": "Puntos emitidos",
+  "Program at a glance": "Resumen del programa",
+  "Top members": "Miembros principales",
+  "No activity yet.": "Todavía no hay actividad.",
+  "Next week →": "Semana siguiente →",
+  "← Previous week": "← Semana anterior",
+  "⬇ Download payroll CSV": "⬇ Descargar CSV de nómina",
+  "Aña auto-reply": "Respuesta automática de Aña",
+  "Could not load the auto-reply setting.": "No se pudo cargar la configuración de respuesta automática.",
+  "Message & comms activity": "Actividad de mensajes y comunicaciones",
+  "No comms activity yet.": "Todavía no hay actividad de comunicaciones.",
+  "Lunch route": "Ruta de almuerzo",
+  "No data yet.": "Todavía no hay datos.",
+  "Deposit unpaid": "Depósito pendiente de pago",
+  "Catering events this week": "Eventos de catering esta semana",
+  "Estimated food cost": "Costo estimado de alimentos",
+  "Loading your success conversations…": "Cargando tus conversaciones de éxito…",
+  "No 4–5★ reviews with comments yet. They appear here automatically as customers rate their deliveries.": "Todavía no hay reseñas de 4–5★ con comentarios. Aparecerán aquí automáticamente cuando los clientes califiquen sus entregas.",
+  "Real 4–5★ reviews from your customers. Review one and draft a content brief + receipt — the receipt keeps the quote honest and attributed.": "Reseñas reales de 4–5★ de tus clientes. Revisa una y prepara un resumen de contenido y un comprobante; el comprobante mantiene la cita fiel y atribuida.",
+  "Send a change to Dayan": "Enviar un cambio a Dayan",
+  "Success Stories": "Historias de éxito",
+  "Success conversations": "Conversaciones de éxito",
+  "Immortal $": "Inmortal $",
+  "Immortal ×": "Inmortal ×",
+  "Legend $": "Leyenda $",
+  "Legend ×": "Leyenda ×",
+  "Thriving $": "Próspero $",
+  "Thriving ×": "Próspero ×",
+  "Enter a staff id.": "Introduce un ID del personal.",
+  "Kept — business records": "Se conserva — registros comerciales",
+  "Sign in as owner.": "Inicia sesión como propietario.",
+  "Would be erased": "Se borraría",
+  "Apt / unit (optional)": "Apto./unidad (opcional)",
+  "No client profile (guest checkout) — onboard them below to edit this profile.": "No hay perfil del cliente (pago como invitado); incorpóralo abajo para editar este perfil.",
+  "✏️ Edit profile": "✏️ Editar perfil",
+  "By driver": "Por conductor",
+  "Could not load payouts.": "No se pudieron cargar los pagos.",
+  "owed now": "adeudado ahora",
+  "⚠️ RESEND_WEBHOOK_SECRET not set": "⚠️ RESEND_WEBHOOK_SECRET no está configurado",
+  "⚠️ no ANTHROPIC_API_KEY — briefs are built from facts only": "⚠️ No hay ANTHROPIC_API_KEY — los resúmenes se elaboran solo a partir de hechos",
+  "⚠️ not yet": "⚠️ todavía no",
+  "✅ Resend webhook secret set": "✅ Secreto del webhook de Resend configurado",
+  "(do not contact)": "(no contactar)",
+  "Anything they said, from anywhere — a reply in your inbox, a call, a voicemail, a word at the door. What you put here moves the record and is what the next email gets written from.": "Lo que hayan dicho, por cualquier medio: una respuesta en tu bandeja de entrada, una llamada, un mensaje de voz o una conversación en persona. Lo que escribas aquí actualiza el registro y servirá de base para redactar el próximo correo.",
+  "Contract account created.": "Cuenta con contrato creada.",
+  "Enrolls every prospect shown above that has a usable contact, and names the set so you can see later what it produced. It drafts; it never sends.": "Incorpora a todos los prospectos mostrados arriba que tengan un contacto utilizable y asigna un nombre al grupo para que luego puedas ver qué produjo. Prepara borradores; nunca los envía.",
+  "Every institutional buyer asks for documents before they sign. This page is Añejo's side: keep each item current, and every prospect page shows which of them that buyer needs.": "Todo comprador institucional pide documentos antes de firmar. Esta página corresponde a Añejo: mantén cada elemento actualizado y cada página de prospecto mostrará cuáles necesita ese comprador.",
+  "Every prospect email waits here for you. Preview shows the exact email — subject, body, the footer with the opt-out and your postal address, sender and reply-to. Approve appears only after a preview, and only for the text you previewed.": "Cada correo para un prospecto espera aquí. La vista previa muestra el correo exacto: asunto, cuerpo, pie con la opción para dejar de recibir mensajes y tu dirección postal, remitente y dirección de respuesta. «Aprobar» aparece solo después de previsualizar y únicamente para el texto que viste.",
+  "Headcount workflow": "Flujo de trabajo de recuento de comensales",
+  "Header row required. Recognised columns: name, website, phone, street, city, state, zip, county, category, capacity, notes, contact_name, contact_title, contact_email, contact_phone, source_url. Importing the same file again is safe — duplicates are recognised.": "Se requiere una fila de encabezado. Columnas reconocidas: name, website, phone, street, city, state, zip, county, category, capacity, notes, contact_name, contact_title, contact_email, contact_phone, source_url. Es seguro volver a importar el mismo archivo: se reconocen los duplicados.",
+  "Headline (landing page)": "Titular (página de destino)",
+  "How did it land?": "¿Cómo resultó?",
+  "How do you know this email?": "¿Cómo sabes que este correo es correcto?",
+  "How it came in": "Cómo llegó",
+  "How it landed": "Cómo resultó",
+  "How it went": "Cómo salió",
+  "How strict": "Qué tan estricto",
+  "I confirmed it (spoke to them / their card)": "Lo confirmé (hablé con ellos / con su tarjeta)",
+  "I have it but did not confirm it": "Lo tengo, pero no lo confirmé",
+  "I have read this email and approve it being sent automatically to new prospects": "Leí este correo y apruebo que se envíe automáticamente a nuevos prospectos",
+  "I have read this offer; every statement is true of our operation today.": "Leí esta oferta; todas sus afirmaciones describen con veracidad nuestra operación actual.",
+  "ICP scoring": "Puntuación ICP",
+  "If lost — why": "Si se perdió — por qué",
+  "If they push back": "Si presentan objeciones",
+  "Import a CSV": "Importar un CSV",
+  "It is a guess — do NOT email it": "Es una suposición — NO le envíes un correo",
+  "It is written from this prospect's own record — the visit, everything logged above, what was already sent. It lands in Approvals where you can rewrite every word before it goes.": "Se redacta a partir del propio registro de este prospecto: la visita, todo lo anotado arriba y lo que ya se envió. Aparece en Aprobaciones, donde puedes reescribir cada palabra antes de enviarlo.",
+  "Kitchen origin": "Origen de la cocina",
+  "Landing page": "Página de destino",
+  "Last touch": "Último contacto",
+  "Launch even though readiness gaps are open": "Iniciar aunque haya brechas de preparación abiertas",
+  "Leave it where it is": "Dejarlo como está",
+  "Location #": "N.º de ubicación",
+  "Log this reply": "Registrar esta respuesta",
+  "Log what they said": "Registrar lo que dijeron",
+  "Logged replies": "Respuestas registradas",
+  "Max (mi)": "Máx. (mi)",
+  "Monday–Friday": "De lunes a viernes",
+  "Move the stage": "Cambiar la etapa",
+  "Move the stage to": "Cambiar la etapa a",
+  "Name or city": "Nombre o ciudad",
+  "Named permission recorded?": "¿Se registró el permiso nominal?",
+  "Named proof line": "Frase de respaldo con nombre",
+  "Near (mi)": "Cerca (mi)",
+  "No contacts found yet. Research the website or add one.": "Todavía no se encontraron contactos. Investiga el sitio web o añade uno.",
+  "No scored prospects yet.": "Todavía no hay prospectos puntuados.",
+  "Not scored yet.": "Aún no se ha puntuado.",
+  "Note (what, where, expires)": "Nota (qué, dónde, cuándo vence)",
+  "Open Contracts →": "Abrir Contratos →",
+  "Open this before you walk in. Fill it in as you talk — what you write here updates the score and the contacts, it is not a scratchpad.": "Ábrelo antes de entrar. Complétalo mientras conversas: lo que escribas aquí actualizará la puntuación y los contactos; no es un bloc de notas.",
+  "Optional. What you owe them next.": "Opcional. El siguiente paso que tienes pendiente con ellos.",
+  "Optional. e.g. keep it to three lines, or mention I will be in the area Thursday.": "Opcional. Por ejemplo, limitarlo a tres líneas o mencionar que estarás por la zona el jueves.",
+  "Or start a campaign": "O inicia una campaña",
+  "Outreach history": "Historial de contacto",
+  "Paste a reply. The Hub stops the sequence, moves the stage and drafts the answer for your approval. Nothing sends.": "Pega una respuesta. Hub detiene la secuencia, cambia la etapa y prepara una respuesta para que la apruebes. No se envía nada.",
+  "Paste their reply": "Pega su respuesta",
+  "People per day, if they said": "Personas por día, si lo indicaron",
+  "People who may submit counts (added to the roster, not texted)": "Personas que pueden enviar recuentos (se añaden a la lista del personal; no reciben mensajes de texto)",
+  "Plain-text version (what many inboxes show)": "Versión de texto sin formato (la que muestran muchas bandejas de entrada)",
+  "Postal address in every email:": "Dirección postal en cada correo electrónico:",
+  "Preview a prospect’s page": "Previsualizar la página de un prospecto",
+  "Preview exact email": "Previsualizar el correo exacto",
+  "Price per meal ($)": "Precio por comida ($)",
+  "Pricing on the page": "Precios en la página",
+  "Probability %": "Probabilidad %",
+  "Product name": "Nombre del producto",
+  "Program Director": "Director del programa",
+  "Proof / case study": "Respaldo / caso de estudio",
+  "Proposal & contract": "Propuesta y contrato",
+  "Propose the institutional positioning": "Proponer el posicionamiento institucional",
+  "Prospect email is ready to send approved messages.": "El correo para el prospecto está listo para enviar mensajes aprobados.",
+  "Read the exact email": "Leer el correo exacto",
+  "Reject…": "Rechazar…",
+  "Reply detection": "Detección de respuestas",
+  "Reply received — stop the sequence": "Respuesta recibida — detener la secuencia",
+  "Reply-To (a mailbox you read)": "Responder a (un buzón que revisas)",
+  "Rescore everyone": "Volver a puntuar a todos",
+  "Research the ones never researched": "Investigar los que nunca se han investigado",
+  "Research website": "Investigar el sitio web",
+  "Rush fee ($)": "Cargo por urgencia ($)",
+  "Sample menu item ids (comma separated, from Menu)": "IDs de muestra de artículos del menú (separados por comas, de Menú)",
+  "Save ICP": "Guardar ICP",
+  "Save edit": "Guardar edición",
+  "Save my standing approval": "Guardar mi aprobación permanente",
+  "Save offer": "Guardar oferta",
+  "Save proof policy": "Guardar política de respaldo",
+  "Save proposal": "Guardar propuesta",
+  "Save sender": "Guardar remitente",
+  "Save service area": "Guardar área de servicio",
+  "Save stage": "Guardar etapa",
+  "Save window": "Guardar horario",
+  "Send window (Eastern)": "Horario de envío (hora del Este)",
+  "Sender (required before anything sends)": "Remitente (obligatorio antes de enviar nada)",
+  "Service area": "Área de servicio",
+  "Service area text": "Texto del área de servicio",
+  "Setup status": "Estado de configuración",
+  "Signature name": "Nombre para la firma",
+  "Signature phone": "Teléfono para la firma",
+  "Signature title": "Cargo para la firma",
+  "Site contact": "Contacto del sitio",
+  "Site phone": "Teléfono del sitio",
+  "Snooze 3 days": "Posponer 3 días",
+  "Special terms": "Condiciones especiales",
+  "Start campaign": "Iniciar campaña",
+  "Start date": "Fecha de inicio",
+  "Stop sequence": "Detener secuencia",
+  "Show this client a": "Mostrarle a este cliente un",
+  "New terms apply to the": "Las nuevas condiciones se aplican a la",
+  "Off by default. Card costs ~2.7% and offers a rail a direct-deposit vendor agreement doesn’t include — tick it only for an account that asked to pay by card.": "Está desactivado de forma predeterminada. El pago con tarjeta cuesta ~2.7% y ofrece una vía de pago que no incluye un acuerdo de depósito directo con el proveedor. Márcalo solo para una cuenta que haya pedido pagar con tarjeta.",
+  "Ordering access and recurring service reminders are stopped. Orders, invoices and history remain available below.": "Se detienen el acceso para hacer pedidos y los recordatorios recurrentes del servicio. Los pedidos, las facturas y el historial seguirán disponibles abajo.",
+  "Pick a preset above, or set From/To yourself for a period like a mid-month catch-up. Only un-invoiced days inside the range are billed — anything already invoiced is skipped, never double-billed.": "Elige una opción predeterminada arriba o establece tú mismo Desde/Hasta para un período, como un ajuste a mitad de mes. Solo se facturan los días del período que aún no se hayan facturado; se omiten los ya facturados para evitar duplicados.",
+  "Pricing, cut-off and delivery time are copied from this account's existing location — adjust them after with Edit terms.": "Los precios, la hora límite y la hora de entrega se copian de la ubicación existente de esta cuenta; después puedes ajustarlos con Editar condiciones.",
+  "Separate several with commas. Everyone listed is on the same holiday email, so whoever sees it first can answer. Left blank, it goes to the billing inbox.": "Sepáralos con comas. Todas las personas de la lista reciben el mismo correo sobre feriados, así que puede responder quien lo vea primero. Si lo dejas en blanco, se envía a la bandeja de facturación.",
+  "Stops every location immediately, revokes ordering access and stops service reminders. Existing orders and invoices are preserved; no cancellations or refunds are made.": "Detiene inmediatamente todas las ubicaciones, revoca el acceso para hacer pedidos y detiene los recordatorios del servicio. Se conservan los pedidos y las facturas existentes; no se cancela ni se reembolsa nada.",
+  "Give it dates and write it now — it appears and retires on its own. An end time is what stops a promo bar living on past the promo.": "Asigna fechas y redacta el mensaje ahora: aparecerá y se retirará automáticamente. La hora de finalización evita que una barra promocional siga visible después de la promoción.",
+  "Headings, paragraphs and lists — <h2>, <p>, <ul>. The page title, table of contents and legal schema stay as they are; this replaces the document body.": "Encabezados, párrafos y listas — <h2>, <p>, <ul>. El título de la página, la tabla de contenido y el esquema legal se mantienen; esto reemplaza el cuerpo del documento.",
+  "Keep it to one line — it sits across the top of every public page.": "Limítalo a una línea: aparece en la parte superior de cada página pública.",
+  "Leave blank and the site translates the English automatically. Write it here when the wording matters.": "Déjalo en blanco y el sitio traducirá el inglés automáticamente. Escribe aquí el texto cuando la redacción sea importante.",
+  "Message (Spanish, optional)": "Mensaje (español, opcional)",
+  "New message (English)": "Nuevo mensaje (inglés)",
+  "Page body (HTML)": "Cuerpo de la página (HTML)",
+  "Show it": "Mostrarlo",
+  "Switched on": "Activado",
+  "opens in the middle of the screen and is shown": "se abre en el centro de la pantalla y se muestra",
+  "sits across the top of every page and stays until they close it — right for a standing line. A": "aparece en la parte superior de cada página y permanece hasta que la cierran: adecuado para un mensaje permanente. Un",
+  "— right for something that has to actually be read, like a closure. Edit the message and it counts as new, so it shows again.": "— adecuado para algo que realmente deben leer, como un cierre. Al editar el mensaje, se considera nuevo y vuelve a mostrarse.",
+  "Subject": "Asunto",
+  "Who": "Quién",
+  "REGULATORY": "NORMATIVO",
+  "Readiness": "Preparación",
+  "SMS": "SMS",
+  "Code": "Código",
+  "Declined": "Rechazada",
+  "Each": "Cada",
+  "Location": "Ubicación",
+  "Lunches": "Almuerzos",
+  "Opportunity": "Oportunidad",
+  "Replies": "Respuestas",
+  "VOID": "ANULADA",
+  "When": "Cuándo",
+  "balance": "saldo",
+  "creator": "creador",
+  "rush": "urgencia",
+  "$/lunch": "$/almuerzo",
+  "A-tier prospects": "Prospectos de nivel A",
+  "AI voice calls": "Llamadas de voz con IA",
+  "Accounts won": "Cuentas ganadas",
+  "Accepted": "Aceptado",
+  "Approved, queued": "Aprobado y en cola",
+  "Auto-send without approval": "Envío automático sin aprobación",
+  "Awaiting research": "En espera de investigación",
+  "Bowl": "Bowl",
+  "Cajita request": "Solicitud de Cajita",
+  "Canceled": "Cancelado",
+  "Client": "Cliente",
+  "Comments only": "Solo comentarios",
+  "County": "Condado",
+  "Criterion": "Criterio",
+  "DMs and comments": "Mensajes directos y comentarios",
+  "DMs only": "Solo mensajes directos",
+  "Deposit": "Depósito",
+  "Draft follow-ups when due": "Preparar seguimientos cuando correspondan",
+  "Estimate": "Estimación",
+  "Failed.": "Falló.",
+  "Gap": "Brecha",
+  "Google Places as a production prospect source": "Google Places como fuente de prospectos productivos",
+  "Guests": "Invitados",
+  "Last": "Último",
+  "Max automatic intro emails per day": "Máximo de correos introductorios automáticos por día",
+  "Max discovery API calls per day": "Máximo de llamadas a la API de descubrimiento por día",
+  "Max new prospects per day": "Máximo de prospectos nuevos por día",
+  "Max prospect emails per day": "Máximo de correos para prospectos por día",
+  "Measured": "Medido",
+  "Mode": "Modo",
+  "None.": "Ninguno.",
+  "Nothing.": "Nada.",
+  "Owner approval required for every email": "Se requiere aprobación del propietario para cada correo",
+  "PAID": "PAGADA",
+  "Pipeline / month": "Cartera / mes",
+  "Points": "Puntos",
+  "Position": "Posición",
+  "Pricing": "Precios",
+  "Prospects": "Prospectos",
+  "Reopen": "Reabrir",
+  "Replied": "Respondió",
+  "Sales workspace": "Espacio de trabajo de ventas",
+  "Scheduled discovery (daily)": "Descubrimiento programado (diario)",
+  "Scheduled website research (hourly)": "Investigación programada de sitios web (cada hora)",
+  "Send approved prospect emails": "Enviar correos aprobados a prospectos",
+  "Send the intro email automatically (standing approval)": "Enviar automáticamente el correo introductorio (aprobación permanente)",
+  "Sequence": "Secuencia",
+  "Someone": "Alguien",
+  "Stage": "Etapa",
+  "Subject:": "Asunto:",
+  "Tasting": "Degustación",
+  "Took": "Tardó",
+  "View": "Ver",
+  "Wants to add items": "Quiere añadir artículos",
+  "Website": "Sitio web",
+  "What": "Qué",
+  "Why": "Por qué",
+  "brand": "marca",
+  "bulk/corporate": "mayoreo/corporativo",
+  "card button": "botón de tarjeta",
+  "catering/event": "catering/evento",
+  "invoices to": "facturas a",
+  "note": "nota",
+  "offboarded": "dado de baja",
+  "policy": "política",
+  "procedure": "procedimiento",
+  "proof": "respaldo",
+  "recipe": "receta",
+  "revoked": "revocado",
+  "suppressed": "suprimido",
+  "unconfirmed": "sin confirmar",
+  "wholesale/partner": "mayoreo/socio",
+  "Abandoned": "Abandonado",
+  "Add": "Añadir",
+  "Add-on": "Adicional",
+  "Amount": "Importe",
+  "Approvals": "Aprobaciones",
+  "Ask:": "Pregunta:",
+  "Availability": "Disponibilidad",
+  "Available": "Disponible",
+  "Balance": "Saldo",
+  "Benefit": "Beneficio",
+  "Billing": "Facturación",
+  "Business": "Negocio",
+  "CTA": "CTA",
+  "Captured": "Capturado",
+  "Category": "Categoría",
+  "Changes": "Cambios",
+  "Cities": "Ciudades",
+  "Contactable": "Se puede contactar",
+  "Contacts": "Contactos",
+  "Counties": "Condados",
+  "Dashboard": "Panel",
+  "Disable": "Desactivar",
+  "Dish": "Plato",
+  "Drink": "Bebida",
+  "Drinks": "Bebidas",
+  "Due": "Vencido",
+  "Earned": "Obtenido",
+  "Enable": "Activar",
+  "Evidence": "Evidencia",
+  "Extras": "Extras",
+  "Filed": "Archivado",
+  "Filter": "Filtro",
+  "Fri": "Vie",
+  "GOOD": "BUENO",
+  "Handle": "Usuario",
+  "Headline": "Titular",
+  "INVOICE": "FACTURA",
+  "Import": "Importar",
+  "Inquiry": "Consulta",
+  "Inv.": "Fact.",
+  "Invoices": "Facturas",
+  "LOW": "BAJO",
+  "Label": "Etiqueta",
+  "Meal": "Comida",
+  "Mon": "Lun",
+  "Negative": "Negativo",
+  "Neutral": "Neutral",
+  "Never": "Nunca",
+  "Noted": "Anotado",
+  "Now": "Ahora",
+  "Open:": "Abierto:",
+  "Ordering": "Pedidos",
+  "Organization": "Organización",
+  "Organization:": "Organización:",
+  "Payout": "Pago",
+  "Period": "Período",
+  "Positive": "Positivo",
+  "Product": "Producto",
+  "Proposals": "Propuestas",
+  "Prospect": "Prospecto",
+  "Publish": "Publicar",
+  "Quote": "Cotización",
+  "Quotes": "Cotizaciones",
+  "Redeemed": "Canjeado",
+  "Redemptions": "Canjes",
+  "Refundable": "Reembolsable",
+  "Refunded": "Reembolsado",
+  "Reply-To": "Responder a",
+  "Rescore": "Volver a puntuar",
+  "Review": "Revisar",
+  "Role": "Rol",
+  "Rotation": "Rotación",
+  "Sat": "Sáb",
+  "Scheduler": "Programador",
+  "Sources": "Fuentes",
+  "State": "Estado",
+  "Status:": "Estado:",
+  "Suppression": "Supresión",
+  "Switches": "Controles",
+  "Thu": "Jue",
+  "Tier": "Nivel",
+  "To:": "Para:",
+  "Trainers": "Entrenadores",
+  "Tue": "Mar",
+  "Untitled": "Sin título",
+  "Use": "Usar",
+  "Value": "Valor",
+  "WATCH": "VIGILAR",
+  "Was": "Era",
+  "Wed": "Mié",
+  "Windows": "Horarios",
+  "Yes": "Sí",
+  "auto": "automático",
+  "biweekly": "quincenal",
+  "campaign": "campaña",
+  "cash": "efectivo",
+  "city": "ciudad",
+  "clear": "borrar",
+  "cut-off": "hora límite",
+  "email": "correo electrónico",
+  "hidden": "oculto",
+  "main": "principal",
+  "monthly": "mensual",
+  "name": "nombre",
+  "next": "siguiente",
+  "offered": "ofrecido",
+  "sales": "ventas",
+  "same_day": "mismo_día",
+  "state": "estado",
+  "street": "calle",
+  "subs": "suscripciones",
+  "text": "texto",
+  "unavailable": "no disponible",
+  "unsaved": "sin guardar",
+  "unlimited": "ilimitado",
+  "used": "usado",
+  "weekly_autopay": "pago_automático_semanal",
+  "wholesale": "mayoreo",
+  "unit": "unidad",
+  "zip": "código postal",
+  "After delivery · honest feedback": "Después de la entrega · comentarios sinceros",
+  "Before the event · service check-in": "Antes del evento · confirmación del servicio",
+  "Delivery outcome unknown. Check Instagram before any further reply.": "No se conoce el resultado de la entrega. Revisa Instagram antes de responder de nuevo.",
+  "Provider accepted this reply; recipient delivery or reading is not verified.": "El proveedor aceptó esta respuesta; no se ha verificado que haya llegado al destinatario ni que la haya leído.",
+  "Attempt failed. No automatic retry; review the recorded error.": "El intento falló. No se reintentará automáticamente; revisa el error registrado.",
+  "Send claimed; outcome pending or interrupted. Do not resend.": "Se inició el envío; el resultado está pendiente o se interrumpió. No vuelvas a enviarlo.",
+  "The identification line, one-click unsubscribe and your postal address are added under every email and cannot be edited out.": "La línea de identificación, el enlace de un clic para cancelar la suscripción y tu dirección postal se añaden al pie de cada correo y no se pueden quitar.",
+  "This is the screen to read before anything goes live. Nothing on it sends anything.": "Esta es la pantalla que debes leer antes de activar algo. Desde aquí no se envía nada.",
+  "The ask — do not leave without it": "La solicitud — no te vayas sin hacerla",
+  "The conversation": "La conversación",
+  "The script": "El guion",
+  "Their words if you have them, otherwise yours.": "Sus palabras, si las tienes; si no, las tuyas.",
+  "They replied": "Respondieron",
+  "They will ask for": "Te pedirán",
+  "What are you trying to learn or win?": "¿Qué intentas averiguar o conseguir?",
+  "What kind": "Qué tipo",
+  "What prospects actually said": "Lo que realmente dijeron los prospectos",
+  "What they asked for": "Lo que pidieron",
+  "What they said": "Lo que dijeron",
+  "What they said, in their words": "Lo que dijeron, con sus propias palabras",
+  "What they wrote": "Lo que escribieron",
+  "What this buyer will ask for": "Lo que pedirá este comprador",
+  "What time lunch goes out": "A qué hora sale el almuerzo",
+  "What you came back with": "Qué averiguaste",
+  "Where it came from (URL, optional)": "De dónde provino (URL, opcional)",
+  "Where it is stuck:": "Dónde está atascado:",
+  "Who granted it, when": "Quién lo concedió y cuándo",
+  "Why this prospect qualifies": "Por qué este prospecto cumple los requisitos",
+  "Why this score": "Por qué tiene esta puntuación",
+  "Work this list": "Trabajar con esta lista",
+  "Write down:": "Anota:",
+  "Write the follow-up": "Redactar el seguimiento",
+  "Your standing approval of one exact email. New prospects that clear every bar get that letter without another click. Follow-ups, flagged claims and buyers with an open readiness gap always wait for you.": "Tu aprobación permanente se aplica a un único correo exacto. Los nuevos prospectos que cumplan todos los criterios reciben ese correo sin otro clic. Los seguimientos, las afirmaciones señaladas y los compradores con brechas de preparación pendientes siempre esperan tu aprobación.",
+  "· SMS/voice: off": "· SMS/voz: desactivados",
+  "· — / yes": "· — / sí",
+  "“From” price per meal ($)": "Precio «desde» por comida ($)",
+  "…or paste straight from a spreadsheet — tab-separated works too": "…o pega directamente desde una hoja de cálculo; también funciona el formato separado por tabulaciones",
+  "← Prospects": "← Prospectos",
+  "🔒 Locked off in this release —": "🔒 Desactivado en esta versión —",
+  "🔒 Locked on in this release —": "🔒 Activado en esta versión —",
+  "/ Lunches": "/ Almuerzos",
+  "Learn more": "Más información",
+  "(empty)": "(vacío)",
+  "Edit message (English)": "Editar mensaje (inglés)",
+  "End (optional)": "Fin (opcional)",
+  "Link (optional)": "Enlace (opcional)",
+  "Link text": "Texto del enlace",
+  "Order now": "Pedir ahora",
+  "Start (optional)": "Inicio (opcional)",
+  "🧾 Invoices for this account go to": "🧾 Las facturas de esta cuenta se envían a",
+  "(observed)": "(observado)",
+  "(none yet — first submitter will enroll one)": "(todavía ninguno; la primera persona que lo envíe inscribirá uno)",
+  "Leave a day blank to keep it off the menu. Leave the price blank to charge the location's price per lunch. A dish price applies from the next head count on — days already counted keep the price they were quoted. Offices see the dish name, never a price.": "Deja un día en blanco para no incluirlo en el menú. Deja el precio en blanco para cobrar el precio por almuerzo de la ubicación. El precio del plato se aplica a partir del siguiente recuento de comensales; los días ya contabilizados mantienen el precio cotizado. Las oficinas ven el nombre del plato, nunca el precio.",
+  "Leave blank to charge the location's price per lunch": "Déjalo en blanco para cobrar el precio por almuerzo de la ubicación",
+  "New signup — set the negotiated terms, then activate to turn on their ordering links. (Model:": "Nuevo registro: establece las condiciones negociadas y luego actívalo para habilitar sus enlaces de pedidos. (Modelo:",
+  "Stops on reply, unsubscribe, bounce, complaint, manual stop, won, lost or do-not-contact. Never two steps on the same day.": "Se detiene si hay una respuesta, cancelación de suscripción, rebote, queja, detención manual, oportunidad ganada o perdida, o solicitud de no contactar. Nunca hay dos pasos el mismo día.",
+  "Tasting CTA": "Llamada a la acción de degustación",
+  "Tasting offer": "Oferta de degustación",
+  "Teach the marketing team": "Capacitar al equipo de marketing",
+  "The Team Lead, the planner, governance and Aña all read your Brand & Standards Brief. This files ONE added section — institutional recurring meal service as a strategic product, traditional Cuban catering as first-class, live-menu pricing, no customer names without permission — as a proposal in": "El líder del equipo, el planificador, gobernanza y Aña consultan tu Resumen de marca y estándares. Esto presenta UNA sección adicional como propuesta en: el servicio recurrente de comidas institucionales como producto estratégico, el catering cubano tradicional como oferta prioritaria, precios del menú actualizados en vivo y la prohibición de usar nombres de clientes sin permiso.",
+  "The institutional offer ✅ confirmed": "Oferta institucional ✅ confirmada",
+  "Tier A from": "Nivel A desde",
+  "Tier B from": "Nivel B desde",
+  "Tier C from": "Nivel C desde",
+  "Two more centers like Boca": "Dos centros más como Boca",
+  "Until (hour)": "Hasta (hora)",
+  "Update Añejo's side in": "Actualizar la información de Añejo en",
+  "Value proposition — only what the operation actually does": "Propuesta de valor — solo lo que la operación realmente ofrece",
+  "We provide recurring scheduled lunch service to a healthcare organization in South Florida.": "Ofrecemos un servicio recurrente de almuerzos programados a una organización de atención médica en el sur de Florida.",
+  "What can you do?": "¿Qué puedes hacer?",
+  "e.g. 45 clients": "p. ej., 45 clientes",
+  "hours after the previous step": "horas después del paso anterior",
+  "new prospects per day.": "prospectos nuevos por día.",
+  "prospect emails and": "correos electrónicos a prospectos y",
+  "yes / yes": "sí / sí",
+  "yes / —": "sí / —",
+  "Shown on /order as “Delivery only ·": "Se muestra en /order como «Solo entrega ·",
+  "SMS ✓": "SMS ✓",
+  "@Instagram": "@Instagram",
+  "@handle": "@usuario",
+  "Creates their partner record, activates a live code at checkout, and emails them their code, link, commission terms, and the disclosure rules.": "Crea su registro de socio, activa un código vigente al pagar y le envía por correo el código, el enlace, las condiciones de comisión y las reglas de divulgación.",
+  "Hourly staff are paid for worked hours. Per-route drivers show hours but are paid by their routes — never both. Times are Eastern (America/New_York).": "Al personal por hora se le paga por las horas trabajadas. Los conductores por ruta ven las horas, pero se les paga por sus rutas; nunca se paga por ambos conceptos. Las horas corresponden a la hora del Este (America/New_York).",
+  "Bill to": "Facturar a",
+  "Añejo Catering Co. LLC · anejocateringco.com": "Añejo Catering Co. LLC · anejocateringco.com",
+  "Calc cost": "Calcular costo",
+  "1 tap": "1 toque",
+  "Ask about orders or marketing status…": "Pregunta sobre pedidos o el estado del marketing…",
+  "Ask the operator": "Preguntar al operador",
+  "Marketing status": "Estado del marketing",
+  "talk ·": "hablar ·",
+  "card ••": "tarjeta ••",
+  "· · automatic charging will refuse for this account until a card is added": "· · el cobro automático será rechazado para esta cuenta hasta que se añada una tarjeta",
+  "Deposit UNPAID": "Depósito SIN PAGAR",
+  "$/hr": "$/hora",
+  ". The week changes every Monday.": ". La semana cambia cada lunes.",
+  "<span class=\"row-sub\">on their first paid order</span>": "<span class=\"row-sub\">en su primer pedido pagado</span>",
+  "on their first paid order": "en su primer pedido pagado",
+  "· · no email yet": "· · aún sin correo electrónico",
+  "· · ✉︎ contactable": "· · ✉︎ se puede contactar",
+  "— / yes": "— / sí",
+  "— email only; every step needs your approval; stops on reply, unsubscribe, bounce, complaint, won, lost or do-not-contact.": "— solo correo electrónico; cada paso requiere tu aprobación; se detiene al recibir respuesta, cancelar suscripción, rebotar, recibir una queja, ganar, perder o marcar como no contactar.",
+  "⚠️ Approving a proposal OVERWRITES the live Brand & Standards Brief and grounds every future Creative Studio session on it. The prior version is snapshotted, and you can put it back from Version history below. Review the full proposed Brief before approving.": "⚠️ Aprobar una propuesta REEMPLAZA el Resumen de marca y estándares vigente y sirve de base para cada sesión futura de Creative Studio. Se guarda una instantánea de la versión anterior y puedes restaurarla desde el Historial de versiones. Revisa el resumen propuesto completo antes de aprobarlo.",
+  "🤝 Trainer commissions — partners & clients →": "🤝 Comisiones de entrenadores — socios y clientes →",
+  "🥂 Catering quotes — deposits & balances →": "🥂 Cotizaciones de catering — depósitos y saldos →",
+  "Note": "Nota",
+  "Samples": "Muestras",
+  "None": "Ninguno",
+  "new": "nuevo",
+  "Price": "Precio",
+  "Sun": "Dom",
+  "Name (ES)": "Nombre (ES)",
+  "Description (ES)": "Descripción (ES)",
+  "Owner's day": "La jornada de la dueña",
+  "Spanish": "Español",
+  "9:00 AM": "9:00 a. m.",
+  "A follow-up attempt already exists for this quote. Check its receipt before any further contact.": "Ya existe un intento de seguimiento para esta cotización. Revisa el comprobante antes de volver a contactar.",
+  "$ location": "$ ubicación",
+  "Account activated": "Cuenta activada",
+  "Actual provider text synced — no new message sent": "Texto real del proveedor sincronizado; no se envió ningún mensaje nuevo",
+  "Add a billing email first": "Primero añade un correo de facturación",
+  "Add a note telling staff what you need": "Añade una nota para indicarle al personal qué necesitas",
+  "Add a reason for the staff member": "Añade un motivo para el miembro del personal",
+  "Added to CRM": "Añadido al CRM",
+  "Allowed — they can order now.": "Autorizado; ya pueden hacer pedidos.",
+  "Already awaiting a driver": "Ya está en espera de un conductor",
+  "Already canceled.": "Ya está cancelado.",
+  "Already in CRM": "Ya está en el CRM",
+  "An active quote exists. Use its revision flow; no duplicate was created.": "Ya existe una cotización activa. Usa su flujo de revisión; no se creó un duplicado.",
+  "Approval withdrawn": "Aprobación retirada",
+  "Approve the amount first (step 1)": "Primero aprueba el importe (paso 1)",
+  "Approved — Brief updated": "Aprobado; se actualizó el Resumen",
+  "Auto-dispatch saved (off)": "Despacho automático guardado (desactivado)",
+  "Balance closed": "Saldo cerrado",
+  "Billing contact cleared": "Se quitó el contacto de facturación",
+  "Cannot verify revision status": "No se puede verificar el estado de la revisión",
+  "Card link copied": "Enlace de tarjeta copiado",
+  "Card removed": "Tarjeta eliminada",
+  "Choose an existing quote first.": "Primero elige una cotización existente.",
+  "Cleared — the shipped page is back": "Borrado; se restauró la página publicada",
+  "Contact saved": "Contacto guardado",
+  "Could not activate": "No se pudo activar",
+  "Could not add the location": "No se pudo añadir la ubicación",
+  "Could not add to CRM.": "No se pudo añadir al CRM.",
+  "Could not add.": "No se pudo añadir.",
+  "Could not auto-build": "No se pudo crear automáticamente",
+  "Could not calculate cost": "No se pudo calcular el costo",
+  "Could not cancel.": "No se pudo cancelar.",
+  "Could not change that switch": "No se pudo cambiar ese control",
+  "Could not clear": "No se pudo borrar",
+  "Could not close that balance": "No se pudo cerrar ese saldo",
+  "Could not connect QuickBooks": "No se pudo conectar con QuickBooks",
+  "Could not create the account": "No se pudo crear la cuenta",
+  "Could not create the balance link": "No se pudo crear el enlace de saldo",
+  "Could not create the deposit link": "No se pudo crear el enlace de depósito",
+  "Could not create the payment link": "No se pudo crear el enlace de pago",
+  "Could not disconnect": "No se pudo desconectar",
+  "Could not generate invoice": "No se pudo generar la factura",
+  "Could not grant it": "No se pudo conceder",
+  "Could not open messages": "No se pudieron abrir los mensajes",
+  "Could not re-offer": "No se pudo volver a ofrecer",
+  "Could not record.": "No se pudo registrar.",
+  "Could not release route": "No se pudo liberar la ruta",
+  "Could not remove that card": "No se pudo eliminar esa tarjeta",
+  "Could not restore that version": "No se pudo restaurar esa versión",
+  "Could not revoke": "No se pudo revocar",
+  "Could not run forecast": "No se pudo ejecutar el pronóstico",
+  "Could not save holiday settings": "No se pudo guardar la configuración de feriados",
+  "Could not save the changes": "No se pudieron guardar los cambios",
+  "Could not save the menu": "No se pudo guardar el menú",
+  "Could not send login link.": "No se pudo enviar el enlace de inicio de sesión.",
+  "Could not send to QuickBooks": "No se pudo enviar a QuickBooks",
+  "Could not start the connection": "No se pudo iniciar la conexión",
+  "Could not update.": "No se pudo actualizar.",
+  "Could not verify text receipt. No new text was sent.": "No se pudo verificar el comprobante del mensaje. No se envió ningún mensaje nuevo.",
+  "Could not verify the existing quote. No new checkout was created.": "No se pudo verificar la cotización existente. No se inició un nuevo pago.",
+  "Could not void that invoice": "No se pudo anular esa factura",
+  "Could not withdraw that approval": "No se pudo retirar esa aprobación",
+  "Deleted — another message is showing now": "Eliminado; ahora se muestra otro mensaje",
+  "Deleted — nothing showing": "Eliminado; no se muestra ningún mensaje",
+  "Delivery address needs a street, city, and 5-digit ZIP.": "La dirección de entrega debe incluir calle, ciudad y código postal de 5 dígitos.",
+  "Device revoked": "Dispositivo revocado",
+  "Enter a billing email — invoices have nowhere to go without one.": "Introduce un correo de facturación; sin él no se pueden enviar las facturas.",
+  "Enter a payment reference of 1–120 characters after checking the bank receipt.": "Después de revisar el comprobante bancario, introduce una referencia de pago de 1 a 120 caracteres.",
+  "Enter an amount to refund.": "Introduce un importe para reembolsar.",
+  "Enter the company name.": "Introduce el nombre de la empresa.",
+  "Enter the guest count": "Introduce la cantidad de invitados",
+  "Enter the head count.": "Introduce el número de comensales.",
+  "Enter the hourly rate like 12.50": "Introduce la tarifa por hora, por ejemplo, 12.50",
+  "Existing quote lookup is unavailable. Refresh the quote list before starting another checkout.": "La búsqueda de cotizaciones existentes no está disponible. Actualiza la lista antes de iniciar otro pago.",
+  "Follow-up recorded": "Seguimiento registrado",
+  "Forecast updated": "Pronóstico actualizado",
+  "Founding benefit granted — 2× points for life": "Beneficio de miembro fundador concedido: 2× puntos de por vida",
+  "From must be before To.": "La fecha Desde debe ser anterior a Hasta.",
+  "Gift removed": "Regalo eliminado",
+  "Give the location a name.": "Asigna un nombre a la ubicación.",
+  "Her order is laid out below at menu prices — every one of them is yours to change": "Su pedido aparece abajo con los precios del menú; puedes cambiar cualquiera de ellos",
+  "Holiday settings saved": "Configuración de feriados guardada",
+  "Invoice emailed": "Factura enviada por correo electrónico",
+  "Invoice voided — its days are un-invoiced again": "Factura anulada; sus días vuelven a quedar sin facturar",
+  "It was already in QuickBooks": "Ya estaba en QuickBooks",
+  "Marked paid": "Marcado como pagado",
+  "Marked paid (details unavailable — migration pending)": "Marcado como pagado (detalles no disponibles; migración pendiente)",
+  "Menu saved": "Menú guardado",
+  "Menu saved (history unavailable — migration pending)": "Menú guardado (historial no disponible; migración pendiente)",
+  "Menu saved — nothing had changed": "Menú guardado; no había cambios",
+  "Name and mobile are both needed.": "Se necesitan tanto el nombre como el celular.",
+  "No driver available — still unfilled": "No hay ningún conductor disponible; sigue sin asignarse",
+  "No unassigned orders to build": "No hay pedidos sin asignar para crear rutas",
+  "Nothing changed yet.": "Todavía no se ha cambiado nada.",
+  "Obsolete duplicate retired. Correct quote kept; no message sent.": "Se retiró el duplicado obsoleto. Se conservó la cotización correcta; no se envió ningún mensaje.",
+  "Order canceled.": "Pedido cancelado.",
+  "Pay settings saved": "Configuración de pagos guardada",
+  "Payment link created": "Enlace de pago creado",
+  "Payouts are switched OFF — turn them on in Finance → Automatic payments": "Los pagos a conductores están DESACTIVADOS; actívalos en Finanzas → Pagos automáticos",
+  "Pick a driver for this route.": "Elige un conductor para esta ruta.",
+  "Pick the service date.": "Elige la fecha del servicio.",
+  "Planning preferences saved; activation unchanged": "Preferencias de planificación guardadas; la activación no cambió",
+  "Price per lunch must be more than $0.": "El precio por almuerzo debe ser mayor que $0.",
+  "Profile saved": "Perfil guardado",
+  "QuickBooks connected": "QuickBooks conectado",
+  "QuickBooks connection cancelled": "Conexión con QuickBooks cancelada",
+  "QuickBooks disconnected": "QuickBooks desconectado",
+  "Re-offered to a driver": "Volvió a ofrecerse a un conductor",
+  "Read the updated email preview before saving this revision.": "Lee la vista previa actualizada del correo antes de guardar esta revisión.",
+  "Refund failed.": "El reembolso falló.",
+  "Rejected — staff notified": "Rechazado; se notificó al personal",
+  "Removed — they can no longer order.": "Se quitó; ya no pueden hacer pedidos.",
+  "Report downloaded": "Informe descargado",
+  "Request updated": "Solicitud actualizada",
+  "Rewards settings saved": "Configuración de recompensas guardada",
+  "Route already released": "La ruta ya se liberó",
+  "Saved (history unavailable — migration pending)": "Guardado (historial no disponible; migración pendiente)",
+  "Saved — another message is showing until its window ends": "Guardado; se mostrará otro mensaje hasta que termine su período",
+  "Saved — but the card setting needs migration 0095": "Guardado; la configuración de tarjeta necesita la migración 0095",
+  "Saved — customers will order ahead": "Guardado; los clientes harán pedidos con anticipación",
+  "Saved — history moved with the new email": "Guardado; el historial se trasladó con el nuevo correo",
+  "Saved — it will appear inside its window": "Guardado; aparecerá durante el período establecido",
+  "Saved — its window has already passed, so it will not show": "Guardado; su período ya pasó, así que no se mostrará",
+  "Saved — same-day ordering is open": "Guardado; los pedidos para el mismo día están abiertos",
+  "Saved — switched off": "Guardado; desactivado",
+  "Saved — this is the one on the site now": "Guardado; este es el que aparece ahora en el sitio",
+  "Say where the count came from — it goes on the record.": "Indica de dónde provino el recuento; quedará registrado.",
+  "Sent back to staff for more info": "Devuelto al personal para obtener más información",
+  "Sent to QuickBooks": "Enviado a QuickBooks",
+  "Set a price per lunch first.": "Primero establece un precio por almuerzo.",
+  "Set both From and To, or leave both blank for all un-invoiced days.": "Establece Desde y Hasta, o deja ambos en blanco para incluir todos los días sin facturar.",
+  "Square balance link ready": "Enlace de saldo de Square listo",
+  "Suggested total filled in from the live menu — change it if you agreed something else": "El total sugerido se completó con los precios del menú vigente; cámbialo si acordaste otra cantidad",
+  "The first location needs a name, street and city.": "La primera ubicación debe tener nombre, calle y ciudad.",
+  "The shipped page is back": "Se restauró la página publicada",
+  "This void quote has no recoverable revision.": "Esta cotización anulada no tiene una revisión recuperable.",
+  "Type a question first.": "Primero escribe una pregunta.",
+  "Week 1 has to start on a Monday.": "La semana 1 debe comenzar un lunes.",
+  "Added one unit. Set the quantity on its line.": "Se añadió una unidad. Establece la cantidad en su línea.",
+  "Answered": "Respondido",
+  "Copied": "Copiado",
+  "Gift on for this quote": "Regalo activado para esta cotización",
+  "owe the new training.": "deben completar la nueva capacitación.",
+  "⚠ Never trained": "⚠ Nunca recibió capacitación",
+  "Answer manually": "Responder manualmente",
+  "Gemini — nano-banana image": "Gemini · imagen nano-banana",
+  "Instagram platform pulse": "Actualidad de la plataforma Instagram",
+  "Local competitor sweep": "Revisión de competidores locales",
+  "Most recent owner question, answered": "Última pregunta del propietario, respondida",
+  "OpenAI — gpt-image-2": "OpenAI · gpt-image-2",
+  "Type the answer yourself…": "Escribe la respuesta tú mismo…",
+  "Workers AI — Leonardo Phoenix": "Workers AI · Leonardo Phoenix",
+  "A provider marked": "Un proveedor marcado como",
+  "Answer": "Respuesta",
+  "Ask a research question": "Haz una pregunta de investigación",
+  "Attach a media batch": "Adjuntar un lote de archivos multimedia",
+  "Attach private media": "Adjuntar archivos multimedia privados",
+  "Check files": "Comprobar archivos",
+  "Checkpoint JSON": "JSON del punto de recuperación",
+  "Checkpoints contain saved upload receipts, never your sign-in.": "Los puntos de recuperación contienen comprobantes de cargas guardadas, nunca tus datos de acceso.",
+  "Choose the manifest and all matching files once. Captions stay unchanged. Review and scheduling remain separate.": "Elige el manifiesto y todos los archivos correspondientes una sola vez. Los textos de las publicaciones no cambian. La revisión y la programación siguen siendo pasos aparte.",
+  "Choose the manifest and files to begin.": "Elige el manifiesto y los archivos para comenzar.",
+  "Continue from a checkpoint": "Continuar desde un punto de recuperación",
+  "Could not load cadence settings.": "No se pudo cargar la configuración de frecuencia.",
+  "Could not load intel.": "No se pudo cargar la información de investigación.",
+  "Could not load posting times.": "No se pudieron cargar los horarios de publicación.",
+  "Could not load provider settings.": "No se pudo cargar la configuración de proveedores.",
+  "Disabled": "Desactivado",
+  "Export checkpoint": "Exportar punto de recuperación",
+  "Feed & Stories cadence": "Frecuencia de publicaciones e historias",
+  "Market": "Mercado",
+  "Market intelligence": "Información del mercado",
+  "Media files": "Archivos multimedia",
+  "Media manifest JSON": "JSON del manifiesto multimedia",
+  "Move down": "Bajar",
+  "Move up": "Subir",
+  "No questions filed yet.": "Aún no hay preguntas registradas.",
+  "October adult day care": "Centros diurnos para adultos · octubre",
+  "Plate image providers": "Proveedores de imágenes de platos",
+  "Posting times": "Horarios de publicación",
+  "Posts attached": "Publicaciones adjuntas",
+  "Question queue": "Cola de preguntas",
+  "Read saved status": "Consultar estado guardado",
+  "Researched default: — ET": "Valor predeterminado investigado: — ET",
+  "SUB": "SUSCRIPCIÓN",
+  "Stop after current request": "Detener después de la solicitud actual",
+  "company": "empresa",
+  "never": "nunca",
+  "subscription": "suscripción",
+  "type": "tipo",
+  "Answer saved": "Respuesta guardada",
+  "Cadence saved": "Frecuencia guardada",
+  "Intel tick ran": "Se ejecutó la actualización de investigación",
+  "Posting times saved": "Horarios de publicación guardados",
+  "Provider order saved": "Orden de proveedores guardado",
+  "Question queued": "Pregunta puesta en cola",
+  "Inquiries": "Consultas",
+  "Latest 100 catering inquiries": "Últimas 100 consultas de catering",
+  "Needs first contact": "Primer contacto pendiente",
+  "Received": "Recibido",
+  "Source:": "Origen:",
+  "Not recorded — do not infer a source": "Sin registrar; no deduzcas el origen",
+  "Browsing path not recorded": "Recorrido de navegación sin registrar",
+  "Request & quote": "Solicitud y cotización",
+  "Owner Hub alert": "Alerta del Hub del propietario",
+  "Owner email": "Correo del propietario",
+  "accepted — receipt recorded": "aceptado; comprobante registrado",
+  "Customer acknowledgement:": "Confirmación de recepción al cliente:",
+  "Contacted": "Contactado",
+  "Date to confirm": "Fecha por confirmar",
+  "Deposit recorded · booked": "Depósito registrado · reservado",
+  "Contacted · follow-up planned": "Contactado · seguimiento planificado",
+  "Quote sent · deposit pending": "Cotización enviada · depósito pendiente",
+  "Closed · not proceeding": "Cerrado · no continúa",
+  "Owner marked won · payment not verified": "Ganado según el propietario · pago sin verificar",
+  "Review / send quote reminder": "Revisar / enviar recordatorio de cotización",
+  "Provider accepted — delivery and reading unverified": "Aceptado por el proveedor; entrega y lectura sin verificar",
+  "Send outcome unknown — do not retry": "Resultado del envío desconocido; no reintentes",
+  "Suppressed — no reminder sent": "Suprimido; no se envió ningún recordatorio",
+  "Provider failed — acceptance not recorded": "Fallo del proveedor; aceptación sin registrar",
+  "Send pending — do not retry": "Envío pendiente; no reintentes",
+  "Outcome not verified": "Resultado sin verificar",
+  "Awaiting customer reply": "Esperando respuesta del cliente",
+  "Customer replied": "El cliente respondió",
+  "Customer requested a call": "El cliente solicitó una llamada",
+  "Customer requested changes": "El cliente solicitó cambios",
+  "Customer declined": "El cliente rechazó",
+  "Next action:": "Próxima acción:",
+  "Latest reminder:": "Último recordatorio:",
+  "Choose a response status": "Elige un estado de respuesta",
+  "No reminder send evidence recorded.": "No hay pruebas registradas de envío de recordatorios.",
+  "Reminder availability:": "Disponibilidad del recordatorio:",
+  "An alert fired": "Se activó una alerta",
+  "Asked the Studio AI for help": "Pidió ayuda a la IA del Estudio",
+  "Added a photo or voice note": "Agregó una foto o nota de voz",
+  "Started a Creative Studio session": "Inició una sesión del Estudio Creativo",
+  "Signed in": "Inició sesión",
+  "DRIVER PAY (EARNED)": "PAGO A CONDUCTORES (GANADO)",
+  "Trainer commissions — partners & clients →": "Comisiones de entrenadores · aliados y clientes →",
+  "Catering quotes — deposits & balances →": "Cotizaciones de catering · depósitos y saldos →",
+  "AUTOMATIC PAYMENTS": "PAGOS AUTOMÁTICOS",
+  "Charge contract invoices automatically": "Cobrar automáticamente las facturas de contratos",
+  "Both safeties always apply.": "Siempre se aplican ambas protecciones.",
+  "No contract accounts yet.": "Aún no hay cuentas con contrato.",
+  "Send an invoice to QuickBooks from the invoice page.": "Envía una factura a QuickBooks desde la página de la factura.",
+  "Disconnect": "Desconectar",
+  "finance": "finanzas",
+  "payroll": "nómina",
+  "deliveries": "entregas",
+  "accountability": "responsabilidad",
+  "temp_compliance": "cumplimiento de temperaturas",
+  "Export": "Exportar",
+  "sent": "enviado",
+  "open": "abierto",
+  "not approved": "sin aprobar",
+  "Contract accounts (B2B)": "Cuentas con contrato (B2B)",
+  "Añejo (Direct)": "Añejo (Directo)",
+  "Edit profile": "Editar perfil",
+  "Login link": "Enlace de acceso",
+  "Changing the email re-links their orders, points and founding benefit to the new address.": "Cambiar el correo vuelve a vincular sus pedidos, puntos y beneficio de fundador a la nueva dirección.",
+  "Street": "Calle",
+  "Unit / apt": "Unidad / apartamento",
+  "Allergens": "Alérgenos",
+  "Marketing email consent": "Consentimiento para correos de marketing",
+  "Marketing SMS consent": "Consentimiento para SMS de marketing",
+  "PROGRAM AT A GLANCE": "RESUMEN DEL PROGRAMA",
+  "POINTS OUT": "PUNTOS EN CIRCULACIÓN",
+  "EARNED": "GANADOS",
+  "REDEEMED": "CANJEADOS",
+  "REDEMPTIONS": "CANJES",
+  "MEMBERS BY TIER": "MIEMBROS POR NIVEL",
+  "TOP MEMBERS": "MIEMBROS DESTACADOS",
+  "Tier thresholds (lifetime $) & earn multiplier": "Umbrales de nivel ($ acumulados) y multiplicador de puntos ganados",
+  "Off": "Desactivado",
+  "Team lead": "Responsable del equipo",
+  "Missing reports": "Reportes faltantes",
+  "Calls": "Llamadas",
+  "CALL LIST": "LISTA DE LLAMADAS",
+  "Licensed facilities with a phone and no email we can use. Best first. A number called today is not offered again today.": "Centros con licencia que tienen teléfono y ningún correo utilizable. Los mejores aparecen primero. Un número llamado hoy no se vuelve a ofrecer hoy.",
+  "Ready to call": "Listos para llamar",
+  "Called today": "Llamados hoy",
+  "Last 7 days": "Últimos 7 días",
+  "What to say": "Qué decir",
+  "Outcome": "Resultado",
+  "Reached the decision-maker": "Hablé con quien toma las decisiones",
+  "Spoke to the front desk": "Hablé con recepción",
+  "Left a voicemail": "Dejé un mensaje de voz",
+  "Asked me to call back": "Pidió que volviera a llamar",
+  "Asked for information by email": "Pidió información por correo",
+  "Not interested": "No le interesa",
+  "Asked not to be contacted": "Pidió que no le contacten",
+  "Wrong or dead number": "Número incorrecto o fuera de servicio",
+  "How many attend daily": "Cuántas personas asisten a diario",
+  "Who decides (name)": "Quién decide (nombre)",
+  "Their title": "Su cargo",
+  "Email for the menu": "Correo para el menú",
+  "Notes": "Notas",
+  "Log this call": "Registrar esta llamada",
+  "adult day": "centro diurno para adultos",
+  "addiction treatment": "tratamiento de adicciones",
+  "not approved for production": "no aprobado para producción",
+  "Partners": "Aliados",
+  "Codes": "Códigos",
+  "Production planning": "Planificación de producción",
+  "Set up a plan": "Configurar un plan",
+  "Cost source and exact calculation": "Fuente del costo y cálculo exacto",
+  "Published recipe": "Receta publicada",
+  "Finished-item target": "Objetivo de productos terminados",
+  "VERSION HISTORY": "HISTORIAL DE VERSIONES",
+  "SNAPSHOT": "COPIA GUARDADA",
+  "Paid in full": "Pagado en su totalidad",
+  "Confirmed": "Confirmado",
+  "Kitchen Opening": "Apertura de cocina",
+  "Handwashing station stocked (soap, paper towels)": "Estación de lavado de manos abastecida (jabón y toallas de papel)",
+  "Walk-in cooler and reach-ins at safe temperature": "Cámara frigorífica y refrigeradores a temperatura segura",
+  "Prep surfaces sanitized before use": "Superficies de preparación desinfectadas antes del uso",
+  "Equipment powered on and warmed up": "Equipo encendido y precalentado",
+  "Opening stock checked against par levels": "Existencias iniciales revisadas contra los mínimos",
+  "Kitchen Closing": "Cierre de cocina",
+  "Ingredients": "Ingredientes",
+  "Steps": "Pasos",
+  "Events": "Eventos",
+  "Photo approved": "Foto aprobada",
+  "Photo awaiting owner review": "Foto pendiente de revisión del propietario",
+  "Photo rejected": "Foto rechazada",
+  "Program": "Programa",
+  "Storage": "Almacenamiento",
+  "kept": "conservado",
+  "owed": "pendiente de pago",
+  "Ambient": "Ambiente",
+  "Arrived": "Llegó",
+  "Avocado": "Aguacate",
+  "Home": "Inicio",
+  "Issue": "Incidencia",
+  "Kind": "Tipo",
+  "Order": "Pedido",
+  "Planned": "Planificado",
+  "Portion:": "Porción:",
+  "Portions": "Porciones",
+  "Preparing": "En preparación",
+  "Problem": "Problema",
+  "Quantity": "Cantidad",
+  "Recorded": "Registrado",
+  "Source": "Origen",
+  "Working": "En curso",
+  "count_quantity": "conteo por unidades",
+  "on_hand": "disponible",
+  "total_weight_grams": "peso total en gramos",
+  "today": "hoy"
+};
+  var fragmentPatterns = [
+  {"en":"A customer {value}","es":"Un cliente {value}"},
+  {
+    "en": "Every email carries a one-click unsubscribe link and “{value}” in the footer. That is what makes emailing your customer list lawful, so it is not optional. A designed template gets that footer added underneath it — unless the template places",
+    "es": "Cada correo incluye un enlace para cancelar la suscripción con un clic y «{value}» en el pie. Esto permite enviar correos a tu lista de clientes conforme a la ley, por lo que no es opcional. Ese pie se agrega debajo de una plantilla diseñada, salvo que la plantilla incluya"
+  },
+  {
+    "en": "This saved date may be outdated; it does not prove that publishing, the DM inbox or insights are unavailable. Verify the current connection and token in Meta, renew if needed, then update this record. See {doc}.",
+    "es": "Esta fecha guardada podría estar desactualizada; no demuestra que la publicación, la bandeja de mensajes directos o las estadísticas no estén disponibles. Verifica la conexión y el token actuales en Meta, renuévalo si hace falta y luego actualiza este registro. Consulta {doc}."
+  },
+  {
+    "en": "Acts on the {value} prospects shown above, with the filters you have set. Neither button contacts anybody: an opportunity only makes a prospect addressable, and researching only reads their public website.",
+    "es": "Actúa sobre los {value} prospectos que aparecen arriba, con los filtros que configuraste. Ningún botón contacta a nadie: una oportunidad solo permite dirigirse al prospecto y la investigación solo consulta su sitio web público."
+  },
+  {
+    "en": "Acts on the {value} prospect shown above, with the filters you have set. Neither button contacts anybody: an opportunity only makes a prospect addressable, and researching only reads their public website.",
+    "es": "Actúa sobre el prospecto {value} que aparece arriba, con los filtros que configuraste. Ningún botón contacta a nadie: una oportunidad solo permite dirigirse al prospecto y la investigación solo consulta su sitio web público."
+  },
+  {
+    "en": "Comparing published posts WITH each cause against published posts WITHOUT it, by median reach. Below {value} posts on either side, this refuses to rank — one post is not a pattern.",
+    "es": "Compara las publicaciones CON cada causa frente a las publicaciones SIN ella, según la mediana del alcance. Con menos de {value} publicaciones en cualquiera de los dos grupos, no asigna un orden: una publicación no demuestra un patrón."
+  },
+  {
+    "en": "You have {v0} rule(s) and {v1} example(s) total, but only the retained rows above fit this Lead/planner preview cap. Remove something you no longer need, or trim what you have.",
+    "es": "Tienes {v0} regla(s) y {v1} ejemplo(s) en total, pero solo las filas retenidas de arriba caben en el límite de esta vista previa del líder/planificador. Elimina algo que ya no necesites o reduce lo que tienes."
+  },
+  {
+    "en": "Model-classified scope: {value}. Exact caption and registered overlay excerpts are checked against saved source text; this does not prove the model found every claim.",
+    "es": "Alcance clasificado por el modelo: {value}. Los fragmentos exactos del texto de la publicación y del texto superpuesto registrado se comparan con el texto de origen guardado; esto no demuestra que el modelo haya detectado todas las afirmaciones."
+  },
+  {
+    "en": "A lane earns auto-publish after {value} drafts in a row approved without an edit. One edit resets its streak. The switch is yours — nothing flips it for you.",
+    "es": "Un canal puede obtener publicación automática después de {value} borradores seguidos aprobados sin cambios. Una edición reinicia la racha. Tú controlas el interruptor; no se activa solo."
+  },
+  {
+    "en": "Invoice {v0} is {v1}. Check the address against the account before it goes out — a bill sent to the wrong company is not something an email can take back.",
+    "es": "La factura {v0} está {v1}. Verifica la dirección con la cuenta antes de enviarla; un correo no puede retirar una factura enviada a la empresa equivocada."
+  },
+  {
+    "en": "— the exact same dish, a different background and setting. It is never a new picture of food, and the bowl itself is never changed.{value}",
+    "es": ": el mismo plato exacto con otro fondo y ambiente. Nunca es una imagen nueva de comida y el bowl en sí nunca cambia.{value}"
+  },
+  {
+    "en": "Previous save already exists ({value}). It was not cancelled or changed. Current status: post no longer exists. Your edits are preserved.",
+    "es": "El guardado anterior ya existe ({value}). No se canceló ni modificó. Estado actual: la publicación ya no existe. Se conservaron tus cambios."
+  },
+  {
+    "en": "Status: {value}. Terms here are the ONLY thing a contract account is created from. Money is entered in dollars and stored as exact cents.",
+    "es": "Estado: {value}. Las condiciones aquí son la ÚNICA base para crear una cuenta con contrato. El dinero se introduce en dólares y se guarda en centavos exactos."
+  },
+  {
+    "en": "{value} — email only; every step needs your approval; stops on reply, unsubscribe, bounce, complaint, won, lost or do-not-contact.",
+    "es": "{value} — solo correo electrónico; cada paso requiere tu aprobación; se detiene al recibir respuesta, cancelar suscripción, rebote, queja, ganar, perder o marcar como no contactar."
+  },
+  {
+    "en": "Read the preview above one more time. When you are happy, this emails it to {value} and texts her if she consented to texts.",
+    "es": "Vuelve a leer la vista previa de arriba. Cuando estés conforme, se enviará por correo a {value} y por mensaje de texto a la clienta si dio su consentimiento."
+  },
+  {
+    "en": "{value} Below the sample floor, this stays silent rather than guess — a false \"it’s not working\" is worse than no answer.",
+    "es": "{value} Con menos datos que el mínimo de muestra, no responde en lugar de adivinar: un falso «no está funcionando» es peor que no dar una respuesta."
+  },
+  {
+    "en": "{v0} of {v1} posts left today (Instagram's limit). Token renews under Instagram → API setup with Instagram business login.",
+    "es": "Quedan {v0} de {v1} publicaciones para hoy (límite de Instagram). El token se renueva en Instagram → Configuración de la API con el inicio de sesión de Instagram para empresas."
+  },
+  {
+    "en": "(in {days} days). Verify the current token and renew if needed. This saved date does not establish live access. See {doc}.",
+    "es": "(dentro de {days} días). Verifica el token actual y renuévalo si hace falta. Esta fecha guardada no demuestra acceso en vivo. Consulta {doc}."
+  },
+  {
+    "en": "(in {days} day{plural}). Verify the current token and renew if needed. This saved date does not establish live access. See {doc}.",
+    "es": "(dentro de {days} día{plural}). Verifica el token actual y renuévalo si hace falta. Esta fecha guardada no demuestra acceso en vivo. Consulta {doc}."
+  },
+  {
+    "en": "Previous save already exists ({v0}). It was not cancelled or changed. Current status: {v1}. Your edits are preserved.",
+    "es": "El guardado anterior ya existe ({v0}). No se canceló ni modificó. Estado actual: {v1}. Se conservaron tus cambios."
+  },
+  {
+    "en": "{value} These saved measurements do not establish current Instagram performance or a complete posting history.",
+    "es": "{value} Estas mediciones guardadas no demuestran el rendimiento actual de Instagram ni un historial completo de publicaciones."
+  },
+  {
+    "en": "Previous save confirmed: {value}. Current edits are preserved; review the saved post before creating another.",
+    "es": "Guardado anterior confirmado: {value}. Tus cambios actuales se mantienen; revisa la publicación guardada antes de crear otra."
+  },
+  {
+    "en": "Styled variant of the real {value} photo — made by the image provider. Still a draft; add it or discard it.",
+    "es": "Variante estilizada de la foto real de {value}, creada por el proveedor de imágenes. Sigue siendo un borrador; agrégala o descártala."
+  },
+  {
+    "en": "Carousel · {value} photos, posted in this order. Instagram crops every slide to the first photo's shape.",
+    "es": "Carrusel · {value} fotos, publicadas en este orden. Instagram recorta todas las diapositivas a la forma de la primera foto."
+  },
+  {
+    "en": "{v0} reminder record(s) · {v1} provider acceptance receipt(s). Delivery and reading are not established.",
+    "es": "{v0} registro(s) de recordatorio · {v1} comprobante(s) de aceptación del proveedor. No se confirma la entrega ni la lectura."
+  },
+  {
+    "en": "{count} reminder record(s) · {accepted} provider acceptance receipt(s). Delivery and reading are not established.",
+    "es": "{count} registros de recordatorios · {accepted} comprobantes de aceptación del proveedor. La entrega y la lectura no están demostradas."
+  },
+  {
+    "en": "Her order is laid out below — {value} lines have no menu price, and every price is yours to change",
+    "es": "Su pedido aparece abajo; las {value} líneas no tienen precio de menú y puedes cambiar todos los precios"
+  },
+  {
+    "en": "{v0}/100 · tier {v1} · {v2} · {v3} — deterministic, from your ICP settings. The AI brief never changes it.",
+    "es": "{v0}/100 · nivel {v1} · {v2} · {v3} — determinista y basado en tus ajustes de ICP. El resumen de IA nunca lo modifica."
+  },
+  {
+    "en": "Criteria & max points: {v0}. Tiers A ≥ {v1}, B ≥ {v2}, C ≥ {v3}; out-of-area and closed places are tier D.",
+    "es": "Criterios y puntos máximos: {v0}. Niveles: A ≥ {v1}, B ≥ {v2}, C ≥ {v3}; los lugares fuera del área y cerrados son de nivel D."
+  },
+  {
+    "en": "Her order is laid out below — {value} line has no menu price, and every price is yours to change",
+    "es": "Su pedido aparece abajo; la línea {value} no tiene precio de menú y puedes cambiar todos los precios"
+  },
+  {
+    "en": "↑ Give this link to the {value} contact — they open it each morning to send the head count.",
+    "es": "↑ Comparte este enlace con el contacto de {value}; lo abre cada mañana para enviar el recuento de comensales."
+  },
+  {
+    "en": "Styled variant of the real {v0} photo — made by {v1}. Still a draft; add it or discard it.",
+    "es": "Variante estilizada de la foto real de {v0}, creada por {v1}. Sigue siendo un borrador; agrégala o descártala."
+  },
+  {
+    "en": "timed in batches — {value} more timings of a single one before this can set your estimate",
+    "es": "medido por lotes: hacen falta {value} mediciones más de un solo elemento antes de que esto pueda establecer una estimación"
+  },
+  {
+    "en": "Evidence gate: structured claim review. Original model judgment (unverified): {v0} — {v1}",
+    "es": "Control de evidencia: revisión estructurada de afirmaciones. Evaluación original del modelo (sin verificar): {v0} — {v1}"
+  },
+  {
+    "en": "Styled variant of the real photo — made by {value}. Still a draft; add it or discard it.",
+    "es": "Variante estilizada de la foto real, creada por {value}. Sigue siendo un borrador; agrégala o descártala."
+  },
+  {
+    "en": "Checkout outcome could not be confirmed. Refresh the quote list before retrying: {value}",
+    "es": "No se pudo confirmar el resultado del pago. Actualiza la lista de cotizaciones antes de volver a intentarlo: {value}"
+  },
+  {
+    "en": "Evidence gate: structured claim review. Original model judgment (unverified): {value} —",
+    "es": "Control de evidencia: revisión estructurada de afirmaciones. Evaluación original del modelo (sin verificar): {value} —"
+  },
+  {
+    "en": "Evidence gate: structured claim review. Original model judgment (unverified): — {value}",
+    "es": "Control de evidencia: revisión estructurada de afirmaciones. Evaluación original del modelo (sin verificar): — {value}"
+  },
+  {
+    "en": "{v0} · {v1} · {v2} · automatic charging will refuse for this account until a card is added",
+    "es": "{v0} · {v1} · {v2} · el cobro automático será rechazado para esta cuenta hasta que se añada una tarjeta"
+  },
+  {
+    "en": "Points per criterion; the score is normalised to 100. Tiers: A ≥ {v0}, B ≥ {v1}, C ≥ {v2}.",
+    "es": "Puntos por criterio; la puntuación se normaliza a 100. Niveles: A ≥ {v0}, B ≥ {v1}, C ≥ {v2}."
+  },
+  {
+    "en": "Brand & Standards Brief · {value} characters · grounds every Creative Studio session",
+    "es": "Resumen de marca y estándares · {value} caracteres · sirve de base para cada sesión de Creative Studio"
+  },
+  {
+    "en": "{v0} · {v1} · automatic charging will refuse for this account until a card is added",
+    "es": "{v0} · {v1} · el cobro automático será rechazado para esta cuenta hasta que se añada una tarjeta"
+  },
+  {
+    "en": "Latest {v0} receipt lines · read {v1} · Older lines are not included in this view.",
+    "es": "Últimas {v0} líneas de recibos · lectura {v1} · Las líneas anteriores no se incluyen en esta vista."
+  },
+  {
+    "en": "{v0} of {v1} posts left today (Instagram's limit). Token is a Facebook Page token.",
+    "es": "Quedan {v0} de {v1} publicaciones para hoy (límite de Instagram). Es un token de página de Facebook."
+  },
+  {
+    "en": "{value} · · automatic charging will refuse for this account until a card is added",
+    "es": "{value} · · el cobro automático será rechazado para esta cuenta hasta que se añada una tarjeta"
+  },
+  {
+    "en": "· {value} · automatic charging will refuse for this account until a card is added",
+    "es": "· {value} · el cobro automático será rechazado para esta cuenta hasta que se añada una tarjeta"
+  },
+  {
+    "en": "⚠ Your delivery fee ({v0}) is BELOW the run cost ({v1}) — every delivery loses {v2}.",
+    "es": "⚠ Tu tarifa de entrega ({v0}) está POR DEBAJO del costo del recorrido ({v1}); pierdes {v2} en cada entrega."
+  },
+  {
+    "en": "Requirements met: {v0}/{v1} · {v2} unresolved — review required · historical result",
+    "es": "Requisitos cumplidos: {v0}/{v1} · {v2} sin resolver · requiere revisión · resultado histórico"
+  },
+  {
+    "en": "Slide {v0}{v1}: branding declaration saved; current image bytes not rechecked.",
+    "es": "Diapositiva {v0}{v1}: declaración de marca guardada; los bytes de la imagen actual no se volvieron a comprobar."
+  },
+  {
+    "en": "Menu reviewed and signed by a Florida-licensed dietitian ({count} prospects)",
+    "es": "Menú revisado y firmado por un dietista con licencia de Florida ({count} prospectos)"
+  },
+  {
+    "en": "Profit/day (1 office, {v0} lunches): {v1} · week (all offices): {v2} · month ≈ {v3}",
+    "es": "Ganancia/día (1 oficina, {v0} almuerzos): {v1} · semana (todas las oficinas): {v2} · mes ≈ {v3}"
+  },
+  {
+    "en": "0 pauses the planner. 14 is a hard ceiling. Shipped default: {count}/week.",
+    "es": "0 pausa el planificador. 14 es el límite máximo. Valor predeterminado incluido: {count}/semana."
+  },
+  {
+    "en": "{v0} · unknown (model observation, not verified OCR) · caption line {v1}",
+    "es": "{v0} · desconocido (observación del modelo, no OCR verificado) · línea de texto {v1}"
+  },
+  {
+    "en": "· unknown (model observation, not verified OCR) · caption line {value}",
+    "es": "· desconocido (observación del modelo, no OCR verificado) · línea de texto {value}"
+  },
+  {
+    "en": "Legacy score: {value}/100 · not a complete current requirements audit",
+    "es": "Puntuación anterior: {value}/100 · no es una auditoría completa de los requisitos actuales"
+  },
+  {
+    "en": "{v0} cents ÷ 100 ÷ {v1} for per-pack cost; unit quantity unresolved.",
+    "es": "{v0} centavos ÷ 100 ÷ {v1} para el costo por paquete; cantidad por unidad sin resolver."
+  },
+  {
+    "en": "{v0}% confidence · {v1} subscription + {v2} on-demand · {v3} lunch / {v4} dinner",
+    "es": "{v0}% de confianza · {v1} por suscripción + {v2} a pedido · {v3} almuerzos / {v4} cenas"
+  },
+  {
+    "en": "The deadline applies to the NEXT delivery day. Currently: {value}.",
+    "es": "La fecha límite se aplica al PRÓXIMO día de entrega. Actualmente: {value}."
+  },
+  {
+    "en": "⏱ {v0} measured so far — {v1} more before a median means anything.",
+    "es": "⏱ Se han medido {v0}; faltan {v1} mediciones para que la mediana tenga significado."
+  },
+  {
+    "en": "Primary KPI — recurring institutional accounts activated: {value}",
+    "es": "KPI principal — cuentas institucionales recurrentes activadas: {value}"
+  },
+  {
+    "en": "{v0} — {v1} days after the previous step · owner approval required",
+    "es": "{v0} — {v1} días después del paso anterior · requiere aprobación del propietario"
+  },
+  {
+    "en": "{v0} · unknown (model observation, not verified OCR) · slide {v1}",
+    "es": "{v0} · desconocido (observación del modelo, no OCR verificado) · diapositiva {v1}"
+  },
+  {
+    "en": "{v0} · {v1} (model observation, not verified OCR) · caption line {v2}",
+    "es": "{v0} · {v1} (observación del modelo, no OCR verificado) · línea de texto {v2}"
+  },
+  {
+    "en": "Receipt lookup unavailable (HTTP {value}). No new text was sent.",
+    "es": "La búsqueda del comprobante no está disponible (HTTP {value}). No se envió ningún mensaje nuevo."
+  },
+  {
+    "en": "· unknown (model observation, not verified OCR) · slide {value}",
+    "es": "· desconocido (observación del modelo, no OCR verificado) · diapositiva {value}"
+  },
+  {
+    "en": "· {v0} (model observation, not verified OCR) · caption line {v1}",
+    "es": "· {v0} (observación del modelo, no OCR verificado) · línea de texto {v1}"
+  },
+  {
+    "en": "Holidays or days off. Customers cannot pick these. {value} set.",
+    "es": "Feriados o días libres. Los clientes no pueden elegirlos. {value} configurados."
+  },
+  {
+    "en": "Changes saved — replacement deposit {value}. Nothing sent yet.",
+    "es": "Cambios guardados; depósito de reemplazo {value}. Todavía no se envió nada."
+  },
+  {
+    "en": "Refund of {value} submitted — Square settles it in a few days.",
+    "es": "Se envió el reembolso de {value}; Square lo liquidará en unos días."
+  },
+  {
+    "en": "{v0} · {v1} characters · grounds every Creative Studio session",
+    "es": "{v0} · {v1} caracteres · sirve de base para cada sesión de Creative Studio"
+  },
+  {
+    "en": "Running. {v0} of {v1} sent automatically in the last 24 hours.",
+    "es": "En curso. Se enviaron automáticamente {v0} de {v1} durante las últimas 24 horas."
+  },
+  {
+    "en": "AI-written from the evidence, then checked in code · {value}",
+    "es": "Redactado con IA a partir de la evidencia y luego verificado en el código · {value}"
+  },
+  {
+    "en": "Licensed for {count}. Ask how many attend on an average day.",
+    "es": "Con licencia para {count}. Pregunta cuántas personas asisten en un día habitual."
+  },
+  {
+    "en": "Kept {value} business records. The erasure has been logged.",
+    "es": "Se conservaron {value} registros comerciales. El borrado quedó registrado."
+  },
+  {
+    "en": "Packing record: {v0} · {v1} °F · {v2} · requiere nueva medición",
+    "es": "Registro de empaque: {v0} · {v1} °F · {v2} · requiere nueva medición"
+  },
+  {
+    "en": "Registro de empaque: {v0} · {v1} °F · {v2} · new reading needed",
+    "es": "Registro de empaque: {v0} · {v1} °F · {v2} · requiere nueva medición"
+  },
+  {
+    "en": "Requirements met: {v0}/{v1} · {v2} unresolved — review required",
+    "es": "Requisitos cumplidos: {v0}/{v1} · {v2} sin resolver · requiere revisión"
+  },
+  {
+    "en": "{v0} {v1} · {v2} existing posts · {v3} caption change(s) · version {v4}",
+    "es": "{v0} {v1} · {v2} publicaciones existentes · {v3} cambio(s) de texto · versión {v4}"
+  },
+  {
+    "en": "Packing record: {v0} · {v1} °F · · requiere nueva medición",
+    "es": "Registro de empaque: {v0} · {v1} °F · · requiere nueva medición"
+  },
+  {
+    "en": "Registro de empaque: {v0} · {v1} °F · · new reading needed",
+    "es": "Registro de empaque: {v0} · {v1} °F · · requiere nueva medición"
+  },
+  {
+    "en": "The review provider rejected the {v0} request (HTTP {v1}).",
+    "es": "El proveedor de revisión rechazó la solicitud de {v0} (HTTP {v1})."
+  },
+  {
+    "en": "Slide {v0}{v1}: no attached branding declaration recorded.",
+    "es": "Diapositiva {v0}{v1}: no hay una declaración de marca adjunta registrada."
+  },
+  {
+    "en": "{v0} · {v1} (model observation, not verified OCR) · slide {v2}",
+    "es": "{v0} · {v1} (observación del modelo, no OCR verificado) · diapositiva {v2}"
+  },
+  {
+    "en": "· {v0} (model observation, not verified OCR) · slide {v1}",
+    "es": "· {v0} (observación del modelo, no OCR verificado) · diapositiva {v1}"
+  },
+  {
+    "en": "Margin is thin ({value}%). Most catering targets 25–40%.",
+    "es": "El margen es bajo ({value}%). La mayoría de los pedidos de catering apunta a un margen de 25–40%."
+  },
+  {
+    "en": "⏱ {v0} so far — {v1} more before a median means anything.",
+    "es": "⏱ Van {v0}; faltan {v1} mediciones para que la mediana tenga significado."
+  },
+  {
+    "en": "Three meals a day, seven days a week ({count} prospects)",
+    "es": "Tres comidas al día, siete días a la semana ({count} prospectos)"
+  },
+  {
+    "en": "{v0} Inventory was not replaced with an empty state.",
+    "es": "{v0} El inventario no se reemplazó por un estado vacío."
+  },
+  {
+    "en": "📈 Forecast accuracy: avg {v0}% error over last {v1} days",
+    "es": "📈 Precisión del pronóstico: error promedio de {v0}% durante los últimos {v1} días"
+  },
+  {
+    "en": "Packing record: {v0} · · {v1} · requiere nueva medición",
+    "es": "Registro de empaque: {v0} · · {v1} · requiere nueva medición"
+  },
+  {
+    "en": "Registro de empaque: {v0} · · {v1} · new reading needed",
+    "es": "Registro de empaque: {v0} · · {v1} · requiere nueva medición"
+  },
+  {
+    "en": "Review the lead and choose your next action. · {value}",
+    "es": "Revisa el prospecto y elige la próxima acción. · {value}"
+  },
+  {
+    "en": "Packing record: {v0} · {v1} °F · {v2} · new reading needed",
+    "es": "Registro de empaque: {v0} · {v1} °F · {v2} · requiere nueva medición"
+  },
+  {
+    "en": "Packing record: {v0} · · · requiere nueva medición",
+    "es": "Registro de empaque: {v0} · · · requiere nueva medición"
+  },
+  {
+    "en": "Registro de empaque: {v0} · · · new reading needed",
+    "es": "Registro de empaque: {v0} · · · requiere nueva medición"
+  },
+  {
+    "en": "Approval record: {v0} · owner {v1} · {v2} · Exact manifest",
+    "es": "Registro de aprobación: {v0} · propietario {v1} · {v2} · Manifiesto exacto"
+  },
+  {
+    "en": "Made by {value}. Still a draft; add it or discard it.",
+    "es": "Creada por {value}. Sigue siendo un borrador; agrégala o descártala."
+  },
+  {
+    "en": "Below {value} measurements no median is shown at all.",
+    "es": "Por debajo de {value} mediciones no se muestra ninguna mediana."
+  },
+  {
+    "en": "{value} — this does NOT mean your documents are gone.",
+    "es": "{value} — esto NO significa que tus documentos hayan desaparecido."
+  },
+  {
+    "en": "This week: {v0} bowls ({v1} subscription + {v2} on-demand)",
+    "es": "Esta semana: {v0} bowls ({v1} por suscripción + {v2} a pedido)"
+  },
+  {
+    "en": "Packing record: {v0} · {v1} °F · · new reading needed",
+    "es": "Registro de empaque: {v0} · {v1} °F · · requiere nueva medición"
+  },
+  {
+    "en": "Recorded Instagram token expiry has passed: {date}.",
+    "es": "La fecha de vencimiento registrada del token de Instagram ya pasó: {date}."
+  },
+  {
+    "en": "{v0}: Provider accepted · delivery unverified · {v1}",
+    "es": "{v0}: el proveedor aceptó el envío · entrega sin verificar · {v1}"
+  },
+  {
+    "en": "⚠️ This account has never been invoiced at {value}.",
+    "es": "⚠️ Nunca se ha facturado a esta cuenta con {value}."
+  },
+  {
+    "en": "{v0} · {v1} · card {v2} •• · not approved · last error: {v3}",
+    "es": "{v0} · {v1} · tarjeta {v2} •• · no aprobado · último error: {v3}"
+  },
+  {
+    "en": "{value} KB total · each is titled from its filename",
+    "es": "{value} KB en total · cada uno lleva como título su nombre de archivo"
+  },
+  {
+    "en": "{v0} · {v1} · card {v2} ••{v3} · not approved · last error: {v4}",
+    "es": "{v0} · {v1} · tarjeta {v2} ••{v3} · no aprobado · último error: {v4}"
+  },
+  {
+    "en": "{v0} · {v1} · {v2} guests · tap for the production plan",
+    "es": "{v0} · {v1} · {v2} invitados · toca para ver el plan de producción"
+  },
+  {
+    "en": "{v0} · {v1} · card •• · not approved · last error: {v2}",
+    "es": "{v0} · {v1} · tarjeta •• · no aprobado · último error: {v2}"
+  },
+  {
+    "en": "{v0} · {v1} · card ••{v2} · not approved · last error: {v3}",
+    "es": "{v0} · {v1} · tarjeta ••{v2} · no aprobado · último error: {v3}"
+  },
+  {
+    "en": "· {v0} · card {v1} •• · not approved · last error: {v2}",
+    "es": "· {v0} · tarjeta {v1} •• · no aprobado · último error: {v2}"
+  },
+  {
+    "en": "Packing record: {v0} · · {v1} · new reading needed",
+    "es": "Registro de empaque: {v0} · · {v1} · requiere nueva medición"
+  },
+  {
+    "en": "{v0} Production policy editing is unavailable.",
+    "es": "{v0} La edición de políticas de producción no está disponible."
+  },
+  {
+    "en": "{v0} of {v1} posts left today (Instagram's limit).",
+    "es": "Quedan {v0} de {v1} publicaciones para hoy (límite de Instagram)."
+  },
+  {
+    "en": "· {v0} · card •• · not approved · last error: {v1}",
+    "es": "· {v0} · tarjeta •• · no aprobado · último error: {v1}"
+  },
+  {
+    "en": "· {v0} · card ••{v1} · not approved · last error: {v2}",
+    "es": "· {v0} · tarjeta ••{v1} · no aprobado · último error: {v2}"
+  },
+  {
+    "en": "Auto-dispatch ON · {value} min before each window",
+    "es": "Despacho automático ACTIVADO · {value} min antes de cada horario"
+  },
+  {
+    "en": "Deposit link created — {value}. Nothing sent yet.",
+    "es": "Enlace de depósito creado: {value}. Todavía no se envió nada."
+  },
+  {
+    "en": "Packing record: {v0} · · · new reading needed",
+    "es": "Registro de empaque: {v0} · · · requiere nueva medición"
+  },
+  {
+    "en": "{value} photos — Instagram's limit for one post.",
+    "es": "{value} fotos: el límite de Instagram por publicación."
+  },
+  {
+    "en": "Customer acknowledgement: not recorded · {value}",
+    "es": "Confirmación del cliente: no registrada · {value}"
+  },
+  {
+    "en": "{value}: Provider accepted · delivery unverified",
+    "es": "{value}: el proveedor aceptó el envío · entrega sin verificar"
+  },
+  {
+    "en": "approved {value} — amount changed, approve again",
+    "es": "aprobado {value} — el importe cambió; apruébalo de nuevo"
+  },
+  {
+    "en": "Recent completed or cancelled batches ({v0})",
+    "es": "Lotes completados o cancelados recientemente ({v0})"
+  },
+  {
+    "en": "{v0} · {v1} · {v2} guests — open the production plan",
+    "es": "{v0} · {v1} · {v2} invitados — abrir el plan de producción"
+  },
+  {
+    "en": "{v0} planned posts · {v1} scheduled · {v2} published",
+    "es": "{v0} publicaciones previstas · {v1} programadas · {v2} publicadas"
+  },
+  {
+    "en": "{v0} · {v1} guests · tap for the production plan",
+    "es": "{v0} · {v1} invitados · toca para ver el plan de producción"
+  },
+  {
+    "en": "{value} — on approval · owner approval required",
+    "es": "{value} — al aprobarse · requiere aprobación del propietario"
+  },
+  {
+    "en": "to {value} · edited by you · flags acknowledged",
+    "es": "a {value} · editado por ti · afirmaciones señaladas reconocidas"
+  },
+  {
+    "en": "Requirements met: {v0}/{v1} · historical result",
+    "es": "Requisitos cumplidos: {v0}/{v1} · resultado histórico"
+  },
+  {
+    "en": "License status on the state registry: {status}.",
+    "es": "Estado de licencia en el registro estatal: {status}."
+  },
+  {
+    "en": "{v0} · Uploading does not approve a photo.",
+    "es": "{v0} · Cargar no aprueba una foto."
+  },
+  {
+    "en": "Last opportunity: {v0} → contract account {v1}",
+    "es": "Última oportunidad: {v0} → cuenta con contrato {v1}"
+  },
+  {
+    "en": "searchable passages across {value} documents.",
+    "es": "pasajes con búsqueda en {value} documentos."
+  },
+  {
+    "en": "{v0} cents ÷ 100 ÷ {v1} ÷ {v2} for per-unit cost.",
+    "es": "{v0} centavos ÷ 100 ÷ {v1} ÷ {v2} para el costo por unidad."
+  },
+  {
+    "en": "{v0} · {v1} guests — open the production plan",
+    "es": "{v0} · {v1} invitados — abrir el plan de producción"
+  },
+  {
+    "en": "⚠ At {v0}/lunch you LOSE {v1} on every lunch.",
+    "es": "⚠ A {v0}/almuerzo, PIERDES {v1} en cada almuerzo."
+  },
+  {
+    "en": "🧾 Audit trail — who submitted what ({value})",
+    "es": "🧾 Registro de auditoría — quién envió qué ({value})"
+  },
+  {
+    "en": "Suggested {v0} routes for {v1} stops · ~{v2} mi ·",
+    "es": "Rutas {v0} sugeridas para {v1} paradas · ~{v2} mi ·"
+  },
+  {
+    "en": "Invoices will go to {value} · card button ON",
+    "es": "Las facturas se enviarán a {value} · botón de tarjeta ACTIVADO"
+  },
+  {
+    "en": "Source: {source} · Browsing path not recorded",
+    "es": "Origen: {source} · Recorrido de navegación sin registrar"
+  },
+  {
+    "en": "Readiness & audit details · {value} item(s)",
+    "es": "Preparación y detalles de auditoría · {value} elemento(s)"
+  },
+  {
+    "en": "Balances still owed · {value} booked events",
+    "es": "Saldos pendientes · {value} eventos reservados"
+  },
+  {
+    "en": "Convert to Contract Account — {value}/month",
+    "es": "Convertir en cuenta con contrato — {value}/mes"
+  },
+  {
+    "en": "Suggested {v0} route for {v1} stops · ~{v2} mi ·",
+    "es": "Ruta {v0} sugerida para {v1} paradas · ~{v2} mi ·"
+  },
+  {
+    "en": "Paid line ${v0} · {v1} pack(s) · {v2} {v3} per pack",
+    "es": "Línea pagada ${v0} · {v1} paquetes · {v2} {v3} por paquete"
+  },
+  {
+    "en": "{v0} Saved inventory remains unchanged.",
+    "es": "{v0} El inventario guardado sigue sin cambios."
+  },
+  {
+    "en": "{v0} · available {v1} · counted {v2} · expires {v3}",
+    "es": "{v0} · disponible {v1} · contado {v2} · vence {v3}"
+  },
+  {
+    "en": "{v0} rules · {v1} examples · {v2} / {v3} characters",
+    "es": "{v0} reglas · {v1} ejemplos · {v2} / {v3} caracteres"
+  },
+  {
+    "en": "Balances still owed · {value} booked event",
+    "es": "Saldos pendientes · {value} evento reservado"
+  },
+  {
+    "en": "{v0} — counties: {v1}; {v2} cities; near ≤ {v3} mi.",
+    "es": "{v0} — condados: {v1}; {v2} ciudades; cerca de ≤ {v3} mi."
+  },
+  {
+    "en": "{value} created — set terms, then Activate",
+    "es": "{value} creado; establece las condiciones y luego actívalo"
+  },
+  {
+    "en": "Paid line ${v0} · {v1} pack(s) · {v2} per pack",
+    "es": "Línea pagada ${v0} · {v1} paquetes · {v2} por paquete"
+  },
+  {
+    "en": "{v0} rule · {v1} examples · {v2} / {v3} characters",
+    "es": "{v0} regla · {v1} ejemplos · {v2} / {v3} caracteres"
+  },
+  {
+    "en": "{v0} rules · {v1} example · {v2} / {v3} characters",
+    "es": "{v0} reglas · {v1} ejemplo · {v2} / {v3} caracteres"
+  },
+  {
+    "en": "✓ Delivery fee covers the run (+{value}).",
+    "es": "✓ La tarifa de entrega cubre el recorrido (+{value})."
+  },
+  {
+    "en": "{value} stops back in the unassigned list",
+    "es": "Las {value} paradas volvieron a la lista de pendientes de asignación"
+  },
+  {
+    "en": "Recorded yield: Unavailable · {v0} · {v1}",
+    "es": "Rendimiento registrado: no disponible · {v0} · {v1}"
+  },
+  {
+    "en": "{v0} = {v1} recipe portions per sale unit",
+    "es": "{v0} = {v1} porciones de receta por unidad de venta"
+  },
+  {
+    "en": "{v0} rule · {v1} example · {v2} / {v3} characters",
+    "es": "{v0} regla · {v1} ejemplo · {v2} / {v3} caracteres"
+  },
+  {
+    "en": "Event date not recorded · {value} guests",
+    "es": "Fecha del evento no registrada · {value} invitados"
+  },
+  {
+    "en": "Source: {v0} · Submitted entry page: {v1}",
+    "es": "Origen: {v0} · Página de entrada enviada: {v1}"
+  },
+  {
+    "en": "No quote possible yet — missing: {value}",
+    "es": "Todavía no se puede cotizar — falta: {value}"
+  },
+  {
+    "en": "food {v0} + pkg {v1} + labor {v2} + delivery {v3}",
+    "es": "alimentos {v0} + empaque {v1} + mano de obra {v2} + entrega {v3}"
+  },
+  {
+    "en": "{value} stop back in the unassigned list",
+    "es": "La parada {value} volvió a la lista de pendientes de asignación"
+  },
+  {
+    "en": "Source: {source} · Submitted entry page: {page}",
+    "es": "Origen: {source} · Página de envío: {page}"
+  },
+  {
+    "en": "Serving time: {v0} · {v1} · Eastern time",
+    "es": "Hora de servicio: {v0} · {v1} · Hora del Este"
+  },
+  {
+    "en": "Suggested batch: {v0} · Plan enabled",
+    "es": "Lote sugerido: {v0} · Plan activado"
+  },
+  {
+    "en": "Made by {value} — still just a preview.",
+    "es": "Creada por {value}; sigue siendo una vista previa."
+  },
+  {
+    "en": "Approval record: {v0} · owner {v1} · {v2} · {v3}",
+    "es": "Registro de aprobación: {v0} · propietario {v1} · {v2} · {v3}"
+  },
+  {
+    "en": "Terms this customer agreed to · {value}",
+    "es": "Condiciones aceptadas por este cliente · {value}"
+  },
+  {
+    "en": "{v0} · {v1} · added {v2} · authorized by {v3} ({v4})",
+    "es": "{v0} · {v1} · añadido {v2} · autorizado por {v3} ({v4})"
+  },
+  {
+    "en": ": needed by {v0} open prospects ({v1}). {v2}",
+    "es": ": necesario para {v0} prospectos abiertos ({v1}). {v2}"
+  },
+  {
+    "en": "Published — {value} now shows your text",
+    "es": "Publicado; {value} ahora muestra tu texto"
+  },
+  {
+    "en": "📦 {v0} accepted · {v1} denied · {v2} missed",
+    "es": "📦 {v0} aceptados · {v1} rechazados · {v2} no registrados"
+  },
+  {
+    "en": ": needed by {v0} open prospects ({v1}).",
+    "es": ": necesario para {v0} prospectos abiertos ({v1})."
+  },
+  {
+    "en": "· {value} open prospects · 🟡 ask first",
+    "es": "· {value} prospectos abiertos · 🟡 preguntar primero"
+  },
+  {
+    "en": "🔒 Locked off in this release — {value}",
+    "es": "🔒 Desactivado en esta versión — {value}"
+  },
+  {
+    "en": "{v0} · · added {v1} · authorized by {v2} ({v3})",
+    "es": "{v0} · · añadido {v1} · autorizado por {v2} ({v3})"
+  },
+  {
+    "en": "· {v0} · added {v1} · authorized by {v2} ({v3})",
+    "es": "· {v0} · añadido {v1} · autorizado por {v2} ({v3})"
+  },
+  {
+    "en": "Checklist submitted ({v0} flagged)",
+    "es": "Lista de verificación enviada ({v0} señalados)"
+  },
+  {
+    "en": "Recorded yield: Unavailable · {v0}",
+    "es": "Rendimiento registrado: no disponible · {v0}"
+  },
+  {
+    "en": "Unfinished event · {v0} · version {v1}",
+    "es": "Evento sin finalizar · {v0} · versión {v1}"
+  },
+  {
+    "en": "🔒 Locked on in this release — {value}",
+    "es": "🔒 Activado en esta versión — {value}"
+  },
+  {
+    "en": "· · added {v0} · authorized by {v1} ({v2})",
+    "es": "· · añadido {v0} · autorizado por {v1} ({v2})"
+  },
+  {
+    "en": "Recorded {v0} for {v1} — no text sent.",
+    "es": "Se registró {v0} para {v1}; no se envió ningún mensaje."
+  },
+  {
+    "en": "Latest {v0} receipt lines · read {v1}",
+    "es": "Últimas {v0} líneas de recibos · lectura {v1}"
+  },
+  {
+    "en": "{v0} {v1} · 30 days · {v2} caption drafts",
+    "es": "{v0} {v1} · 30 días · {v2} borradores de texto"
+  },
+  {
+    "en": "{value} · current audit not verified",
+    "es": "{value} · auditoría actual sin verificar"
+  },
+  {
+    "en": "Customer acknowledgement: {v0} · {v1}",
+    "es": "Confirmación del cliente: {v0} · {v1}"
+  },
+  {
+    "en": "Built from the facts alone · {value}",
+    "es": "Elaborado solo a partir de los hechos · {value}"
+  },
+  {
+    "en": "{v0} · {v1} · added {v2} · authorized by {v3}",
+    "es": "{v0} · {v1} · añadido {v2} · autorizado por {v3}"
+  },
+  {
+    "en": "{v0} · {v1} · card {v2} •• · not approved",
+    "es": "{v0} · {v1} · tarjeta {v2} •• · no aprobado"
+  },
+  {
+    "en": "Create opportunities for all {value}",
+    "es": "Crear oportunidades para los {value}"
+  },
+  {
+    "en": "· not approved · last error: {value}",
+    "es": "· no aprobado · último error: {value}"
+  },
+  {
+    "en": "{v0} · {v1} · card {v2} ••{v3} · not approved",
+    "es": "{v0} · {v1} · tarjeta {v2} ••{v3} · no aprobado"
+  },
+  {
+    "en": "Restored — Brief is back to v{value}",
+    "es": "Restaurado; el Resumen volvió a la versión {value}"
+  },
+  {
+    "en": "Suggested batch: {v0} · Plan off",
+    "es": "Lote sugerido: {v0} · Plan desactivado"
+  },
+  {
+    "en": "{value} MB · Uploaded, not attached",
+    "es": "{value} MB · subido, sin adjuntar"
+  },
+  {
+    "en": "Previous / retired quotes ({value})",
+    "es": "Cotizaciones anteriores / retiradas ({value})"
+  },
+  {
+    "en": "Proposed by staff (staff) · {value}",
+    "es": "Propuesto por el personal (personal) · {value}"
+  },
+  {
+    "en": "{v0} · {v1} · card •• · not approved",
+    "es": "{v0} · {v1} · tarjeta •• · no aprobado"
+  },
+  {
+    "en": "{v0} · {v1} · card ••{v2} · not approved",
+    "es": "{v0} · {v1} · tarjeta ••{v2} · no aprobado"
+  },
+  {
+    "en": "{v0} · · added {v1} · authorized by {v2}",
+    "es": "{v0} · · añadido {v1} · autorizado por {v2}"
+  },
+  {
+    "en": "· {v0} · added {v1} · authorized by {v2}",
+    "es": "· {v0} · añadido {v1} · autorizado por {v2}"
+  },
+  {
+    "en": "· {v0} · card {v1} •• · not approved",
+    "es": "· {v0} · tarjeta {v1} •• · no aprobado"
+  },
+  {
+    "en": "Approved {value} — now mark it paid",
+    "es": "Aprobado {value}; ahora márcalo como pagado"
+  },
+  {
+    "en": "{value} added — copy its link below",
+    "es": "{value} añadido; copia su enlace abajo"
+  },
+  {
+    "en": "{count} follow-ups due · refreshed {time}",
+    "es": "{count} seguimientos pendientes · actualizado {time}"
+  },
+  {
+    "en": "Connected company {company} · sandbox",
+    "es": "Empresa conectada {company} · entorno de pruebas"
+  },
+  {
+    "en": "Today’s finished count for {v0}",
+    "es": "Conteo de productos terminados de hoy para {v0}"
+  },
+  {
+    "en": "Rejected caption citation: {value}",
+    "es": "Cita del texto rechazada: {value}"
+  },
+  {
+    "en": "Date not recorded · {value} guests",
+    "es": "Fecha no registrada · {value} invitados"
+  },
+  {
+    "en": "pay · {v0} stops · {v1} mi · done ~{v2}",
+    "es": "pago · {v0} paradas · {v1} mi · termina aprox. {v2}"
+  },
+  {
+    "en": "· {value} open prospects · ✅ ready",
+    "es": "· {value} prospectos abiertos · ✅ listo"
+  },
+  {
+    "en": "· {value} · card •• · not approved",
+    "es": "· {value} · tarjeta •• · no aprobado"
+  },
+  {
+    "en": "· · added {v0} · authorized by {v1}",
+    "es": "· · añadido {v0} · autorizado por {v1}"
+  },
+  {
+    "en": "· {v0} · card ••{v1} · not approved",
+    "es": "· {v0} · tarjeta ••{v1} · no aprobado"
+  },
+  {
+    "en": "· source: {v0} · researched: {v1} ·",
+    "es": "· fuente: {v0} · investigado: {v1} ·"
+  },
+  {
+    "en": "Assignment: {v0} · Execution: {v1}",
+    "es": "Asignación: {v0} · Ejecución: {v1}"
+  },
+  {
+    "en": "Owner-approved recipe v{v0} · {v1}",
+    "es": "Receta v{v0} aprobada por el propietario · {v1}"
+  },
+  {
+    "en": "Publish carousel · {value} photos",
+    "es": "Publicar carrusel · {value} fotos"
+  },
+  {
+    "en": "Length/count: {v0} · maximum: {v1}",
+    "es": "Longitud/cantidad: {v0} · máximo: {v1}"
+  },
+  {
+    "en": "{value}h left in the reply window",
+    "es": "Quedan {value} h en la ventana de respuesta"
+  },
+  {
+    "en": "Offer: Unspecified · CTA: {value}",
+    "es": "Oferta: sin especificar · Llamada a la acción: {value}"
+  },
+  {
+    "en": "Offer: {value} · CTA: Unspecified",
+    "es": "Oferta: {value} · Llamada a la acción: sin especificar"
+  },
+  {
+    "en": "{v0} · unknown · caption line {v1}",
+    "es": "{v0} · desconocido · línea de texto {v1}"
+  },
+  {
+    "en": "{v0} · {v1} · Solicitud de cambios",
+    "es": "{v0} · {v1} · Solicitud de cambios"
+  },
+  {
+    "en": "Customer acknowledgement: {value}",
+    "es": "Confirmación del cliente: {value}"
+  },
+  {
+    "en": "📗 In QuickBooks (invoice {value})",
+    "es": "📗 En QuickBooks (factura {value})"
+  },
+  {
+    "en": "{v0} characters · replaced by {v1}",
+    "es": "{v0} caracteres · reemplazado por {v1}"
+  },
+  {
+    "en": "Contract account created. {value}",
+    "es": "Cuenta con contrato creada. {value}"
+  },
+  {
+    "en": "· {value} open prospects · ⛔ gaps",
+    "es": "· {value} prospectos abiertos · ⛔ brechas"
+  },
+  {
+    "en": "Only {value} is still refundable.",
+    "es": "Solo {value} todavía se puede reembolsar."
+  },
+  {
+    "en": "Built {v0} route(s) for {v1} stops",
+    "es": "Se crearon {v0} ruta(s) para {v1} paradas"
+  },
+  {
+    "en": "Route assigned — {v0} · {v1} stops",
+    "es": "Ruta asignada — {v0} · {v1} paradas"
+  },
+  {
+    "en": "Customer acknowledgement: {status}",
+    "es": "Confirmación de recepción al cliente: {status}"
+  },
+  {
+    "en": "Token last refreshed {age} ago.",
+    "es": "Token actualizado por última vez hace {age}."
+  },
+  {
+    "en": "kcal · {v0}P / {v1}C / {v2}F · {v3} fiber",
+    "es": "kcal · {v0}P / {v1}C / {v2}G · {v3} fibra"
+  },
+  {
+    "en": "Packing record: {v0} · {v1} °F · {v2}",
+    "es": "Registro de empaque: {v0} · {v1} °F · {v2}"
+  },
+  {
+    "en": "· unknown · caption line {value}",
+    "es": "· desconocido · línea de texto {value}"
+  },
+  {
+    "en": "Approved {v0} · subject: “{v1}” ·",
+    "es": "Aprobado {v0} · asunto: “{v1}” ·"
+  },
+  {
+    "en": "Delivery subtotal — {value} days",
+    "es": "Subtotal de entrega — {value} días"
+  },
+  {
+    "en": "active — step {v0}, next due {v1}",
+    "es": "activo — paso {v0}, próximo vencimiento {v1}"
+  },
+  {
+    "en": "Cost updated ({value} unmatched)",
+    "es": "Costo actualizado ({value} sin coincidencia)"
+  },
+  {
+    "en": "Packing record: {v0} · {v1} °F ·",
+    "es": "Registro de empaque: {v0} · {v1} °F ·"
+  },
+  {
+    "en": "{v0} · available {v1} · counted {v2}",
+    "es": "{v0} · disponible {v1} · contado {v2}"
+  },
+  {
+    "en": "Diagnostic category: {v0} · {v1}",
+    "es": "Categoría del diagnóstico: {v0} · {v1}"
+  },
+  {
+    "en": "Delivery subtotal — {value} day",
+    "es": "Subtotal de entrega — {value} día"
+  },
+  {
+    "en": "to {value} · flags acknowledged",
+    "es": "a {value} · afirmaciones señaladas reconocidas"
+  },
+  {
+    "en": "Sign-in link emailed to {value}",
+    "es": "Enlace de inicio de sesión enviado por correo a {value}"
+  },
+  {
+    "en": "⏳ Out of date · trained {date}",
+    "es": "⏳ Desactualizado · capacitado el {date}"
+  },
+  {
+    "en": "Sent to Dayan — {v0} logged",
+    "es": "Enviado a Dayan: {v0} registrado"
+  },
+  {
+    "en": "Inventory snapshot for {v0}",
+    "es": "Instantánea de inventario para {v0}"
+  },
+  {
+    "en": "Per pack: {v0} · Per unit: {v1}",
+    "es": "Por paquete: {v0} · Por unidad: {v1}"
+  },
+  {
+    "en": "{v0} · Confirm serving time",
+    "es": "{v0} · Confirmar hora de servicio"
+  },
+  {
+    "en": "📷 Add another photo ({v0}/{v1})",
+    "es": "📷 Agregar otra foto ({v0}/{v1})"
+  },
+  {
+    "en": "Reminder availability: {value}",
+    "es": "Disponibilidad del recordatorio: {value}"
+  },
+  {
+    "en": "Deposit paid · balance {value}",
+    "es": "Depósito pagado · saldo de {value}"
+  },
+  {
+    "en": "Approved {v0} · subject: “{v1}”",
+    "es": "Aprobado {v0} · asunto: “{v1}”"
+  },
+  {
+    "en": "{value} week (same every week)",
+    "es": "{value} semana (igual todas las semanas)"
+  },
+  {
+    "en": "{v0} · {v1} passages · {v2} chars ·",
+    "es": "{v0} · {v1} pasajes · {v2} caracteres ·"
+  },
+  {
+    "en": "Proposed by staff ({v0}) · {v1}",
+    "es": "Propuesto por el personal ({v0}) · {v1}"
+  },
+  {
+    "en": "Proposed by {v0} (staff) · {v1}",
+    "es": "Propuesto por {v0} (personal) · {v1}"
+  },
+  {
+    "en": "Researched default: {time} ET",
+    "es": "Valor predeterminado investigado: {time} ET"
+  },
+  {
+    "en": "Reminder availability: {reason}",
+    "es": "Disponibilidad del recordatorio: {reason}"
+  },
+  {
+    "en": "Signed W-9 ({count} prospects)",
+    "es": "W-9 firmado ({count} prospectos)"
+  },
+  {
+    "en": "Recorded yield: {v0} · {v1} · {v2}",
+    "es": "Rendimiento registrado: {v0} · {v1} · {v2}"
+  },
+  {
+    "en": "AI-optimized · {v0} mi est",
+    "es": "Optimizado con IA · {v0} mi estimadas"
+  },
+  {
+    "en": "Paid line ${v0} · {v1} pack(s)",
+    "es": "Línea pagada ${v0} · {v1} paquetes"
+  },
+  {
+    "en": "Recorded: {v0} · {v1} °F · {v2} · {v3}",
+    "es": "Registrado: {v0} · {v1} °F · {v2} · {v3}"
+  },
+  {
+    "en": "Review {v0} planning notes",
+    "es": "Revisar notas del plan {v0}"
+  },
+  {
+    "en": "{v0} · enabled · revision {v1}",
+    "es": "{v0} · activado · revisión {v1}"
+  },
+  {
+    "en": "Language as written · {value}",
+    "es": "Idioma tal como está escrito · {value}"
+  },
+  {
+    "en": "{v0} — {v1} · Timezone not set",
+    "es": "{v0} — {v1} · zona horaria sin definir"
+  },
+  {
+    "en": "Collect {value} final balance",
+    "es": "Cobrar el saldo final de {value}"
+  },
+  {
+    "en": "{v0} · {v1} · No date · unpaid",
+    "es": "{v0} · {v1} · Sin fecha · impago"
+  },
+  {
+    "en": "Confirm terms — {value}/month",
+    "es": "Confirmar condiciones — {value}/mes"
+  },
+  {
+    "en": "Token last refreshed {value}.",
+    "es": "Última actualización del token: {value}."
+  },
+  {
+    "en": "Step {v0} · snoozed until {v1}",
+    "es": "Paso {v0} · pospuesto hasta {v1}"
+  },
+  {
+    "en": "; next week (from {value}) is",
+    "es": "; la próxima semana (desde {value}) es"
+  },
+  {
+    "en": "Live food handling · {v0}",
+    "es": "Manipulación de alimentos en curso · {v0}"
+  },
+  {
+    "en": "Packing record: {v0} · · {v1}",
+    "es": "Registro de empaque: {v0} · · {v1}"
+  },
+  {
+    "en": "Prep {v0} min · Cook {v1} min",
+    "es": "Preparación {v0} min · Cocción {v1} min"
+  },
+  {
+    "en": "{v0} · {v1} · Receipt {v2}, line {v3}",
+    "es": "{v0} · {v1} · Recibo {v2}, línea {v3}"
+  },
+  {
+    "en": "${v0} of ${v1} spent · ${v2} left",
+    "es": "${v0} de ${v1} gastados · quedan ${v2}"
+  },
+  {
+    "en": "{value} — · Timezone not set",
+    "es": "{value} — · zona horaria sin definir"
+  },
+  {
+    "en": "{value}Media URL unavailable",
+    "es": "{value}URL del archivo no disponible"
+  },
+  {
+    "en": "· {v0} followers · {v1} posts",
+    "es": "· {v0} seguidores · {v1} publicaciones"
+  },
+  {
+    "en": "— {value} · Timezone not set",
+    "es": "— {value} · zona horaria sin definir"
+  },
+  {
+    "en": "{value} scheduled for later.",
+    "es": "{value} programado para más tarde."
+  },
+  {
+    "en": "pay · {v0} stops · done ~{v1}",
+    "es": "pago · {v0} paradas · termina aprox. {v1}"
+  },
+  {
+    "en": "🍳 Prep sheet · {value} bowls",
+    "es": "🍳 Hoja de preparación · {value} bowls"
+  },
+  {
+    "en": "{v0} · {v1} passages · {v2} chars",
+    "es": "{v0} · {v1} pasajes · {v2} caracteres"
+  },
+  {
+    "en": "Marked {value} route(s) paid",
+    "es": "Se marcaron como pagadas {value} ruta(s)"
+  },
+  {
+    "en": "Packing record: {v0} · ·",
+    "es": "Registro de empaque: {v0} · ·"
+  },
+  {
+    "en": "Media {v0}{v1} video preview",
+    "es": "Vista previa del video {v0}{v1}"
+  },
+  {
+    "en": "Latest reminder: {v0} · {v1}",
+    "es": "Recordatorio más reciente: {v0} · {v1}"
+  },
+  {
+    "en": "Before you pitch a {value}:",
+    "es": "Antes de presentar {value}:"
+  },
+  {
+    "en": "📱 Trusted devices ({value})",
+    "es": "📱 Dispositivos de confianza ({value})"
+  },
+  {
+    "en": "pending · {value} · on time",
+    "es": "pendiente · {value} · a tiempo"
+  },
+  {
+    "en": "{v0} subtotal — {v1} lunches",
+    "es": "Subtotal de {v0} — {v1} almuerzos"
+  },
+  {
+    "en": "Proposed by staff · {value}",
+    "es": "Propuesto por el personal · {value}"
+  },
+  {
+    "en": "This week (from {value}) is",
+    "es": "Esta semana (desde {value}) es"
+  },
+  {
+    "en": "{v0} · {v1} · Change request",
+    "es": "{v0} · {v1} · Solicitud de cambio"
+  },
+  {
+    "en": "({value}% on-demand buffer)",
+    "es": "({value}% de reserva a pedido)"
+  },
+  {
+    "en": "Invoices will go to {value}",
+    "es": "Las facturas se enviarán a {value}"
+  },
+  {
+    "en": "Recorded yield: {v0} · {v1}",
+    "es": "Rendimiento registrado: {v0} · {v1}"
+  },
+  {
+    "en": "Confirmed address: {v0}",
+    "es": "Dirección confirmada: {v0}"
+  },
+  {
+    "en": "Per pack: {v0} · Per {v1}: {v2}",
+    "es": "Por paquete: {v0} · Por {v1}: {v2}"
+  },
+  {
+    "en": "Recorded quantity: {v0}",
+    "es": "Cantidad registrada: {v0}"
+  },
+  {
+    "en": "Remove requirement {v0}{v1}",
+    "es": "Quitar requisito {v0}{v1}"
+  },
+  {
+    "en": "{v0} stops · {v1} delivered",
+    "es": "{v0} paradas · {v1} entregadas"
+  },
+  {
+    "en": "Campaign image for {value}",
+    "es": "Imagen de campaña para {value}"
+  },
+  {
+    "en": "Evidence field: {v0} · {v1}",
+    "es": "Campo de evidencia: {v0} · {v1}"
+  },
+  {
+    "en": "Requirements met: {v0}/{v1}",
+    "es": "Requisitos cumplidos: {v0}/{v1}"
+  },
+  {
+    "en": "{value} item(s) to resolve",
+    "es": "{value} elemento(s) por resolver"
+  },
+  {
+    "en": "{value} · current snapshot",
+    "es": "{value} · instantánea actual"
+  },
+  {
+    "en": "{v0} · unknown · slide {v1}",
+    "es": "{v0} · desconocido · diapositiva {v1}"
+  },
+  {
+    "en": "{v0} · {v1} · caption line {v2}",
+    "es": "{v0} · {v1} · línea de texto {v2}"
+  },
+  {
+    "en": "Original request · {value}",
+    "es": "Solicitud original · {value}"
+  },
+  {
+    "en": "Paid in full · due {value}",
+    "es": "Pagado en su totalidad · vence el {value}"
+  },
+  {
+    "en": "🎉 Catering event · {value}",
+    "es": "🎉 Evento de catering · {value}"
+  },
+  {
+    "en": "✏️ Terms history ({value})",
+    "es": "✏️ Historial de condiciones ({value})"
+  },
+  {
+    "en": "{value} …loading the rest…",
+    "es": "{value} …cargando el resto…"
+  },
+  {
+    "en": "· {value} · ✉︎ contactable",
+    "es": "· {value} · ✉︎ se puede contactar"
+  },
+  {
+    "en": "to {value} · edited by you",
+    "es": "a {value} · editado por ti"
+  },
+  {
+    "en": "{v0} · off · revision {v1}",
+    "es": "{v0} · desactivado · revisión {v1}"
+  },
+  {
+    "en": "{v0} · {v1} · Eastern time",
+    "es": "{v0} · {v1} · Hora del Este"
+  },
+  {
+    "en": "Recorded overlay: {value}",
+    "es": "Texto superpuesto registrado: {value}"
+  },
+  {
+    "en": "Scheduled to send {value}",
+    "es": "Programado para enviar {value}"
+  },
+  {
+    "en": "Video preview for {value}",
+    "es": "Vista previa del video de {value}"
+  },
+  {
+    "en": "· unknown · slide {value}",
+    "es": "· desconocido · diapositiva {value}"
+  },
+  {
+    "en": "· {v0} · caption line {v1}",
+    "es": "· {v0} · línea de texto {v1}"
+  },
+  {
+    "en": "Lead is degraded: {value}",
+    "es": "El líder funciona con limitaciones: {value}"
+  },
+  {
+    "en": "Review {name} plan notes",
+    "es": "Revisar {name} notas del plan"
+  },
+  {
+    "en": "Final payment due {value}",
+    "es": "Pago final vence el {value}"
+  },
+  {
+    "en": "Last opportunity: {value}",
+    "es": "Última oportunidad: {value}"
+  },
+  {
+    "en": "Approve all {value} below",
+    "es": "Aprobar los {value} de abajo"
+  },
+  {
+    "en": "company {value} · sandbox",
+    "es": "empresa {value} · entorno de pruebas"
+  },
+  {
+    "en": "pay · {v0} stops · {v1} mi",
+    "es": "pago · {v0} paradas · {v1} mi"
+  },
+  {
+    "en": "{v0} · {v1} bowls forecast",
+    "es": "{v0} · pronóstico de {v1} bowls"
+  },
+  {
+    "en": "{v0} · {v1} (role default){v2}",
+    "es": "{v0} · {v1} (predeterminado del rol){v2}"
+  },
+  {
+    "en": "Could not convert.{value}",
+    "es": "No se pudo convertir. {value}"
+  },
+  {
+    "en": "Auto-reply set to {value}",
+    "es": "Respuesta automática configurada en {value}"
+  },
+  {
+    "en": "✓ Up to date · {date} · {detail}",
+    "es": "✓ Al día · {date} · {detail}"
+  },
+  {
+    "en": "Proposed by {name} ({role}) · {date}",
+    "es": "Propuesto por {name} ({role}) · {date}"
+  },
+  {
+    "en": "Last count saved {v0}",
+    "es": "Último conteo guardado {v0}"
+  },
+  {
+    "en": "More actions for {v0}",
+    "es": "Más acciones para {v0}"
+  },
+  {
+    "en": "Recipe reference {v0}{v1}",
+    "es": "Referencia de receta {v0}{v1}"
+  },
+  {
+    "en": "Declared source: {value}",
+    "es": "Fuente declarada: {value}"
+  },
+  {
+    "en": "AI budget · week {value}",
+    "es": "Presupuesto de IA · semana {value}"
+  },
+  {
+    "en": "Media · {value} asset(s)",
+    "es": "Archivos · {value} elemento(s)"
+  },
+  {
+    "en": "Review video for {value}",
+    "es": "Revisar video de {value}"
+  },
+  {
+    "en": "Review {v0}, {v1} item(s)",
+    "es": "Revisar {v0}, {v1} elemento(s)"
+  },
+  {
+    "en": "{v0}/{v1} clean approvals",
+    "es": "{v0}/{v1} aprobaciones sin cambios"
+  },
+  {
+    "en": "{value} · Change request",
+    "es": "{value} · Solicitud de cambios"
+  },
+  {
+    "en": "Event {v0} · — guests",
+    "es": "Evento {v0} · — invitados"
+  },
+  {
+    "en": "Latest reminder: {value}",
+    "es": "Recordatorio más reciente: {value}"
+  },
+  {
+    "en": "pending · {value} · late",
+    "es": "pendiente · {value} · tarde"
+  },
+  {
+    "en": "{value} new applications",
+    "es": "{value} nuevas solicitudes"
+  },
+  {
+    "en": "· {v0} (role default){v1}",
+    "es": "· {v0} (predeterminado del rol){v1}"
+  },
+  {
+    "en": "· {value} · no email yet",
+    "es": "· {value} · aún sin correo"
+  },
+  {
+    "en": "{v0} · {v1} confidence · {v2}",
+    "es": "{v0} · {v1} de confianza · {v2}"
+  },
+  {
+    "en": "{value} · SMS/voice: off",
+    "es": "{value} · SMS/voz: desactivados"
+  },
+  {
+    "en": "Latest reminder: {status}",
+    "es": "Último recordatorio: {status}"
+  },
+  {
+    "en": "Recent changes ({count})",
+    "es": "Cambios recientes ({count})"
+  },
+  {
+    "en": "Assigned staff: {v0}",
+    "es": "Personal asignado: {v0}"
+  },
+  {
+    "en": "Recorded yield: {v0}",
+    "es": "Rendimiento registrado: {v0}"
+  },
+  {
+    "en": "kcal · {v0}P / {v1}C / {v2}F",
+    "es": "kcal · {v0}P / {v1}C / {v2}G"
+  },
+  {
+    "en": "Recorded: {v0} · {v1} · {v2}",
+    "es": "Registrado: {v0} · {v1} · {v2}"
+  },
+  {
+    "en": "Brand Auditor · {value}",
+    "es": "Auditor de marca · {value}"
+  },
+  {
+    "en": "Preview digest: {value}",
+    "es": "Resumen de integridad de la vista previa: {value}"
+  },
+  {
+    "en": "{value} MB · Local file",
+    "es": "{value} MB · archivo local"
+  },
+  {
+    "en": "Also text it to {value}",
+    "es": "También envíalo por mensaje de texto a {value}"
+  },
+  {
+    "en": "Event {v0} · {v1} guests",
+    "es": "Evento {v0} · {v1} invitados"
+  },
+  {
+    "en": "{v0} · {v1} · No date · {v2}",
+    "es": "{v0} · {v1} · Sin fecha · {v2}"
+  },
+  {
+    "en": "{value} · Event not set",
+    "es": "{value} · Evento sin definir"
+  },
+  {
+    "en": "Erased {value} records.",
+    "es": "Se borraron {value} registros."
+  },
+  {
+    "en": "✏️ Edit terms — {value}",
+    "es": "✏️ Editar condiciones — {value}"
+  },
+  {
+    "en": "{value} new application",
+    "es": "{value} nueva solicitud"
+  },
+  {
+    "en": "{v0} · {v1} · card {v2} •• ·",
+    "es": "{v0} · {v1} · tarjeta {v2} •• ·"
+  },
+  {
+    "en": "{v0} · {v1} · card {v2} ••{v3} ·",
+    "es": "{v0} · {v1} · tarjeta {v2} ••{v3} ·"
+  },
+  {
+    "en": "Invoice {value} created",
+    "es": "Factura {value} creada"
+  },
+  {
+    "en": "Next follow-up: {date}",
+    "es": "Próximo seguimiento: {date}"
+  },
+  {
+    "en": "Prep started · {v0}",
+    "es": "Preparación iniciada · {v0}"
+  },
+  {
+    "en": "Confirm date · {v0}",
+    "es": "Confirmar fecha · {v0}"
+  },
+  {
+    "en": "Unknown {v0} {v1} · {v2} · {v3}",
+    "es": "Desconocido {v0} {v1} · {v2} · {v3}"
+  },
+  {
+    "en": "Offer: {v0} · CTA: {v1}",
+    "es": "Oferta: {v0} · Llamada a la acción: {v1}"
+  },
+  {
+    "en": "Selected photo {v0}{v1}",
+    "es": "Foto seleccionada {v0}{v1}"
+  },
+  {
+    "en": "Selected video {v0}{v1}",
+    "es": "Video seleccionado {v0}{v1}"
+  },
+  {
+    "en": "{value} · Format unset",
+    "es": "{value} · formato sin definir"
+  },
+  {
+    "en": "🔎 Market intel{value}:",
+    "es": "🔎 Información de mercado{value}:"
+  },
+  {
+    "en": "Final count by {value}",
+    "es": "Recuento final para el {value}"
+  },
+  {
+    "en": "{v0} · {v1} · {v2} · unpaid",
+    "es": "{v0} · {v1} · {v2} · impago"
+  },
+  {
+    "en": "{value} — next 2 weeks",
+    "es": "{value} — próximas 2 semanas"
+  },
+  {
+    "en": "{v0} · {v1} · added {v2} ({v3})",
+    "es": "{v0} · {v1} · añadido {v2} ({v3})"
+  },
+  {
+    "en": "{value} files selected",
+    "es": "{value} archivos seleccionados"
+  },
+  {
+    "en": "Proposed by {v0} · {v1}",
+    "es": "Propuesto por {v0} · {v1}"
+  },
+  {
+    "en": "{v0} · {v1} stops · {v2} mi",
+    "es": "{v0} · {v1} paradas · {v2} mi"
+  },
+  {
+    "en": "{v0} · {v1} · card •• ·",
+    "es": "{v0} · {v1} · tarjeta •• ·"
+  },
+  {
+    "en": "{v0} · {v1} · card ••{v2} ·",
+    "es": "{v0} · {v1} · tarjeta ••{v2} ·"
+  },
+  {
+    "en": "· {v0} · card {v1} •• ·",
+    "es": "· {v0} · tarjeta {v1} •• ·"
+  },
+  {
+    "en": "✓ Up to date · {date}",
+    "es": "✓ Al día · {date}"
+  },
+  {
+    "en": "Deposit paid · {date}",
+    "es": "Depósito pagado · {date}"
+  },
+  {
+    "en": "🔔 New order — {v0}",
+    "es": "🔔 Nuevo pedido: {v0}"
+  },
+  {
+    "en": "Saved plans ({v0})",
+    "es": "Planes guardados ({v0})"
+  },
+  {
+    "en": "Order · {v0} items{v1}",
+    "es": "Pedido · {v0} artículos{v1}"
+  },
+  {
+    "en": "Connected as @{value}",
+    "es": "Conectado como @{value}"
+  },
+  {
+    "en": "{v0} · version {v1} · {v2}",
+    "es": "{v0} · versión {v1} · {v2}"
+  },
+  {
+    "en": "· {v0} of {v1} checked",
+    "es": "· {v0} de {v1} comprobados"
+  },
+  {
+    "en": "Scheduled for {value}",
+    "es": "Programado para {value}"
+  },
+  {
+    "en": "{v0} · {v1} · version {v2}",
+    "es": "{v0} · {v1} · versión {v2}"
+  },
+  {
+    "en": "Erase {value} records",
+    "es": "Borrar {value} registros"
+  },
+  {
+    "en": "Order · {v0} items",
+    "es": "Pedido · {v0} artículos"
+  },
+  {
+    "en": "{value} (no dish set)",
+    "es": "{value} (sin plato asignado)"
+  },
+  {
+    "en": "{value} min per lunch",
+    "es": "{value} min por almuerzo"
+  },
+  {
+    "en": "2 · Mark {value} paid",
+    "es": "2 · Marcar {value} como pagado"
+  },
+  {
+    "en": "Read live at {value}.",
+    "es": "Leído en vivo a las {value}."
+  },
+  {
+    "en": "Order · {value} items",
+    "es": "Pedido · {value} artículos"
+  },
+  {
+    "en": "· {v0} stops · {v1} mi",
+    "es": "· {v0} paradas · {v1} mi"
+  },
+  {
+    "en": "Disqualified: {value}",
+    "es": "Descalificado: {value}"
+  },
+  {
+    "en": "· confirmed {value} ·",
+    "es": "· confirmado {value} ·"
+  },
+  {
+    "en": "{v0} · {v1} confidence",
+    "es": "{v0} · {v1} de confianza"
+  },
+  {
+    "en": "active — step {value}",
+    "es": "activo — paso {value}"
+  },
+  {
+    "en": "from {value} per meal",
+    "es": "desde {value} por comida"
+  },
+  {
+    "en": "· last error: {value}",
+    "es": "· último error: {value}"
+  },
+  {
+    "en": "· {value} · card •• ·",
+    "es": "· {value} · tarjeta •• ·"
+  },
+  {
+    "en": "{v0} · · added {v1} ({v2})",
+    "es": "{v0} · · añadido {v1} ({v2})"
+  },
+  {
+    "en": "· {v0} · added {v1} ({v2})",
+    "es": "· {v0} · añadido {v1} ({v2})"
+  },
+  {
+    "en": "· {v0} · card ••{v1} ·",
+    "es": "· {v0} · tarjeta ••{v1} ·"
+  },
+  {
+    "en": "Handed off · {v0}",
+    "es": "Entregado al siguiente responsable · {v0}"
+  },
+  {
+    "en": "{v0} active items",
+    "es": "{v0} artículos activos"
+  },
+  {
+    "en": "Order · {v0} item{v1}",
+    "es": "Pedido · {v0} artículo{v1}"
+  },
+  {
+    "en": "Move {value} earlier",
+    "es": "Mover {value} antes"
+  },
+  {
+    "en": "Validation: {value}.",
+    "es": "Validación: {value}."
+  },
+  {
+    "en": "{value} photos total",
+    "es": "{value} fotos en total"
+  },
+  {
+    "en": "{count} in the order",
+    "es": "{count} en el pedido"
+  },
+  {
+    "en": "Load more ({v0}/{v1})",
+    "es": "Cargar más ({v0}/{v1})"
+  },
+  {
+    "en": "{v0} · {v1} · on time",
+    "es": "{v0} · {v1} · a tiempo"
+  },
+  {
+    "en": "{v0}{v1}/{v2} stops · {v3} mi{v4}",
+    "es": "{v0}{v1}/{v2} paradas · {v3} mi{v4}"
+  },
+  {
+    "en": "Week total · {value}",
+    "es": "Total de la semana · {value}"
+  },
+  {
+    "en": "Reading {v0}{v1} of {v2}:",
+    "es": "Leyendo {v0}{v1} de {v2}:"
+  },
+  {
+    "en": "{v0} of {v1} indexed.",
+    "es": "{v0} de {v1} indexados."
+  },
+  {
+    "en": "{v0} · {v1} · {v2} guests",
+    "es": "{v0} · {v1} · {v2} invitados"
+  },
+  {
+    "en": "· · added {v0} ({v1})",
+    "es": "· · añadido {v0} ({v1})"
+  },
+  {
+    "en": "{v0} active item",
+    "es": "{v0} artículo activo"
+  },
+  {
+    "en": "Serve at {v0} ET",
+    "es": "Servir a las {v0} ET"
+  },
+  {
+    "en": "Unknown {v0} {v1} · {v2}",
+    "es": "Desconocido {v0} {v1} · {v2}"
+  },
+  {
+    "en": "{v0} · optimized",
+    "es": "{v0} · optimizado"
+  },
+  {
+    "en": "Aña’s inbox {value}",
+    "es": "Bandeja de Aña {value}"
+  },
+  {
+    "en": "Success: {v0} · {v1}",
+    "es": "Éxito: {v0} · {v1}"
+  },
+  {
+    "en": "{v0} · {v1} · slide {v2}",
+    "es": "{v0} · {v1} · diapositiva {v2}"
+  },
+  {
+    "en": "Actions for {person}",
+    "es": "Acciones para {person}"
+  },
+  {
+    "en": "Last error: {value}",
+    "es": "Último error: {value}"
+  },
+  {
+    "en": "Live now · v{value}",
+    "es": "Activo ahora · v{value}"
+  },
+  {
+    "en": "Saved file: {value}",
+    "es": "Archivo guardado: {value}"
+  },
+  {
+    "en": "(median of {value})",
+    "es": "(mediana de {value})"
+  },
+  {
+    "en": "1 · Approve {value}",
+    "es": "1 · Aprobar {value}"
+  },
+  {
+    "en": "{value} — rush fees",
+    "es": "{value} — cargos por urgencia"
+  },
+  {
+    "en": "pay · {value} stops",
+    "es": "pago · {value} paradas"
+  },
+  {
+    "en": "{v0} · {v1} · added {v2}",
+    "es": "{v0} · {v1} · añadido {v2}"
+  },
+  {
+    "en": "· — · asked {value}",
+    "es": "· — · solicitado {value}"
+  },
+  {
+    "en": "{value} routes done",
+    "es": "{value} rutas completadas"
+  },
+  {
+    "en": "· confirmed {value}",
+    "es": "· confirmado {value}"
+  },
+  {
+    "en": "{v0} {v1} confidence",
+    "es": "{v0} {v1} de confianza"
+  },
+  {
+    "en": "(median of {v0}{v1})",
+    "es": "(mediana de {v0}{v1})"
+  },
+  {
+    "en": "{v0} · {v1} · in {v2} ({v3})",
+    "es": "{v0} · {v1} · a las {v2} ({v3})"
+  },
+  {
+    "en": "{v0} · {v1} items · {v2}",
+    "es": "{v0} · {v1} artículos · {v2}"
+  },
+  {
+    "en": "Gift on for {value}",
+    "es": "Regalo activado para {value}"
+  },
+  {
+    "en": "Requested {v0}.",
+    "es": "Solicitado {v0}."
+  },
+  {
+    "en": "{v0} / {v1} minutes",
+    "es": "{v0} / {v1} minutos"
+  },
+  {
+    "en": "{v0} · Inactive",
+    "es": "{v0} · Inactivo"
+  },
+  {
+    "en": "{v0} · planned {v1}",
+    "es": "{v0} · planificado {v1}"
+  },
+  {
+    "en": "Media {v0}{v1} for {v2}",
+    "es": "Archivo {v0}{v1} para {v2}"
+  },
+  {
+    "en": "Move {value} later",
+    "es": "Mover {value} después"
+  },
+  {
+    "en": "Open media {v0}{v1}",
+    "es": "Abrir archivo {v0}{v1}"
+  },
+  {
+    "en": "· {v0} · slide {v1}",
+    "es": "· {v0} · diapositiva {v1}"
+  },
+  {
+    "en": "Deposit {v0} · {v1}",
+    "es": "Depósito de {v0} · {v1}"
+  },
+  {
+    "en": "Quantity · {value}",
+    "es": "Cantidad · {value}"
+  },
+  {
+    "en": "{value} · — guests",
+    "es": "{value} · — invitados"
+  },
+  {
+    "en": "Calendar: {value}.",
+    "es": "Calendario: {value}."
+  },
+  {
+    "en": "· {value} min each",
+    "es": "· {value} min cada uno"
+  },
+  {
+    "en": "{value} characters",
+    "es": "{value} caracteres"
+  },
+  {
+    "en": "Code {v0} · {v1} · {v2}",
+    "es": "Código {v0} · {v1} · {v2}"
+  },
+  {
+    "en": "· {v0} · asked {v1}",
+    "es": "· {v0} · solicitado {v1}"
+  },
+  {
+    "en": "other · {v0} · {v1}",
+    "es": "otro · {v0} · {v1}"
+  },
+  {
+    "en": "{v0} · · added {v1}",
+    "es": "{v0} · · añadido {v1}"
+  },
+  {
+    "en": "· {v0} · added {v1}",
+    "es": "· {v0} · añadido {v1}"
+  },
+  {
+    "en": "· {v0} · in {v1} ({v2})",
+    "es": "· {v0} · a las {v1} ({v2})"
+  },
+  {
+    "en": "{v0} checklist",
+    "es": "{v0} lista de verificación"
+  },
+  {
+    "en": "{v0}/{v1} · closed",
+    "es": "{v0}/{v1} · cerrado"
+  },
+  {
+    "en": "· {v0} ordered",
+    "es": "· {v0} pedidos"
+  },
+  {
+    "en": "{value} · unknown",
+    "es": "{value} · desconocido"
+  },
+  {
+    "en": "{v0} · {v1} slides",
+    "es": "{v0} · {v1} diapositivas"
+  },
+  {
+    "en": "· deposit {value}",
+    "es": "· depósito de {value}"
+  },
+  {
+    "en": "{value} · Eastern",
+    "es": "{value} · hora del Este"
+  },
+  {
+    "en": "{value} scheduled",
+    "es": "{value} programado"
+  },
+  {
+    "en": "· updated {value}",
+    "es": "· actualizado {value}"
+  },
+  {
+    "en": "BLOCKED — {value}",
+    "es": "BLOQUEADO — {value}"
+  },
+  {
+    "en": "Lunches ({value})",
+    "es": "Almuerzos ({value})"
+  },
+  {
+    "en": "pending · {value}",
+    "es": "pendiente · {value}"
+  },
+  {
+    "en": "{value} · on time",
+    "es": "{value} · a tiempo"
+  },
+  {
+    "en": "{v0} · {v1} · late",
+    "es": "{v0} · {v1} · tarde"
+  },
+  {
+    "en": "Proposed: {value}",
+    "es": "Propuesto: {value}"
+  },
+  {
+    "en": "Last {value} days",
+    "es": "Últimos {value} días"
+  },
+  {
+    "en": "· {v0} pts · {v1}×",
+    "es": "· {v0} pts · {v1}×"
+  },
+  {
+    "en": "${value} location",
+    "es": "${value} ubicación"
+  },
+  {
+    "en": "{v0} {v1} · last: {v2}",
+    "es": "{v0} {v1} · último: {v2}"
+  },
+  {
+    "en": "· · added {value}",
+    "es": "· · añadido {value}"
+  },
+  {
+    "en": "Refunded {value}.",
+    "es": "Se reembolsó {value}."
+  },
+  {
+    "en": "Saved {v0} of {v1}",
+    "es": "Guardado {v0} de {v1}"
+  },
+  {
+    "en": "On hand ({unit})",
+    "es": "Disponible ({unit})"
+  },
+  {
+    "en": "{v0} stops · {v1}",
+    "es": "{v0} paradas · {v1}"
+  },
+  {
+    "en": "{v0} · Active",
+    "es": "{v0} · Activo"
+  },
+  {
+    "en": "{v0} · legacy",
+    "es": "{v0} · heredado"
+  },
+  {
+    "en": "{v0} · {v1} items{v2}",
+    "es": "{v0} · {v1} artículos{v2}"
+  },
+  {
+    "en": "Caption: {value}",
+    "es": "Texto: {value}"
+  },
+  {
+    "en": "Checked: {value}",
+    "es": "Comprobado: {value}"
+  },
+  {
+    "en": "{value} selected",
+    "es": "{value} seleccionados"
+  },
+  {
+    "en": "Loaded “{value}”",
+    "es": "Se cargó «{value}»"
+  },
+  {
+    "en": "Received {value}",
+    "es": "Recibido el {value}"
+  },
+  {
+    "en": "{v0} · Event {v1}",
+    "es": "{v0} · Evento {v1}"
+  },
+  {
+    "en": "approved {value}",
+    "es": "aprobado {value}"
+  },
+  {
+    "en": "{v0} · {v1} items",
+    "es": "{v0} · {v1} artículos"
+  },
+  {
+    "en": "{value} delivery",
+    "es": "entrega de {value}"
+  },
+  {
+    "en": "PIN for {value}:",
+    "es": "PIN para {value}:"
+  },
+  {
+    "en": "{v0} · match {v1}",
+    "es": "{v0} · coincidencia {v1}"
+  },
+  {
+    "en": "{v0} · {v1} stops",
+    "es": "{v0} · {v1} paradas"
+  },
+  {
+    "en": "· edited {value}",
+    "es": "· editado {value}"
+  },
+  {
+    "en": "· {value} active",
+    "es": "· {value} activos"
+  },
+  {
+    "en": "{v0} · in {v1} ({v2})",
+    "es": "{v0} · a las {v1} ({v2})"
+  },
+  {
+    "en": "Approved {value}",
+    "es": "Aprobado {value}"
+  },
+  {
+    "en": "Received {date}",
+    "es": "Recibido el {date}"
+  },
+  {
+    "en": "{name} · {count} items",
+    "es": "{name} · {count} artículos"
+  },
+  {
+    "en": "Vendor: {v0}",
+    "es": "Proveedor: {v0}"
+  },
+  {
+    "en": "Week {v0} · {v1}",
+    "es": "Semana {v0} · {v1}"
+  },
+  {
+    "en": "{v0} + ½ avo",
+    "es": "{v0} + ½ aguacate"
+  },
+  {
+    "en": "{v0} · {v1} item{v2}",
+    "es": "{v0} · {v1} artículo{v2}"
+  },
+  {
+    "en": "Slides: {value}",
+    "es": "Diapositivas: {value}"
+  },
+  {
+    "en": "{value} item(s)",
+    "es": "{value} elemento(s)"
+  },
+  {
+    "en": "Saved “{value}”",
+    "es": "Se guardó «{value}»"
+  },
+  {
+    "en": "Deposit {value}",
+    "es": "Depósito de {value}"
+  },
+  {
+    "en": "Use {value} min",
+    "es": "Usar {value} min"
+  },
+  {
+    "en": "cut-off {value}",
+    "es": "fecha límite {value}"
+  },
+  {
+    "en": "{value}% margin",
+    "es": "margen de {value}%"
+  },
+  {
+    "en": "Send to {value}",
+    "es": "Enviar a {value}"
+  },
+  {
+    "en": "Route {v0}{v1} ⚡",
+    "es": "Ruta {v0}{v1} ⚡"
+  },
+  {
+    "en": "{v0} {v1} · ETA {v2}",
+    "es": "{v0} {v1} · llegada estimada {v2}"
+  },
+  {
+    "en": "· match {value}",
+    "es": "· coincidencia {value}"
+  },
+  {
+    "en": "· {value} stops",
+    "es": "· {value} paradas"
+  },
+  {
+    "en": "Code {v0} · {v1}",
+    "es": "Código {v0} · {v1}"
+  },
+  {
+    "en": "Step {v0} · {v1}",
+    "es": "Paso {v0} · {v1}"
+  },
+  {
+    "en": "company {value}",
+    "es": "empresa {value}"
+  },
+  {
+    "en": "· in {v0} ({v1})",
+    "es": "· a las {v0} ({v1})"
+  },
+  {
+    "en": "{v0} · last {v1}",
+    "es": "{v0} · último {v1}"
+  },
+  {
+    "en": "owner · {detail}",
+    "es": "propietario · {detail}"
+  },
+  {
+    "en": "Approve {amount}",
+    "es": "Aprobar {amount}"
+  },
+  {
+    "en": "{name} · {count} item",
+    "es": "{name} · {count} artículo"
+  },
+  {
+    "en": "Marked {v0}",
+    "es": "Marcado {v0}"
+  },
+  {
+    "en": "{v0} mi est",
+    "es": "{v0} mi estimadas"
+  },
+  {
+    "en": "{v0} waived",
+    "es": "{v0} exonerado"
+  },
+  {
+    "en": "＋ Add: {v0}",
+    "es": "＋ Agregar: {v0}"
+  },
+  {
+    "en": "Frame {v0}{v1}:",
+    "es": "Fotograma {v0}{v1}:"
+  },
+  {
+    "en": "Loaded {value}",
+    "es": "Cargado {value}"
+  },
+  {
+    "en": "Remove {value}",
+    "es": "Quitar {value}"
+  },
+  {
+    "en": "{value} / unit",
+    "es": "{value} / unidad"
+  },
+  {
+    "en": "{v0} {v1} · {v2} KB",
+    "es": "{v0} {v1} · {v2} KB"
+  },
+  {
+    "en": "{value} orders",
+    "es": "{value} pedidos"
+  },
+  {
+    "en": "· last {value}",
+    "es": "· últimos {value}"
+  },
+  {
+    "en": "({value} min).",
+    "es": "({value} min)."
+  },
+  {
+    "en": "{value} · RUSH",
+    "es": "{value} · URGENTE"
+  },
+  {
+    "en": "{value} · late",
+    "es": "{value} · tarde"
+  },
+  {
+    "en": "{v0}{v1}/{v2} stops{v3}",
+    "es": "{v0}{v1}/{v2} paradas{v3}"
+  },
+  {
+    "en": "{value} so far",
+    "es": "{value} hasta ahora"
+  },
+  {
+    "en": "{value} active",
+    "es": "{value} activos"
+  },
+  {
+    "en": "card ••{value}",
+    "es": "tarjeta ••{value}"
+  },
+  {
+    "en": "{count} ROUTES",
+    "es": "{count} RUTAS"
+  },
+  {
+    "en": "{count} guests",
+    "es": "{count} invitados"
+  },
+  {
+    "en": "{name} — prep",
+    "es": "{name} — preparación"
+  },
+  {
+    "en": "{count} · Par {par}",
+    "es": "{count} · Mínimo {par}"
+  },
+  {
+    "en": "{v0}{v1}. Stop",
+    "es": "{v0}{v1}. Parada"
+  },
+  {
+    "en": "Rule: {value}",
+    "es": "Regla: {value}"
+  },
+  {
+    "en": "Slide {value}",
+    "es": "Diapositiva {value}"
+  },
+  {
+    "en": "Slide {v0}{v1}",
+    "es": "Diapositiva {v0}{v1}"
+  },
+  {
+    "en": "{v0} · to {v1}",
+    "es": "{v0} · para {v1}"
+  },
+  {
+    "en": "{value} weeks",
+    "es": "{value} semanas"
+  },
+  {
+    "en": "{value}/lunch",
+    "es": "{value}/almuerzo"
+  },
+  {
+    "en": "Route {v0}{v1}",
+    "es": "Ruta {v0}{v1}"
+  },
+  {
+    "en": "· {value} pts",
+    "es": "· {value} pts"
+  },
+  {
+    "en": "{value} stops",
+    "es": "{value} paradas"
+  },
+  {
+    "en": "Order{v0} {v1}",
+    "es": "Pedido {v0} {v1}"
+  },
+  {
+    "en": "(max {value})",
+    "es": "(máximo {value})"
+  },
+  {
+    "en": "since {value}",
+    "es": "desde {value}"
+  },
+  {
+    "en": "Call {value}",
+    "es": "Llamar a {value}"
+  },
+  {
+    "en": "Week {value}",
+    "es": "Semana {value}"
+  },
+  {
+    "en": "week {value}",
+    "es": "semana {value}"
+  },
+  {
+    "en": "{value} paid",
+    "es": "{value} pagado"
+  },
+  {
+    "en": "+{value} min",
+    "es": "+{value} min"
+  },
+  {
+    "en": "{value} · ai",
+    "es": "{value} · IA"
+  },
+  {
+    "en": "Code {value}",
+    "es": "Código {value}"
+  },
+  {
+    "en": "Step {value}",
+    "es": "Paso {value}"
+  },
+  {
+    "en": "{value}% fit",
+    "es": "afinidad del {value}%"
+  },
+  {
+    "en": "{count}m ago",
+    "es": "hace {count} min"
+  },
+  {
+    "en": "{count}d ago",
+    "es": "hace {count} días"
+  },
+  {
+    "en": "ETA {v0}",
+    "es": "Llegada estimada {v0}"
+  },
+  {
+    "en": "{v0} vs {v1}",
+    "es": "{v0} frente a {v1}"
+  },
+  {
+    "en": "{value} min",
+    "es": "{value} min"
+  },
+  {
+    "en": "{value} pts",
+    "es": "{value} pts"
+  },
+  {
+    "en": "by {value}",
+    "es": "por {value}"
+  },
+  {
+    "en": "{value} KB",
+    "es": "{value} KB"
+  },
+  {
+    "en": "{value}/wk",
+    "es": "{value}/sem"
+  },
+  {
+    "en": "{value} mi",
+    "es": "{value} mi"
+  },
+  {
+    "en": "to {value}",
+    "es": "a {value}"
+  }
+];
+  if (window.AnejoI18n && typeof window.AnejoI18n.extend === "function") window.AnejoI18n.extend(fragmentDictionary);
+  else (window.__hubI18nQueue = window.__hubI18nQueue || []).push(fragmentDictionary);
+  if (window.AnejoI18n && typeof window.AnejoI18n.extendPatterns === "function") window.AnejoI18n.extendPatterns(fragmentPatterns);
+  else window.__anejoI18nPatterns = (window.__anejoI18nPatterns || []).concat(fragmentPatterns);
+
 })();

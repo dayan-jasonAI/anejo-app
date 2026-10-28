@@ -53,8 +53,9 @@
   function language() { return window.AnejoLang && window.AnejoLang.get() === 'es' ? 'es' : 'en'; }
   function t(s, lang) { return (lang || language()) === 'es' && dict[s] ? dict[s] : s; }
   function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function(c) { return { '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]; }); }
+  function source(s) { return '<span translate="no" data-catering-source>' + esc(s) + '</span>'; }
   function label(s) { return '<span translate="no" data-catering-label="' + esc(s) + '">' + esc(t(s)) + '</span>'; }
-  function menu(s) { return String(s || '').split(', ').map(function(name) { return ['Añejo Fit Menu','Cuban Food','Individual Cajitas'].indexOf(name) >= 0 ? label(name) : esc(name); }).join(', '); }
+  function menu(s) { return String(s || '').split(', ').map(function(name) { return ['Añejo Fit Menu','Cuban Food','Individual Cajitas'].indexOf(name) >= 0 ? label(name) : source(name); }).join(', '); }
   function summary(config, lang) {
     if (!config || !Array.isArray(config.variants)) return t('No Cajita configuration.', lang);
     function tr(s) { return t(s, lang); }
@@ -99,6 +100,6 @@
   }
   if (window.AnejoI18n) window.AnejoI18n.extend(dict);
   else (window.__hubI18nQueue || (window.__hubI18nQueue = [])).push(dict);
-  window.CateringI18n = { text:t, label:label, menu:menu, summary:summary, summaryHtml:summaryHtml, refresh:refresh };
+  window.CateringI18n = { source:source, text:t, label:label, menu:menu, summary:summary, summaryHtml:summaryHtml, refresh:refresh };
   document.addEventListener('anejo:langchange', function() { refresh(); });
 })();

@@ -538,7 +538,7 @@
     "Does Añejo offer Cuban catering in Weston?": "¿Añejo ofrece catering cubano en Weston?",
     "Does Añejo offer Cuban catering in Wilton Manors?": "¿Añejo ofrece catering cubano en Wilton Manors?",
     "Does the catering request charge my order?": "¿La solicitud cobra el pedido?",
-    "Español": "English",
+    "Español": "Español",
     "Every Añejo bowl is customizable, so going lower-carb is one tap. Remove the quinoa or rice base and you keep the marinated protein, vegetables, avocado, and house sauces — a keto-friendly Cuban bowl without the carb load.": "Cada bowl de Añejo es personalizable, así que ir bajo en carbohidratos es un solo toque. Quita la base de quinoa o arroz y conservas la proteína adobada, las verduras, el aguacate y las salsas — un bowl cubano keto-friendly sin la carga de carbohidratos.",
     "Every Añejo bowl is engineered for protein. From LIGERO (45g) to FUEGO (42g) to CONGREEN (41g), each chef-made Cuban-American bowl lands between 40 and 45 grams of protein — portioned to your macros and delivered fresh across Palm Beach County.": "Cada bowl de Añejo está diseñado para la proteína. De LIGERO (45g) a FUEGO (42g) y CONGREEN (41g), cada bowl cubano-americano hecho por chef tiene entre 40 y 45 gramos de proteína — porcionado a tus macros y entregado fresco en Palm Beach County.",
     "Frequently asked questions": "Preguntas frecuentes",
@@ -1857,6 +1857,7 @@
 
   // Authored Spanish source variants that require inverse-only aliases.
   var esAliases = {
+  "English": "English", // Endonym authored on Spanish-page language selectors.
   "Saltar al contenido": "Skip to content",
   "Solicita cotización": "Request a quote",
   "Cada bowl Añejo es hecho por chef, nunca congelado, porcionado a tus metas de macros y entregado fresco en todo Palm Beach County — de lunes a sábado, almuerzo o cena.": "Every Añejo bowl is chef-made, never frozen, portioned to your macro goals, and delivered fresh across Palm Beach County — Monday through Saturday, lunch or dinner.",

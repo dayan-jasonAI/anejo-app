@@ -4,6 +4,7 @@
 import { json, bad } from '../../../../_lib/util.js';
 import { requireRole } from '../../../../_lib/roles.js';
 import { parseJson } from '../../../../_lib/hub.js';
+import { requestedReadingLocale, documentListReadingEdition, isLocalizedDocSearchMatch } from '../../../../_lib/localized_operating_content.js';
 
 const DOC_TYPES = ['manual', 'policy', 'procedure', 'recipe'];
 
@@ -21,26 +22,34 @@ export const onRequestGet = async ({ request, env }) => {
   const url = new URL(request.url);
   const q = (url.searchParams.get('q') || '').trim().toLowerCase();
   const type = url.searchParams.get('type');
+  const locale = requestedReadingLocale(request);
 
   let stmt;
   if (type && DOC_TYPES.includes(type)) {
     stmt = env.DB.prepare(
-      'SELECT id, doc_type, title, recipe_id, role_scope, version, updated_at FROM docs WHERE active = 1 AND doc_type = ? ORDER BY doc_type, title'
+      'SELECT id, doc_type, title, body, recipe_id, role_scope, version, updated_at FROM docs WHERE active = 1 AND doc_type = ? ORDER BY doc_type, title'
     ).bind(type);
   } else {
     stmt = env.DB.prepare(
-      'SELECT id, doc_type, title, recipe_id, role_scope, version, updated_at FROM docs WHERE active = 1 ORDER BY doc_type, title'
+      'SELECT id, doc_type, title, body, recipe_id, role_scope, version, updated_at FROM docs WHERE active = 1 ORDER BY doc_type, title'
     );
   }
   const { results } = await stmt.all();
 
-  const docs = (results || [])
-    .filter((d) => visibleTo(d, ctx.role))
-    .filter((d) => !q || (d.title || '').toLowerCase().includes(q))
-    .map((d) => ({
-      id: d.id, doc_type: d.doc_type, title: d.title,
+  const docs = [];
+  for (const d of results || []) {
+    if (!visibleTo(d, ctx.role)) continue;
+    const localized = locale === 'es' ? await documentListReadingEdition(env, d, locale) : null;
+    const englishMatch = !q || (d.title || '').toLowerCase().includes(q);
+    const spanishMatch = isLocalizedDocSearchMatch(localized, q);
+    if (!englishMatch && !spanishMatch) continue;
+    docs.push({
+      id: d.id, doc_type: d.doc_type, title: localized?.title || d.title,
       recipe_id: d.recipe_id, version: d.version, updated_at: d.updated_at,
-    }));
+      ...(localized ? { source_title: localized.source_title } : {}),
+      ...(localized ? { localization: localized.localization } : {}),
+    });
+  }
 
   return json({ docs });
 };
