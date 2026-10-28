@@ -2813,6 +2813,7 @@
 
   // Authored HTML fragments and populated record labels; stored customer text is never translated.
   var fragmentDictionary = {
+  "A customer": "Un cliente",
   "Provider accepted; local receipt needs reconciliation": "Aceptado por el proveedor; el comprobante local necesita conciliación",
   "Text accepted by provider; delivery unverified": "Texto aceptado por el proveedor; entrega sin verificar",
   "A saved prep request belongs to another signed-in operator. Reconcile it before starting again.": "Una solicitud de preparación guardada pertenece a otro operador con sesión iniciada. Concíliala antes de volver a empezar.",
@@ -4940,6 +4941,7 @@
   "today": "hoy"
 };
   var fragmentPatterns = [
+  {"en":"A customer {value}","es":"Un cliente {value}"},
   {
     "en": "Every email carries a one-click unsubscribe link and “{value}” in the footer. That is what makes emailing your customer list lawful, so it is not optional. A designed template gets that footer added underneath it — unless the template places",
     "es": "Cada correo incluye un enlace para cancelar la suscripción con un clic y «{value}» en el pie. Esto permite enviar correos a tu lista de clientes conforme a la ley, por lo que no es opcional. Ese pie se agrega debajo de una plantilla diseñada, salvo que la plantilla incluya"
