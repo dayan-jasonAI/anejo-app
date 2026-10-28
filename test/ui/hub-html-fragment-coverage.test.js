@@ -47,3 +47,5 @@ test('all classified authored Hub HTML, choice labels and toast messages have de
  const result=scanHTMLCopy();assert.deepEqual(result.parse_errors,[]);assert.deepEqual(result.unmapped,[],JSON.stringify(result.unmapped,null,2));assert.equal(result.ok,true);
  assert.ok(result.source_files>=124);assert.ok(result.preserved.every(row=>row.reason&&!/waiver|baseline/i.test(row.reason)));
 });
+
+test('stored library brand type receives a Spanish display label without altering its key',()=>{assert.equal(tr('brand'),'marca');});
