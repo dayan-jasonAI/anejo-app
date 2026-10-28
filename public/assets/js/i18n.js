@@ -652,7 +652,7 @@
   }
   function loadDictionary(path, id){
     if (!document.createElement || !document.head || document.getElementById(id)) return;
-    var script = document.createElement('script'); script.id = id; script.async = false; script.src = path + '?v=20261027-bilingual';
+    var script = document.createElement('script'); script.id = id; script.async = false; script.src = path + '?v=20261027-bilingual-r2';
     document.head.appendChild(script);
   }
   loadDictionary('/assets/js/public-i18n-coverage.js', 'public-i18n-coverage-js');

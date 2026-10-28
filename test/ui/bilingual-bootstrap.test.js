@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
 import { onRequest } from '../../functions/_middleware.js';
 
 class HTMLRewriterFixture {
@@ -31,4 +32,18 @@ test('bootstrap never rewrites API responses, file downloads, assets or POST res
   for (const args of [['/api/quote'], ['/order', 'application/json'], ['/assets/logo.svg', 'image/svg+xml'], ['/order', 'text/html', 'POST'], ['/quote.pdf', 'text/html', 'GET', 'attachment']]) {
     assert.doesNotMatch(await (await request(...args)).text(), /data-anejo-language-bootstrap/);
   }
+});
+
+test('bootstrap and dictionaries share the new cache revision and retire pre-fix offline assets', async () => {
+  globalThis.HTMLRewriter = HTMLRewriterFixture;
+  const html = await (await request('/hub/owner/catering-service')).text();
+  const bootstrapVersion = html.match(/i18n\.js\?v=([^"']+)/)?.[1];
+  const engine = readFileSync(new URL('../../public/assets/js/i18n.js',import.meta.url),'utf8');
+  const dictionaryVersion = engine.match(/path \+ '\?v=([^']+)'/)?.[1];
+  assert.ok(bootstrapVersion);
+  assert.equal(bootstrapVersion,dictionaryVersion);
+  assert.notEqual(bootstrapVersion,'20261027-bilingual');
+  const worker = readFileSync(new URL('../../public/hub/sw.js',import.meta.url),'utf8');
+  assert.doesNotMatch(worker,/const CACHE = 'anejo-hub-v12'/);
+  assert.match(worker,/fetch\(req, \{ cache: 'no-cache' \}\)/);
 });
