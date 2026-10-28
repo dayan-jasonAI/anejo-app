@@ -57,7 +57,7 @@ export async function onRequest(context) {
     },
   }).on('head', {
     element(element) {
-      element.append('<script src="/assets/js/i18n.js?v=20261027-bilingual" charset="utf-8" data-anejo-language-bootstrap></script>', { html: true });
+      element.append('<script src="/assets/js/i18n.js?v=20261027-bilingual-r2" charset="utf-8" data-anejo-language-bootstrap></script>', { html: true });
     },
   }).transform(response);
 }

@@ -2813,6 +2813,7 @@
 
   // Authored HTML fragments and populated record labels; stored customer text is never translated.
   var fragmentDictionary = {
+  "brand": "marca",
   "A customer": "Un cliente",
   "The library could not be loaded.": "No se pudo cargar la biblioteca.",
   "Provider accepted; local receipt needs reconciliation": "Aceptado por el proveedor; el comprobante local necesita conciliación",

@@ -10,7 +10,7 @@
    - other static assets  → cache-first with background refresh.
    - web push             → encrypted event-specific payload, with legacy tickle fallback.
    Bump CACHE on shell changes to invalidate. */
-const CACHE = 'anejo-hub-v12';
+const CACHE = 'anejo-hub-v13';
 const PREFERENCES_CACHE = 'anejo-hub-preferences';
 const LANGUAGE_KEY = '/hub/__push-language';
 const SHELL = [
