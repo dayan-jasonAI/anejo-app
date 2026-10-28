@@ -49,3 +49,14 @@ test('all classified authored Hub HTML, choice labels and toast messages have de
 });
 
 test('stored library brand type receives a Spanish display label without altering its key',()=>{assert.equal(tr('brand'),'marca');});
+
+test('all recipe authority meanings and states have complete Spanish display wording',()=>{for(const s of ["Confirmed · owner version receipt", "Unconfirmed reference · needs Dayan", "Missing recipe / Falta receta", "Exact catalog link to a current owner-approved recipe version.", "Reference exists. Name matching is not recipe, portion, ingredient or owner-approval evidence.", "No recipe reference matched this SKU. A complete assembly or component recipe must be supplied."]){assert.notEqual(tr(s),s,s);assert.doesNotMatch(tr(s),/Missing recipe|Reference exists|Name matching|must be supplied/);}});
+
+test('recipe matrix server-generated explanations stay coupled to deterministic Spanish display coverage',async()=>{
+ const {recipeMatrixFromRecords}=await import('../../functions/_lib/recipe_authority.js');
+ const menu=[{id:'fixture',name:'Synthetic unmatched dish',name_es:'Plato sintético'}];
+ const candidate=[{id:'recipe_fixture',name:'Synthetic unmatched dish',status:'published'}];
+ const scenarios=[recipeMatrixFromRecords(menu,[])[0],recipeMatrixFromRecords(menu,candidate)[0],recipeMatrixFromRecords(menu,[],{fixture:{recipe_id:'recipe_fixture',version_id:'revision_fixture',version:1}})[0]];
+ assert.deepEqual(scenarios.map(r=>r.state),['missing','exists_unconfirmed','exists_confirmed']);
+ for(const row of scenarios){assert.notEqual(tr(row.meaning),row.meaning);assert.doesNotMatch(tr(row.meaning),/Reference exists|No recipe reference|Exact catalog link/);}
+});

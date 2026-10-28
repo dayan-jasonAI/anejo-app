@@ -2813,6 +2813,16 @@
 
   // Authored HTML fragments and populated record labels; stored customer text is never translated.
   var fragmentDictionary = {
+  "Confirmed · owner version receipt": "Confirmada · constancia de versión del propietario",
+  "Unconfirmed reference · needs Dayan": "Referencia sin confirmar · requiere revisión de Dayan",
+  "Missing recipe / Falta receta": "Falta receta",
+  "Exact catalog link to a current owner-approved recipe version.": "Relación exacta del catálogo con una versión vigente de receta aprobada por el propietario.",
+  "Reference exists. Name matching is not recipe, portion, ingredient or owner-approval evidence.": "Hay una referencia. La coincidencia de nombres no demuestra la receta, la porción, los ingredientes ni la aprobación del propietario.",
+  "No recipe reference matched this SKU. A complete assembly or component recipe must be supplied.": "Ninguna referencia de receta coincide con este SKU. Debe aportarse una receta completa de preparación o de sus componentes.",
+
+  "Next follow-up:": "Próximo seguimiento:",
+  "· Submitted entry page:": "· Página de entrada enviada:",
+  "· Browsing path not recorded": "· Recorrido de navegación sin registrar",
   "brand": "marca",
   "A customer": "Un cliente",
   "The library could not be loaded.": "No se pudo cargar la biblioteca.",

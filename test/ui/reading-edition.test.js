@@ -10,3 +10,11 @@ test('missing/wrong-locale edition fails closed',()=>{const r=fixture();assert.m
 test('current edition renders escaped independent read-only text and ordered steps without mutation',()=>{const r=fixture(),d={status:'current',locale:'es',title:'<script>x</script>',body:'Método\nactual',ingredients:[{quantity:2,unit:'oz',item:'Arroz'}],steps:['Medir','Cocinar']},before=JSON.stringify(d),html=r.html(d);assert.match(html,/&lt;script&gt;/);assert.match(html,/<ol><li>Medir/);assert.match(html,/2 · oz · Arroz/);assert.match(html,/translate="no"/);assert.doesNotMatch(html,/<input|<textarea|<form|<script>/);assert.equal(JSON.stringify(d),before);});
 test('request gate rejects out-of-order and abandoned reads',()=>{const r=fixture(),g=r.gate(),a=g.next(),b=g.next();assert.equal(g.current(a),false);assert.equal(g.current(b),true);g.next();assert.equal(g.current(b),false);});
 test('all helper interface messages are authored in both languages',()=>{for(const key of ['current','loading','stale','unavailable','failed','source','unchanged','ingredients','steps']){assert.notEqual(fixture().text(key),fixture('en').text(key));}});
+
+test('all real recipe approval requirements have human English/Spanish labels, preserving keys and ingredient numbers',async()=>{
+ const {recipeApprovalGaps}=await import('../../functions/_lib/recipe_authority.js');
+ const keys=new Set([...recipeApprovalGaps({ingredients:[{item:'Synthetic ingredient'}],menu_links:[{menu_item_id:'fixture',portions_per_sale_unit:0}],unknowns:['Unverified']}),...recipeApprovalGaps({})]);
+ for(const key of keys){const es=fixture().gapLabel(key),en=fixture('en').gapLabel(key);assert.notEqual(es,en,key);assert.doesNotMatch(es,/no reconocido|_/);assert.doesNotMatch(en,/Unrecognized|_/);}
+ assert.equal(fixture().gapLabel('ingredient_12_quantity_unit_basis'),'Ingrediente 12: cantidad, unidad y tipo de peso');
+ assert.match(fixture().gapLabel('future_unknown_key'),/^Requisito no reconocido: future_unknown_key$/);
+});

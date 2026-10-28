@@ -7,7 +7,7 @@ const html=readFileSync(new URL('../../public/hub/owner/catering-service.html',i
 const lead={id:'ld_synthetic',name:'Synthetic Guest',email:'guest@example.test',phone:'+15555550100',event:{event_date:'2030-12-20',guests:35},notifications:[],created_at:1000,phase:'awaiting_deposit',quote_id:'cq_synthetic',state:'contacted',note:'Preserved internal call notes',next_followup_at:2000};
 const preview={ok:true,eligible:true,review_hash:'review-hash-1',quote_id:'cq_synthetic',step:'review_quote',preview:{to:'guest@example.test',subject:'Your quote',html:'<p>Actual synthetic email</p><img src="https://anejocateringco.com/assets/img/email_emblem.png">',text:'Actual synthetic email',lang:'en',version:'v1'},history:[],response:null,next_action:{label:'Review and send the quote reminder',due_at:3000}};
 const clone=value=>JSON.parse(JSON.stringify(value));
-function fixture(handler){
+function fixture(handler, fixtureLead=lead){
   class Element {
     constructor(){this.textContent='';this.innerHTML='';this.srcdoc='';this.value='';this.checked=false;this.disabled=false;this.open=false;this.dataset={};this.children=new Map();this.listeners={};}
     set id(value){this._id=value;nodes.set(value,this);}
@@ -25,7 +25,7 @@ function fixture(handler){
   const calls=[];let start;let timerId=0;const timers=new Map();
   const Hub={boot(){},esc:value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])),toast(){},api:async(url,options)=>{
     calls.push({url,options});
-    if(url==='/api/hub/owner/catering-service'&&!options)return {ok:true,leads:[clone(lead)],overview:{scope:'Latest 100 catering inquiries',requests:10,quotes_sent:7,responses_recorded:4,deposits_paid:2,owner_marked_won:5},template:{version:'ack-v1',en:{html:'<p>English ack</p>'},es:{html:'<p>Spanish ack</p>'}},config:{ack_enabled:false}};
+    if(url==='/api/hub/owner/catering-service'&&!options)return {ok:true,leads:[clone(fixtureLead)],overview:{scope:'Latest 100 catering inquiries',requests:10,quotes_sent:7,responses_recorded:4,deposits_paid:2,owner_marked_won:5},template:{version:'ack-v1',en:{html:'<p>English ack</p>'},es:{html:'<p>Spanish ack</p>'}},config:{ack_enabled:false}};
     if(handler)return handler(url,options,calls);
     if(!options)return clone(preview);
     return {ok:true,status:'accepted',receipt_id:'provider-synthetic'};
@@ -156,4 +156,17 @@ test('iframe load errors keep sending disabled even if approval is checked progr
   f.get('reminder-reviewed').checked=true;f.get('reminder-reviewed').onchange();await f.send();
   assert.equal(f.get('reminder-send').disabled,true);assert.equal(f.calls.filter(c=>c.options?.body?.op==='send').length,0);
   assert.match(f.get('reminder-result').textContent,/Sending stays disabled/);
+});
+
+test('missing-date and attribution fallbacks remain separate UI nodes while actual source leaves stay exact',async()=>{
+  const missing={...clone(lead),name:'English',event:{event_date:'',guests:35},created_at:null,followup_due_at:null};
+  const f=fixture(undefined,missing);await f.start();const markup=f.get('leads').innerHTML;
+  assert.match(markup,/<span>Date to confirm<\/span>/);
+  assert.match(markup,/<span>Not recorded — do not infer a source<\/span>/);
+  assert.match(markup,/<h3><span translate="no">English<\/span><\/h3>/);
+  const actual={...clone(lead),utm_source:'Customers',event:{...clone(lead.event),journey:{entry_path:'/order?src=English'}}};
+  const g=fixture(undefined,actual);await g.start();const saved=g.get('leads').innerHTML;
+  assert.match(saved,/<span translate="no">Customers<\/span>/);
+  assert.match(saved,/<span translate="no">\/order\?src=English<\/span>/);
+  assert.equal(g.calls.filter(c=>c.options?.method==='POST').length,0);
 });
