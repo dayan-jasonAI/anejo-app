@@ -40,6 +40,8 @@
   var ROLES = ['owner', 'kitchen', 'driver', 'marketing', 'vendor'];
   var TEAMS = ['kitchen', 'delivery', 'marketing', 'training', 'front_office', 'vendors'];
   var EMPLOYMENT = ['w2', 'contractor', 'external'];
+  // Intent comes from the last loaded record, never from localized button labels.
+  var rosterIntents = Object.create(null);
   // Rate typed in dollars ("12.50") → exact integer cents, without float math. undefined = not a rate.
   function centsFromDollars(v) {
     v = String(v == null ? '' : v).trim().replace(/^\$/, '');
@@ -76,8 +78,10 @@
   function loadRoster() {
     Owner.get('/api/hub/owner/staff').then(function (d) {
       var el = document.getElementById('roster');
+      rosterIntents = Object.create(null);
       if (!d || !d.ok) { el.innerHTML = '<div class="hub-empty">Could not load roster.</div>'; return; }
       el.innerHTML = d.staff.map(function (s) {
+        rosterIntents[String(s.id)] = Object.freeze({ nextLead: !Boolean(s.is_lead), nextActive: !Boolean(s.active), name: String(s.name || s.id) });
         var lead = s.is_lead ? Owner.badge('lead', 'ok') : '';
         var locked = s.locked_until && s.locked_until > Date.now() ? Owner.badge('locked', 'crit') : '';
         var nopin = s.has_pin ? '' : Owner.badge('no PIN', 'warn');
@@ -143,12 +147,14 @@
       var btn = e.target.closest('button[data-act]'); if (!btn) return;
       var row = e.target.closest('.row'); var id = row.getAttribute('data-id');
       var act = btn.getAttribute('data-act');
-      var name = row.querySelector('.row-title').textContent.trim();
+      var intent = rosterIntents[id];
+      if (!intent) return;
+      var name = intent.name;
       if (act === 'lead') {
-        var makeLead = btn.textContent.indexOf('Make') === 0;
+        var makeLead = intent.nextLead;
         Hub.api('/api/hub/owner/staff', { method: 'POST', body: { op: 'update', id: id, is_lead: makeLead } }).then(function () { loadRoster(); });
       } else if (act === 'active') {
-        var activate = btn.textContent.indexOf('Reactivate') === 0;
+        var activate = intent.nextActive;
         if (!activate && !confirm('Deactivate ' + name + '? They lose access immediately.')) return;
         Hub.api('/api/hub/owner/staff', { method: 'POST', body: { op: 'update', id: id, active: activate } }).then(function () { loadRoster(); });
       } else if (act === 'pin') {
