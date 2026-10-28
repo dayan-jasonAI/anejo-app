@@ -2,6 +2,8 @@
 (function () {
   "use strict";
   var dictionary = {
+    'Check or retry the same reviewed request for': 'Consulta o reintenta la misma solicitud revisada para',
+    'Send this exact text as a': 'Envía este texto exacto como',
     'PUBLIC Instagram comment reply': 'Respuesta PÚBLICA a un comentario de Instagram',
     'Instagram direct message': 'Mensaje directo de Instagram',
     'Vendor · Añejo HUB': 'Proveedor · Añejo HUB',
@@ -2509,7 +2511,7 @@
   },
   {
     "en": "Check or retry the same reviewed request for {v0}? {v1}",
-    "es": "¿Consultar o reintentar la misma solicitud revisada para {v0}? {v1}"
+    "es": "¿Consultar o reintentar la misma solicitud revisada para {v0}?\n\n{v1}"
   },
   {
     "en": "Unverified · {v0}. No provider acceptance verified.",
@@ -2613,7 +2615,7 @@
   },
   {
     "en": "Send this exact text as a {v0}? {v1}",
-    "es": "¿Enviar este texto exacto como {v0}? {v1}"
+    "es": "¿Enviar este texto exacto como {v0}?\n\n{v1}"
   },
   {
     "en": "Send invoice {v0} to QuickBooks?",

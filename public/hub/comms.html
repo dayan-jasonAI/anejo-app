@@ -322,7 +322,9 @@
     if(pending)body=pending.body;
     var destination=replyContext.thread.ref_type==='ig_media'?'PUBLIC Instagram comment reply':'Instagram direct message';
     if(window.AnejoI18n)destination=window.AnejoI18n.text(destination);
-    if(!window.confirm((pending?'Check or retry the same reviewed request for ':'Send this exact text as a ')+destination+'?\n\n'+body))return;
+    var confirmationHeading=pending?'Check or retry the same reviewed request for':'Send this exact text as a';
+    if(window.AnejoI18n)confirmationHeading=window.AnejoI18n.text(confirmationHeading);
+    if(!window.confirm(confirmationHeading+' '+destination+'?\n\n'+body))return;
     if(!pending){pending={request_id:crypto.randomUUID(),body:body,expected_trigger_id:replyContext.trigger_id,after_attempt_id:igFollowups[tid]||null};igRequests[tid]=pending;}
     pending.busy=true;paintReplyControls();
     var payload={thread_id:tid,channel:'instagram',body:pending.body,request_id:pending.request_id,expected_trigger_id:pending.expected_trigger_id};

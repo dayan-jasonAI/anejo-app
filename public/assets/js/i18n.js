@@ -439,7 +439,9 @@
       var names = [], parts = p.en.split(/(\{[a-zA-Z][a-zA-Z0-9_]*\})/g);
       var regex = parts.map(function(part){
         if (/^\{/.test(part)) { names.push(part.slice(1,-1)); return '([\\s\\S]+?)'; }
-        return part.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        // Source audit templates normalize UI whitespace. Accept the original
+        // separators without normalizing placeholder values such as message bodies.
+        return part.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\s+/g, '\\s+');
       }).join('');
       var targetNames = p.es.match(/\{[a-zA-Z][a-zA-Z0-9_]*\}/g) || [];
       if (targetNames.some(function(n){ return names.indexOf(n.slice(1,-1)) === -1; })) return;
