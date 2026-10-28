@@ -1834,4 +1834,207 @@
   if (window.AnejoI18n && typeof window.AnejoI18n.extendPatterns === "function") window.AnejoI18n.extendPatterns(patterns);
   else window.__anejoI18nPatterns = (window.__anejoI18nPatterns || []).concat(patterns);
 
+  // Additional source-bound UI/dialog coverage; variable values remain exact.
+  var boundaryDictionary = {
+  "Deny this delivery order? It will be offered to another driver.": "¿Rechazar este pedido de entrega? Se ofrecerá a otro conductor.",
+  "Cancel this queued reservation? No stock has been consumed.": "¿Cancelar esta reserva en cola? No se han consumido existencias.",
+  "Archive this inventory item?": "¿Archivar este artículo de inventario?",
+  "Discard unsaved recipe changes? / ¿Descartar los cambios sin guardar?": "¿Descartar los cambios de receta sin guardar?",
+  "Why not? (she sees this)": "¿Por qué no? (El cliente lo verá)",
+  "Send an erasure request to the owner? Your money, food-safety and contract records will be kept.": "¿Enviar una solicitud de eliminación al propietario? Se conservarán los registros de dinero, seguridad alimentaria y contratos.",
+  "Discard your unsaved edits and reload?": "¿Descartar los cambios sin guardar y recargar?",
+  "Replace the current proposed text?": "¿Reemplazar el texto propuesto actual?",
+  "Open this workspace and leave unsaved changes on this page?": "¿Abrir este espacio y dejar en esta página los cambios sin guardar?",
+  "Mark this balance paid? This records the money as received — it does not charge anybody.": "¿Marcar este saldo como pagado? Esto registra el dinero como recibido; no cobra a nadie.",
+  "What should change in “this file”? Dayan sees this and decides.": "¿Qué debe cambiar en «este archivo»? Dayan lo verá y decidirá.",
+  "Offboard this account and all its locations now? Existing orders and invoices will stay unchanged.": "¿Dar de baja ahora esta cuenta y todas sus ubicaciones? Los pedidos y las facturas existentes no cambiarán.",
+  "Pause this location? Their head-count link will stop accepting counts until you switch it back on.": "¿Pausar esta ubicación? Su enlace de cantidades dejará de aceptar registros hasta que vuelvas a activarla.",
+  "Revoke this device? They will need to verify again with a code next time.": "¿Revocar este dispositivo? La próxima vez tendrán que verificarse de nuevo con un código.",
+  "Void this invoice? Its days go back to un-invoiced so you can re-generate the correct period. This cannot be used on a paid invoice.": "¿Anular esta factura? Sus días volverán a quedar sin facturar para que puedas generar el período correcto. No se puede hacer con una factura pagada.",
+  "Cancel this route and put its stops back in the unassigned list?": "¿Cancelar esta ruta y devolver sus paradas a la lista sin asignar?",
+  "Disconnect QuickBooks? Invoices already sent there stay where they are.": "¿Desconectar QuickBooks? Las facturas ya enviadas allí permanecerán donde están.",
+  "Remove this card and withdraw the authorization? Automatic charging for this account will refuse until a new card is added.": "¿Quitar esta tarjeta y retirar la autorización? Los cobros automáticos de esta cuenta se rechazarán hasta agregar una tarjeta nueva.",
+  "Remove this document from the knowledge base?": "¿Quitar este documento de la base de conocimientos?",
+  "Remove this rule? The team will stop seeing it.": "¿Quitar esta regla? El equipo dejará de verla.",
+  "Remove this example? The team will stop seeing it.": "¿Quitar este ejemplo? El equipo dejará de verlo.",
+  "Start a new photo draft? Unsaved composer changes will be replaced. / ¿Empezar un borrador nuevo? Se reemplazarán los cambios sin guardar.": "¿Crear un borrador nuevo de foto? Se reemplazarán los cambios del editor que no hayas guardado.",
+  "Clear the recorded expiry date? The HUB will show it as unknown until you record it again.": "¿Borrar la fecha de vencimiento registrada? El HUB la mostrará como desconocida hasta que vuelvas a registrarla.",
+  "Replace your current caption with this preview? / ¿Reemplazar tu texto con esta vista previa?": "¿Reemplazar el texto actual de tu publicación con esta vista previa?",
+  "Save this as a template called:": "Guardar esta plantilla con el nombre:",
+  "Cancel this order? This stops the order but does NOT return any money — refund separately if the customer paid.": "¿Cancelar este pedido? Esto detiene el pedido, pero NO devuelve dinero. Si el cliente pagó, tramita el reembolso por separado.",
+  "Decline this application? We’ll send a warm decline email.": "¿Rechazar esta solicitud? Enviaremos un correo cordial de rechazo.",
+  "Mark this driver’s completed routes as paid for the selected period? This records the payout.": "¿Marcar como pagadas las rutas completadas de este conductor en el período seleccionado? Esto registra el pago.",
+  "The confirmation must match the staff id exactly.": "La confirmación debe coincidir exactamente con el ID del empleado.",
+  "Mark this organization do-not-contact? Every sequence stops and nothing will be sent.": "¿Marcar esta organización como «no contactar»? Se detendrán todas las secuencias y no se enviará nada.",
+  "Stop emailing this address, everywhere?": "¿Dejar de enviar correos a esta dirección en todos los canales?",
+  "Why reject this email? (It stops this prospect’s sequence.)": "¿Por qué rechazar este correo? (Se detiene la secuencia de este prospecto.)",
+  "Delete this message? This cannot be undone.": "¿Eliminar este mensaje? No se puede deshacer."
+};
+  var boundaryPatterns = [
+  {
+    "en": "Restore the Brief to v{v0} (saved {v1})? This replaces the live Brand & Standards Brief and re-grounds every future Creative Studio session. The current Brief is snapshotted first, so you can undo this the same way.",
+    "es": "¿Restaurar el brief a la versión {v0} (guardada el {v1})? Esto reemplaza el brief de marca y estándares actual y cambia la base de todas las futuras sesiones del Estudio Creativo. Primero se guarda una copia del brief actual, para que puedas deshacerlo del mismo modo."
+  },
+  {
+    "en": "Create an ACTIVE contract account for \"{v0}\" on the confirmed terms ({v1}/month)? Their headcount links start working immediately. Nothing is texted or emailed.",
+    "es": "¿Crear una cuenta de oficina ACTIVA para «{v0}» con las condiciones confirmadas ({v1} al mes)? Sus enlaces de cantidades funcionarán de inmediato. No se enviarán SMS ni correos."
+  },
+  {
+    "en": "Turn on Aña auto-reply ({v0})? She will send replies to real customers on your behalf. You can switch this back to Off at any time.",
+    "es": "¿Activar la respuesta automática de Aña ({v0})? Enviará respuestas a clientes reales en tu nombre. Puedes volver a desactivarla cuando quieras."
+  },
+  {
+    "en": "Set {v0}’s prep time to {v1} minutes? That is the median of {v2} timings of a single one, replacing your estimate of {v3} minutes.",
+    "es": "¿Establecer el tiempo de preparación de {v0} en {v1} minutos? Es la mediana de {v2} mediciones de una unidad y reemplaza tu estimación de {v3} minutos."
+  },
+  {
+    "en": "Set {v0}’s prep time to {v1} minutes? That is the median of {v2} timing of a single one, replacing your estimate of {v3} minutes.",
+    "es": "¿Establecer el tiempo de preparación de {v0} en {v1} minutos? Es la mediana de {v2} medición de una unidad y reemplaza tu estimación de {v3} minutos."
+  },
+  {
+    "en": "Refund {v0} (partial) through Square now? This moves real money and cannot be undone from the HUB.",
+    "es": "¿Reembolsar ahora {v0} (parcialmente) a través de Square? Esto mueve dinero real y no puede deshacerse desde el HUB."
+  },
+  {
+    "en": "{v0} dish price(s) change. Orders from the next head count on are billed at the new price. Save?",
+    "es": "Cambian los precios de {v0} plato(s). Los pedidos a partir del próximo registro de cantidades se facturarán con el nuevo precio. ¿Guardar?"
+  },
+  {
+    "en": "Schedule this to post automatically at {v0}? It goes on the public profile without asking again.",
+    "es": "¿Programar la publicación automática para {v0}? Se publicará en el perfil público sin volver a preguntar."
+  },
+  {
+    "en": "Refund {v0} (full) through Square now? This moves real money and cannot be undone from the HUB.",
+    "es": "¿Reembolsar ahora {v0} (totalmente) a través de Square? Esto mueve dinero real y no puede deshacerse desde el HUB."
+  },
+  {
+    "en": "Let {v0} posts schedule themselves once the audit clears them? You can turn this off any time.",
+    "es": "¿Permitir que las publicaciones de {v0} se programen cuando la auditoría las apruebe? Puedes desactivarlo cuando quieras."
+  },
+  {
+    "en": "Mark {v0} as \"{v1}\"? It stays on the site but nobody can order it, starting within about a minute.",
+    "es": "¿Marcar {v0} como «{v1}»? Permanecerá en el sitio, pero nadie podrá pedirlo, con efecto en aproximadamente un minuto."
+  },
+  {
+    "en": "{v0} bowl(s) are not checked — they will be flagged missing to the kitchen. Continue?",
+    "es": "Hay {v0} bowl(s) sin comprobar; se notificarán como faltantes a la cocina. ¿Continuar?"
+  },
+  {
+    "en": "Change their email to {v0}? Their orders, points and founding benefit move with them.",
+    "es": "¿Cambiar su correo a {v0}? Sus pedidos, puntos y beneficio de fundador se trasladarán con la cuenta."
+  },
+  {
+    "en": "Schedule this photo and caption for {v0}? It will post publicly without asking again.",
+    "es": "¿Programar esta foto y este texto para {v0}? Se publicarán sin volver a preguntar."
+  },
+  {
+    "en": "Turn {v0} automatic payments ON? Approved amounts will then be able to move money.",
+    "es": "¿ACTIVAR los pagos automáticos de {v0}? Después podrán cobrarse los importes aprobados."
+  },
+  {
+    "en": "Set {v0}’s prep time to {v1} minutes? That is the median of {v2} timings of a single one.",
+    "es": "¿Establecer el tiempo de preparación de {v0} en {v1} minutos? Es la mediana de {v2} mediciones de una unidad."
+  },
+  {
+    "en": "Set {v0}’s prep time to {v1} minutes? That is the median of {v2} timing of a single one.",
+    "es": "¿Establecer el tiempo de preparación de {v0} en {v1} minutos? Es la mediana de {v2} medición de una unidad."
+  },
+  {
+    "en": "Approve {v0} for this driver? This authorises one payout of exactly that amount.",
+    "es": "¿Aprobar {v0} para este conductor? Esto autoriza un único pago por ese importe exacto."
+  },
+  {
+    "en": "Confirm these terms? Monthly estimate {v0}. Editing them later un-confirms them.",
+    "es": "¿Confirmar estas condiciones? Estimación mensual: {v0}. Editarlas después retirará su confirmación."
+  },
+  {
+    "en": "Change {v0} from {v1} to {v2}? This is what customers are charged on the next order.",
+    "es": "¿Cambiar el precio de {v0} de {v1} a {v2}? Este será el importe que se cobrará al cliente en el próximo pedido."
+  },
+  {
+    "en": "Confirm the full {v0} for invoice {v1} was received. Reference: {v2}. Mark paid?",
+    "es": "Confirma que se recibió el importe completo de {v0} para la factura {v1}. Referencia: {v2}. ¿Marcar como pagada?"
+  },
+  {
+    "en": "Weeks after week {v0} have {v1} dish(es). Saving removes them. Continue?",
+    "es": "Las semanas posteriores a la semana {v0} tienen {v1} plato(s). Guardar los eliminará. ¿Continuar?"
+  },
+  {
+    "en": "Delete the template “{v0}”? Campaigns already sent are not affected.",
+    "es": "¿Eliminar la plantilla «{v0}»? No afecta las campañas ya enviadas."
+  },
+  {
+    "en": "Approve {v0} to be charged automatically to this account’s card?",
+    "es": "¿Aprobar el cobro automático de {v0} a la tarjeta registrada de esta cuenta?"
+  },
+  {
+    "en": "Restore the shipped {v0} page? Your edited text will be removed.",
+    "es": "¿Restaurar la versión original de la página {v0}? Se eliminará tu texto editado."
+  },
+  {
+    "en": "Set the hourly rate for {v0} to none? This change is recorded.",
+    "es": "¿Quitar la tarifa por hora de {v0}? Este cambio queda registrado."
+  },
+  {
+    "en": "Auto-build and offer the most efficient routes for {v0} now?",
+    "es": "¿Crear y ofrecer ahora las rutas más eficientes para {v0}?"
+  },
+  {
+    "en": "Set the hourly rate for {v0} to ${v1}? This change is recorded.",
+    "es": "¿Establecer la tarifa por hora de {v0} en ${v1}? Este cambio queda registrado."
+  },
+  {
+    "en": "Reset PIN for {v0}? They'll set a new one on next sign-in.",
+    "es": "¿Restablecer el PIN de {v0}? Configurará uno nuevo al volver a iniciar sesión."
+  },
+  {
+    "en": "Check or retry the same reviewed request for {v0}? {v1}",
+    "es": "¿Consultar o reintentar la misma solicitud revisada para {v0}? {v1}"
+  },
+  {
+    "en": "Deactivate {v0}? They lose access immediately.",
+    "es": "¿Desactivar a {v0}? Perderá el acceso inmediatamente."
+  },
+  {
+    "en": "Send this text to the catering customer? {v0}",
+    "es": "¿Enviar este texto al cliente de catering? {v0}"
+  },
+  {
+    "en": "Replace the message below with “{v0}”?",
+    "es": "¿Reemplazar el mensaje de abajo por «{v0}»?"
+  },
+  {
+    "en": "“{v0}” already exists. Replace it?",
+    "es": "«{v0}» ya existe. ¿Reemplazarlo?"
+  },
+  {
+    "en": "Send this exact text as a {v0}? {v1}",
+    "es": "¿Enviar este texto exacto como {v0}? {v1}"
+  },
+  {
+    "en": "Send invoice {v0} to QuickBooks?",
+    "es": "¿Enviar la factura {v0} a QuickBooks?"
+  },
+  {
+    "en": "Throw away {v0} unsaved changes?",
+    "es": "¿Descartar {v0} cambios sin guardar?"
+  },
+  {
+    "en": "Throw away {v0} unsaved change?",
+    "es": "¿Descartar {v0} cambio sin guardar?"
+  },
+  {
+    "en": "Email invoice {v0} to {v1}?",
+    "es": "¿Enviar por correo la factura {v0} a {v1}?"
+  },
+  {
+    "en": "Mark {v0} as paid to {v1}?",
+    "es": "¿Marcar {v0} como pagado a {v1}?"
+  }
+];
+  if (window.AnejoI18n && typeof window.AnejoI18n.extend === "function") window.AnejoI18n.extend(boundaryDictionary);
+  else (window.__hubI18nQueue = window.__hubI18nQueue || []).push(boundaryDictionary);
+  if (window.AnejoI18n && typeof window.AnejoI18n.extendPatterns === "function") window.AnejoI18n.extendPatterns(boundaryPatterns);
+  else window.__anejoI18nPatterns = (window.__anejoI18nPatterns || []).concat(boundaryPatterns);
+
 })();
