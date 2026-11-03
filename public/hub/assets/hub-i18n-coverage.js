@@ -7412,7 +7412,7 @@
   if (window.AnejoI18n && typeof window.AnejoI18n.extendPatterns === "function") window.AnejoI18n.extendPatterns(fragmentPatterns);
   else window.__anejoI18nPatterns = (window.__anejoI18nPatterns || []).concat(fragmentPatterns);
 
-  window.AnejoI18n.extend({
+  var dashboardDictionary = {
   "TODAY": "HOY",
   "TOMORROW": "MAÑANA",
   "tap for the production plan": "toca para ver el plan de producción",
@@ -7485,8 +7485,8 @@
   "Set an account billing contact": "Estableció el contacto de facturación",
   "Activity": "Actividad",
   "Recorded activity": "Actividad registrada",
-});
-  window.AnejoI18n.extendPatterns([
+};
+  var dashboardPatterns = [
   {"en":"{count} failed","es":"{count} sin entregar"},
   {"en":"in {count} days","es":"en {count} días"},
   {"en":"{count} guests","es":"{count} invitados"},
@@ -7498,6 +7498,8 @@
     "en": "{count} crit",
     "es": "Críticas: {count}"
   }
-]);
+];
+  if (window.AnejoI18n) { window.AnejoI18n.extend(dashboardDictionary); window.AnejoI18n.extendPatterns(dashboardPatterns); }
+  else { (window.__hubI18nQueue = window.__hubI18nQueue || []).push(dashboardDictionary); window.__anejoI18nPatterns = (window.__anejoI18nPatterns || []).concat(dashboardPatterns); }
 
 })();
