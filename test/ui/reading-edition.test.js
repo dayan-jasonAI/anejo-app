@@ -18,3 +18,11 @@ test('all real recipe approval requirements have human English/Spanish labels, p
  assert.equal(fixture().gapLabel('ingredient_12_quantity_unit_basis'),'Ingrediente 12: cantidad, unidad y tipo de peso');
  assert.match(fixture().gapLabel('future_unknown_key'),/^Requisito no reconocido: future_unknown_key$/);
 });
+
+
+test('recipe display states are bilingual and publication never masquerades as owner approval',()=>{
+ const expected={unsaved:['Unsaved draft','Borrador sin guardar'],published:['Published reference','Referencia publicada'],draft:['Draft','Borrador'],submitted:['Submitted for review','Enviada a revisión'],approved:['Approved version','Versión aprobada'],rejected:['Rejected','Rechazada'],archived:['Archived','Archivada'],retired:['Retired','Retirada'],active:['Active','Activa'],inactive:['Inactive','Inactiva']};
+ for(const [key,pair]of Object.entries(expected)){assert.equal(fixture('en').stateLabel(key),pair[0]);assert.equal(fixture('es').stateLabel(key),pair[1]);}
+ assert.equal(fixture().stateLabel('future_state'),'Estado sin confirmar');
+ assert.doesNotMatch(fixture().stateLabel('published'),/aprobada/);
+});
