@@ -3,6 +3,12 @@
 (function () {
   // Legacy tags and universal bootstrap share a single engine.
   if (window.AnejoI18n) return;
+  // Capture the executing bootstrap once; every dictionary shares its content revision.
+  var languageAssetRevision = 'local';
+  try {
+    var executingScript = document.currentScript;
+    if (executingScript && executingScript.src) languageAssetRevision = new URL(executingScript.src, document.baseURI).searchParams.get('v') || 'local';
+  } catch (_) { /* Standalone fixtures without a script URL use local identity. */ }
   var KEY = 'anejo:lang';
   var lang = document.documentElement.lang === 'es' ? 'es' : 'en';
   try { var savedLang = localStorage.getItem(KEY); if (savedLang === 'es' || savedLang === 'en') lang = savedLang; } catch (_) { /* private storage: language still works in memory */ }
@@ -652,7 +658,7 @@
   }
   function loadDictionary(path, id){
     if (!document.createElement || !document.head || document.getElementById(id)) return;
-    var script = document.createElement('script'); script.id = id; script.async = false; script.src = path + '?v=20261027-bilingual-r2';
+    var script = document.createElement('script'); script.id = id; script.async = false; script.src = path + '?v=' + encodeURIComponent(languageAssetRevision);
     document.head.appendChild(script);
   }
   loadDictionary('/assets/js/public-i18n-coverage.js', 'public-i18n-coverage-js');

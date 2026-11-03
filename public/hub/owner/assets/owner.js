@@ -194,6 +194,24 @@
     return Math.round(h / 24) + 'd ago';
   };
 
+  // Explicit display pairs cannot be mistaken for a broad template capture. No record is changed.
+  Owner.displaySpan = function (en, es) {
+    var spanish = window.AnejoLang && window.AnejoLang.get() === 'es';
+    return '<span translate="no" data-owner-en="' + Owner.esc(en) + '" data-owner-es="' + Owner.esc(es) + '">' + Owner.esc(spanish ? es : en) + '</span>';
+  };
+  document.addEventListener('anejo:langchange', function () {
+    var key = window.AnejoLang && window.AnejoLang.get() === 'es' ? 'data-owner-es' : 'data-owner-en';
+    document.querySelectorAll('[data-owner-en]').forEach(function (el) { el.textContent = el.getAttribute(key); });
+  });
+  Owner.timeAgoHtml = function (ms) {
+    if (!ms) return '';
+    var seconds = Math.max(0, Math.round((Date.now() - ms) / 1000)), count = seconds, unit = 'second';
+    if (seconds >= 60) { count = Math.round(seconds / 60); unit = 'minute'; }
+    if (count >= 60 && unit === 'minute') { count = Math.round(count / 60); unit = 'hour'; }
+    if (count >= 24 && unit === 'hour') { count = Math.round(count / 24); unit = 'day'; }
+    return Owner.displaySpan(Owner.timeAgo(ms), new Intl.RelativeTimeFormat('es', { numeric:'always', style:'short' }).format(-count, unit));
+  };
+
   Owner.clock = function (ms) {
     if (!ms) return '';
     try { return new Date(ms).toLocaleTimeString((typeof window !== 'undefined' && window.AnejoLang && window.AnejoLang.get() === 'es' ? 'es-US' : 'en-US'), { hour: 'numeric', minute: '2-digit' }); } catch (e) { return ''; }
