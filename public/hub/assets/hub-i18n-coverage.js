@@ -7413,6 +7413,7 @@
   else window.__anejoI18nPatterns = (window.__anejoI18nPatterns || []).concat(fragmentPatterns);
 
   var dashboardDictionary = {
+  "Open recipe": "Abrir receta",
   "TRAINING": "CAPACITACIÓN",
   "TODAY": "HOY",
   "TOMORROW": "MAÑANA",
