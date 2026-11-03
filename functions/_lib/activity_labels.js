@@ -9,6 +9,14 @@
 // Present tense, sentence case, no jargon. Anything unmapped falls back to a humanized key rather
 // than being hidden — an unlabeled event is still information.
 const LABELS = {
+  "team_lead.message": "Sent a team-lead message",
+  "sales.prospect_scored": "Scored a sales prospect",
+  "social.post_scheduled": "Scheduled a social post",
+  "social.post_drafted": "Drafted a social post",
+  "social.post_archived": "Archived a social draft",
+  "social.post_published": "Published a social post",
+  "sales.outreach_drafted": "Drafted sales outreach",
+  "sales.organization_enriched": "Updated a sales organization",
   'user.signed_in': 'Signed in',
   'user.invited': 'Was invited to the team',
   'dashboard.viewed': 'Opened the dashboard',
@@ -48,9 +56,53 @@ const LABELS = {
   'contract.billing_contact_set': 'Set an account billing contact',
 };
 
+const LABELS_ES = {
+  "user.signed_in": "Inició sesión",
+  "user.invited": "Recibió una invitación al equipo",
+  "dashboard.viewed": "Abrió el panel",
+  "doc.viewed": "Abrió un documento",
+  "customer.viewed": "Consultó un cliente",
+  "shift.clocked_in": "Registró su entrada",
+  "shift.clocked_out": "Registró su salida",
+  "eod_report.missed": "No presentó el cierre del día",
+  "eod_report.filed": "Presentó el cierre del día",
+  "training.completed": "Terminó un módulo de capacitación",
+  "order.received": "Se recibió un pedido",
+  "order.prep_started": "Comenzó a preparar un pedido",
+  "order.bowl_checked": "Verificó un plato",
+  "order.ready": "Marcó un pedido como listo",
+  "order.canceled": "Canceló un pedido",
+  "order.refunded": "Registró un reembolso de pedido",
+  "delivery.picked": "Recogió una entrega",
+  "delivery.en_route": "Salió a entregar",
+  "delivery.completed": "Completó una entrega",
+  "delivery.failed": "Falló una entrega",
+  "recipe_session.started": "Inició una sesión de Creative Studio",
+  "recipe_session.ai_assist_used": "Pidió ayuda a la IA de Studio",
+  "recipe_session.media_added": "Agregó una foto o nota de voz",
+  "knowledge.document_indexed": "Agregó un documento a la base de conocimiento",
+  "alert.triggered": "Se generó una alerta",
+  "alert.acknowledged": "Confirmó haber visto una alerta",
+  "automation.run": "Se ejecutó una automatización",
+  "agent_task.completed": "Terminó una tarea de IA",
+  "message.sent": "Envió un mensaje",
+  "staff.nudged": "Recibió un recordatorio",
+  "push.subscribed": "Activó las notificaciones",
+  "contract.billing_contact_set": "Estableció el contacto de facturación",
+  "team_lead.message": "Envió un mensaje al líder del equipo",
+  "sales.prospect_scored": "Evaluó un prospecto de ventas",
+  "social.post_scheduled": "Programó una publicación en redes",
+  "social.post_drafted": "Preparó un borrador para redes",
+  "social.post_archived": "Archivó un borrador para redes",
+  "social.post_published": "Publicó en redes",
+  "sales.outreach_drafted": "Preparó un contacto comercial",
+  "sales.organization_enriched": "Actualizó una empresa de ventas"
+};
+
 /** Readable label for an event key. Never returns an empty string. */
-export function eventLabel(event) {
+export function eventLabel(event, locale = 'en') {
   const key = String(event || '').trim();
+  if (locale === 'es') return LABELS_ES[key] || (key ? 'Actividad registrada' : 'Actividad');
   if (!key) return 'Activity';
   if (LABELS[key]) return LABELS[key];
   // Fallback: "recipe_session.brief_generated" → "Recipe session · brief generated"
@@ -77,9 +129,15 @@ export function displayName(name, fallback) {
 }
 
 /** Who to credit when there is no staff record — never leave a row anonymous-looking. */
-export function actorLabel({ actor_name, actor_type, actor_role }) {
+export function actorLabel({ actor_name, actor_type, actor_role }, locale = 'en') {
   if (actor_name) return displayName(actor_name);
   const type = String(actor_type || '').toLowerCase();
+  if (locale === 'es') {
+    if (type === 'system' || type === 'cron') return 'Sistema de Añejo';
+    if (type === 'ai' || type === 'agent') return 'IA de Añejo';
+    if (type === 'customer' || actor_role === 'client') return 'Un cliente';
+    return ({owner:'Propietario',kitchen:'Cocina',driver:'Conductor',marketing:'Marketing',staff:'Personal'})[actor_role] || 'Una persona del equipo';
+  }
   if (type === 'system' || type === 'cron') return 'Añejo system';
   if (type === 'ai' || type === 'agent') return 'Añejo AI';
   if (type === 'customer' || actor_role === 'client') return 'A customer';

@@ -52,7 +52,7 @@
 
 <script src="/assets/js/i18n.js"></script>
 <script src="/hub/assets/hub.js"></script>
-<script src="/hub/owner/assets/owner.js"></script>
+<script src="/hub/owner/assets/owner.js?v=20261103-bilingual-feed"></script>
 <script src="/hub/owner/assets/readiness.js"></script>
 <script>
 (function () {
@@ -210,6 +210,26 @@
     }
   }
 
+  function displayText(value) { return '<span>' + Owner.esc(value || '') + '</span>'; }
+  function sourceText(value) { return '<span translate="no">' + Owner.esc(value || '') + '</span>'; }
+  function alertBody(a) {
+    var body = String(a.body || '');
+    // Only known system-authored suffixes are localized; a customer's name remains exact.
+    var instructions = ['Deposit recorded. Continue event planning.', 'Reconcile the unconfirmed email before any further send.', 'Follow-up closed. No further quote reminders; owner-marked wins do not establish payment.', 'Arrange the requested call.', 'Review the requested quote changes.', 'Respond to the customer and agree on the next step.', 'Confirm plans by call or record the outcome. No automatic closure.', 'Review the next quote reminder or make a call.', 'Review the request and contact the customer.'];
+    if (a.alert_type === 'catering_followup_due') {
+      for (var i = 0; i < instructions.length; i++) {
+        var suffix = ': ' + instructions[i];
+        if (body.endsWith(suffix)) return sourceText(body.slice(0, -suffix.length)) + ': ' + displayText(instructions[i]);
+      }
+    }
+    return displayText(body);
+  }
+  function teamText(team) {
+    var labels = {kitchen:['Kitchen','Cocina'],front_office:['Front office','Atención al cliente'],training:['Training','Capacitación'],marketing:['Marketing','Marketing'],delivery:['Delivery','Entregas'],sales:['Sales','Ventas'],system:['System','Sistema']};
+    var pair = labels[team];
+    return pair ? Owner.displaySpan(pair[0], pair[1]) : sourceText(team);
+  }
+
   function loadAlerts() {
     Owner.get('/api/hub/owner/alerts?status=open&limit=8').then(function (d) {
       var el = document.getElementById('alerts');
@@ -217,8 +237,8 @@
       el.innerHTML = '<div class="list">' + d.items.map(function (a) {
         var act = actionFor(a);
         return '<div class="row">' +
-          '<div class="row-main"><div class="row-title">' + Owner.esc(a.title || a.alert_type) + '</div>' +
-          '<div class="row-sub">' + Owner.esc(a.body || '') + ' · ' + Owner.timeAgo(a.created_at) + '</div>' +
+          '<div class="row-main"><div class="row-title">' + displayText(a.title || a.alert_type) + '</div>' +
+          '<div class="row-sub">' + alertBody(a) + ' · ' + Owner.timeAgoHtml(a.created_at) + '</div>' +
           (act ? '<a class="btn gold" style="margin-top:9px;display:inline-flex" href="' + act.href + '"' + (act.labelHtml ? ' translate="no"' : ' data-i18n') + '>' + (act.labelHtml || act.label) + '</a>' : '') +
           '</div>' +
           Owner.badge(a.severity, Owner.kindFor(a.severity)) +
@@ -252,10 +272,10 @@
         return;
       }
       el.innerHTML = d.items.map(function (it) {
-        var who = it.actor_type === 'system' ? 'system' : (it.actor_role || 'staff');
+        var actor = it.actor_name ? sourceText(it.actor_name) : Owner.displaySpan(it.actor || it.actor_role || 'Staff', it.actor_es || 'Personal');
         return '<div class="row"><div class="row-main">' +
-          '<div class="row-title">' + Owner.esc(it.event) + '</div>' +
-          '<div class="row-sub">' + Owner.esc(who) + (it.team ? ' · ' + Owner.esc(it.team) : '') + ' · ' + Owner.timeAgo(it.created_at) + '</div>' +
+          '<div class="row-title" data-event="' + Owner.esc(it.event) + '">' + Owner.displaySpan(it.label || 'Activity', it.label_es || 'Actividad registrada') + '</div>' +
+          '<div class="row-sub">' + actor + (it.team ? ' · ' + teamText(it.team) : '') + ' · ' + Owner.timeAgoHtml(it.created_at) + '</div>' +
           '</div></div>';
       }).join('');
       // Show the Expand toggle only when the capped window actually overflows (desktop).
@@ -271,6 +291,6 @@
   Owner.init('overview', render);
 })();
 </script>
-<script src="assets/operator.js?v=catering-status-8" defer></script>
+<script src="assets/operator.js?v=20261103-bilingual-hint" defer></script>
 </body>
 </html>

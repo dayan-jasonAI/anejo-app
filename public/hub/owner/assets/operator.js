@@ -433,7 +433,7 @@
     var p = document.createElement('p'); p.className = 'aop-msg ' + (cls || 'ai'); p.textContent = text;
     document.getElementById('aopLog').appendChild(p); panel.scrollTop = panel.scrollHeight;
   }
-  setTimeout(function () { showHint('<b>1 tap</b> talk · <b>2</b> type', 4000); }, 1200);
+  setTimeout(function () { showHint('<span>1 tap to talk · 2 taps to type</span>', 4000); }, 1200);
 
   function stopSpeech() {
     try { if (currentAudio) { currentAudio.pause(); currentAudio = null; } } catch (_) {}

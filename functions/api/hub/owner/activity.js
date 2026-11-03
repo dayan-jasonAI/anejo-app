@@ -47,7 +47,9 @@ export const onRequestGet = async ({ request, env }) => {
     // Readable versions, computed here so every consumer of this feed gets them and no page has
     // to keep its own copy of the mapping.
     label: eventLabel(r.event),
+    label_es: eventLabel(r.event, 'es'),
     actor: actorLabel(r),
+    actor_es: actorLabel(r, 'es'),
     actor_name: r.actor_name || null,
     actor_id: r.actor_id,
     actor_role: r.actor_role,
