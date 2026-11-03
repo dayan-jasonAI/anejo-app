@@ -89,9 +89,9 @@
         return '<a class="card ' + (e.days_out <= 1 ? 'accent' : '') + '" style="display:block;text-decoration:none;color:inherit;margin-bottom:10px"' +
           ' href="/hub/kitchen/event.html?id=' + encodeURIComponent(e.id) + '">' +
           '<div class="row" style="padding:0;border:none"><div class="row-main">' +
-          '<div class="row-title">🎉 ' + Owner.esc(e.customer_name || 'Catering event') + ' · ' + when + '</div>' +
-          '<div class="row-sub">' + Owner.esc(e.event_date) + (e.serving_time ? ' · ' + Owner.esc(e.serving_time) : '') +
-          ' · ' + (Number(e.guests) || 0) + ' guests · tap for the production plan</div>' +
+          '<div class="row-title">🎉 ' + (e.customer_name ? sourceText(e.customer_name) : displayText('Catering event')) + ' · ' + displayText(when) + '</div>' +
+          '<div class="row-sub">' + sourceText(e.event_date) + (e.serving_time ? ' · ' + sourceText(e.serving_time) : '') +
+          ' · ' + displayText((Number(e.guests) || 0) + ' guests') + ' · ' + displayText('tap for the production plan') + '</div>' +
           '</div><div>' + money + '</div></div></a>';
       }).join('');
       if (window.AnejoI18n) window.AnejoI18n.refresh();
@@ -272,7 +272,7 @@
         return;
       }
       el.innerHTML = d.items.map(function (it) {
-        var actor = it.actor_name ? sourceText(it.actor_name) : Owner.displaySpan(it.actor || it.actor_role || 'Staff', it.actor_es || 'Personal');
+        var actor = it.actor_name ? sourceText(it.actor || it.actor_name) : Owner.displaySpan(it.actor || it.actor_role || 'Staff', it.actor_es || 'Personal');
         return '<div class="row"><div class="row-main">' +
           '<div class="row-title" data-event="' + Owner.esc(it.event) + '">' + Owner.displaySpan(it.label || 'Activity', it.label_es || 'Actividad registrada') + '</div>' +
           '<div class="row-sub">' + actor + (it.team ? ' · ' + teamText(it.team) : '') + ' · ' + Owner.timeAgoHtml(it.created_at) + '</div>' +

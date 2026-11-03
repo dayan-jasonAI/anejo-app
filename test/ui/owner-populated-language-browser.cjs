@@ -98,6 +98,7 @@ function same(actual, expected, label) { assert.equal(normalize(actual), normali
       assert.equal(texts.feed.length, events.length);
       // Full cards, not chosen fragments: a hidden English suffix must fail this acceptance.
       validateCards(texts, lang);
+      assert.deepEqual(await page.locator('#feed [data-event]').evaluateAll(es => es.map(e => e.getAttribute('data-event'))), events, 'Canonical event keys retained in attributes');
       assert.match(texts.event, /English/);
       assert.doesNotMatch(texts.event, /Inglés/);
       assert.match(texts.event, /2026-10-31/);
@@ -106,9 +107,10 @@ function same(actual, expected, label) { assert.equal(normalize(actual), normali
       assert.doesNotMatch(texts.readiness, /Inglés/);
       assert.match(texts.readiness, /fixture-order/);
       assert.equal(await page.locator('#alerts [data-ack]').evaluateAll(es => es.map(e => e.getAttribute('data-ack')).join(',')), 'fixture-route,fixture-catering');
+      assert.deepEqual(await page.locator('#tiles .stat-num').allTextContents(), ['3', '🎉', '2', '5', '4', '1/2', '1', '2', '1', '2', '🍽️', '🤖', '📅', '📥', '📣', '📚', '🧑‍🏫', '📢', '📨', '📚', '📈', '🧭', '🔒', '⚙️', '🎓', '📲'], 'Stat amounts and icons retain canonical values');
       assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth), false, '375px horizontal overflow');
       await page.screenshot({ path: path.join(out, 'owner-' + lang + '-375.png'), fullPage: true });
-      checks.push(lang + ': full populated alert/feed cards, source fields, canonical actions, real assets and 375px overflow');
+      checks.push(lang + ': full populated alert/activity/stat/event/readiness cards, source fields, canonical actions, real assets and 375px overflow');
     }
     assert.equal(businessWrites, 0);
     assert.deepEqual(errors, []);
@@ -123,7 +125,7 @@ function same(actual, expected, label) { assert.equal(normalize(actual), normali
     failure = error;
     await page.screenshot({ path: path.join(out, 'owner-failure-375.png'), fullPage: true }).catch(() => {});
   } finally {
-    const report = { at: new Date().toISOString(), status: failure ? 'local_synthetic_failed' : 'local_synthetic_pass', checks, failure: failure && failure.stack, errors, businessWrites, telemetryPosts, externalRequestsBlocked: externalRequests, calls, snapshots, activity_helper_hash: helperHash, served_source_versions: Object.fromEntries([...served].map(([file, hashes]) => [path.relative(root, file), [...hashes]])), limits: ['Synthetic local payloads/auth only; actual dashboard and runtime browser assets. Actual backend event/actor label helpers populate synthetic activity responses.', 'Telemetry POSTs are locally intercepted. External requests are blocked; no provider calls, real client records, database writes, deployment or live behavior verified.'] };
+    const report = { at: new Date().toISOString(), status: failure ? 'local_synthetic_failed' : 'local_synthetic_pass', checks, failure: failure && failure.stack, errors, businessWrites, telemetryPosts, externalRequestsBlocked: externalRequests, calls, snapshots, test_source_hash: crypto.createHash('sha256').update(fs.readFileSync(path.join(__dirname, 'owner-populated-language-browser.cjs'))).digest('hex'), activity_helper_hash: helperHash, served_source_versions: Object.fromEntries([...served].map(([file, hashes]) => [path.relative(root, file), [...hashes]])), limits: ['Synthetic local payloads/auth only; actual dashboard and runtime browser assets. Actual backend event/actor label helpers populate synthetic activity responses.', 'Telemetry POSTs are locally intercepted. External requests are blocked; no provider calls, real client records, database writes, deployment or live behavior verified.'] };
     fs.writeFileSync(path.join(out, 'BROWSER_VALIDATION.json'), JSON.stringify(report, null, 2));
     await browser.close(); await new Promise(resolve => server.close(resolve)); server.closeAllConnections();
   }
@@ -139,32 +141,64 @@ function validateCards(texts, lang) {
   same(texts.alerts[1], es
     ? 'Un prospecto de catering necesita tu respuesta English: Revisa la solicitud y contacta al cliente. · hace 1 h ADVERTENCIA Visto'
     : 'Catering lead needs your response English: Review the request and contact the customer. · 1h ago WARNING Ack', 'Full catering alert ' + lang);
-  // Imported real helper outputs are the API contract; independent known translations below
-  // additionally reject helpers that return English or raw machine keys as Spanish labels.
+  // Fixtures use real backend helpers; independent readable contracts verify every full card.
   const explicit = {
     'dashboard.viewed': ['Opened the dashboard', 'Abrió el panel'],
     'user.signed_in': ['Signed in', 'Inició sesión'],
     'team_lead.message': ['Sent a team-lead message', 'Envió un mensaje al líder del equipo'],
-    'automation.run': ['An automation ran', 'Se ejecutó una automatización']
+    'automation.run': ['An automation ran', 'Se ejecutó una automatización'],
+    'sales.prospect_scored': ['Scored a sales prospect', 'Evaluó un prospecto de ventas'],
+    'social.post_scheduled': ['Scheduled a social post', 'Programó una publicación en redes'],
+    'social.post_drafted': ['Drafted a social post', 'Preparó un borrador para redes'],
+    'social.post_archived': ['Archived a social draft', 'Archivó un borrador para redes'],
+    'social.post_published': ['Published a social post', 'Publicó en redes'],
+    'sales.outreach_drafted': ['Drafted sales outreach', 'Preparó un contacto comercial'],
+    'sales.organization_enriched': ['Updated a sales organization', 'Actualizó una empresa de ventas'],
+    'agent_task.completed': ['An AI task finished', 'Terminó una tarea de IA'],
+    'future.synthetic_event': ['Future · synthetic event', 'Actividad registrada']
   };
   const items = payload(new URL('http://127.0.0.1/api/hub/owner/activity')).items;
   items.forEach((item, index) => {
     const label = es ? item.label_es : item.label;
-    if (explicit[item.event]) assert.equal(label, explicit[item.event][es ? 1 : 0]);
+    assert.equal(label, explicit[item.event][es ? 1 : 0]);
     assert.notEqual(item.label_es, item.label, 'Backend Spanish label exists for ' + item.event);
     assert.doesNotMatch(label, /^[a-z_]+\.[a-z_]+$/, 'Readable label replaces machine key');
     if (index === items.length - 1 && es) assert.equal(label, 'Actividad registrada');
     const actor = es ? item.actor_es : item.actor;
+    assert.equal(actor, index === 1 ? 'English' : index % 2 ? (es ? 'Propietario' : 'Owner') : (es ? 'Sistema de Añejo' : 'Añejo system'));
     const team = item.team === 'kitchen' ? (es ? 'Cocina' : 'Kitchen') : item.team;
     same(texts.feed[index], label + ' ' + actor + ' · ' + team + ' · ' + (es ? 'hace 2 min' : '2m ago'), 'Full activity card ' + item.event + ' ' + lang);
     if (es) assert.doesNotMatch(texts.feed[index], /\b(?:system|owner|kitchen|ago|Opened|Signed|Sent|automation|Scored|Scheduled|Drafted|Published|Archived|finished)\b/, 'No English dynamic prose in full Spanish activity card');
   });
   assert.match(texts.feed[1], /English/, 'Actual actor name preserved');
   assert.match(texts.feed[items.length - 1], /English/, 'Unknown team source preserved');
+  const expectedTiles = es ? [
+    '3 PEDIDOS ABIERTOS', '🎉 CATERING Y EVENTOS', '2 PAGOS PENDIENTES AÚN NO PASA A COCINA',
+    '5 ENTREGAS HOY 1 SIN ENTREGAR', '4 EN TURNO AHORA', '1/2 CIERRES DEL DÍA ENVIADOS 50%',
+    '1 TICKETS ABIERTOS', '2 GASTOS PENDIENTES', '1 ALERTAS DE TEMPERATURA', '2 ALERTAS ABIERTAS CRÍTICAS: 1',
+    '🍽️ MENÚ Y PRECIOS', '🤖 OPERACIONES IA', '📅 HORARIO DE CONDUCTORES', '📥 PROSPECTOS',
+    '📣 AFILIADOS', '📚 CONOCIMIENTO', '🧑‍🏫 CAPACITAR AL EQUIPO', '📢 TEXTOS DEL SITIO',
+    '📨 CAMPAÑAS', '📚 CONTENIDO', '📈 TRÁFICO', '🧭 ADOPCIÓN', '🔒 SOLICITUDES DE DATOS',
+    '⚙️ AJUSTES DE MARKETING', '🎓 CUMPLIMIENTO DE CAPACITACIÓN', '📲 PRUEBA DE SMS'
+  ] : [
+    '3 ORDERS OPEN', '🎉 CATERING & EVENTS', '2 UNPAID CHECKOUTS NOT KITCHEN',
+    '5 DELIVERIES TODAY 1 FAILED', '4 ON SHIFT NOW', '1/2 EOD FILED 50%', '1 OPEN TICKETS',
+    '2 PENDING EXPENSES', '1 TEMP EXCURSIONS', '2 OPEN ALERTS 1 CRIT', '🍽️ MENU & PRICES',
+    '🤖 AI OPS', '📅 DRIVER SCHEDULE', '📥 LEADS', '📣 AFFILIATE', '📚 KNOWLEDGE', '🧑‍🏫 TRAIN THE TEAM',
+    '📢 SITE COPY', '📨 CAMPAIGNS', '📚 CONTENT', '📈 TRAFFIC', '🧭 ADOPTION', '🔒 DATA REQUESTS',
+    '⚙️ MARKETING SETTINGS', '🎓 TRAINING COMPLIANCE', '📲 SMS TEST'
+  ];
+  same(texts.tiles, expectedTiles.join(' '), 'All 26 complete populated stat cards ' + lang);
+  same(texts.event, es
+    ? '🎉 English · MAÑANA 2026-10-31 · 12:00 · 30 invitados · toca para ver el plan de producción PAGADO EN SU TOTALIDAD'
+    : '🎉 English · TOMORROW 2026-10-31 · 12:00 · 30 guests · tap for the production plan PAID IN FULL', 'Complete paid event card ' + lang);
+  same(texts.readiness.replace(/(Last checked:|Última consulta:) [^\n]+/, '$1 <TIME>'), es
+    ? 'COCINA · LISTO PARA ENTREGAR Última consulta: <TIME> Actualizar estado 1 listos · 1 esperando conductor English fixture-order · 2026-10-31 Almuerzo LISTO · ASIGNAR CONDUCTOR Asignar conductor'
+    : 'KITCHEN · READY FOR DELIVERY Last checked: <TIME> Refresh readiness 1 ready · 1 awaiting a driver English fixture-order · 2026-10-31 Lunch READY · ASSIGN A DRIVER Assign driver', 'Complete readiness panel ' + lang);
   assert.match(texts.tiles, es ? /PAGOS PENDIENTES/ : /UNPAID CHECKOUTS/);
-  assert.match(texts.tiles, es ? /NO (?:ES )?COCINA/ : /NOT KITCHEN/);
+  assert.match(texts.tiles, es ? /AÚN NO PASA A COCINA/ : /NOT KITCHEN/);
   if (es) {
-    assert.doesNotMatch(texts.tiles, /NOT KITCHEN|\bFAILED\b|\bCRIT\b/);
+    assert.doesNotMatch(texts.tiles, /NOT KITCHEN|\bFAILED\b|\bCRIT\b|CATERING & EVENTS|KNOWLEDGE|TRAINING COMPLIANCE/);
     assert.doesNotMatch(texts.alerts.join(' '), /No available driver|Assign one manually|Review the request|needs your response|\bago\b/);
     assert.doesNotMatch(texts.event, /guests|tap for|TOMORROW|PAID IN FULL/);
     assert.match(texts.event, /30 invitados/);

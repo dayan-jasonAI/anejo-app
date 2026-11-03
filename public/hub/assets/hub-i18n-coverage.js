@@ -7413,6 +7413,13 @@
   else window.__anejoI18nPatterns = (window.__anejoI18nPatterns || []).concat(fragmentPatterns);
 
   window.AnejoI18n.extend({
+  "TODAY": "HOY",
+  "TOMORROW": "MAÑANA",
+  "tap for the production plan": "toca para ver el plan de producción",
+  "Catering event": "Evento de catering",
+  "Catering & events": "Catering y eventos",
+  "Knowledge": "Conocimiento",
+  "Training compliance": "Cumplimiento de capacitación",
   "Route unfilled — no driver accepted": "Ruta sin asignar: ningún conductor aceptó",
   "Catering lead needs your response": "Un prospecto de catering necesita tu respuesta",
   "Catering customer requested a call": "Un cliente de catering solicitó una llamada",
@@ -7478,18 +7485,18 @@
   "Set an account billing contact": "Estableció el contacto de facturación",
   "Activity": "Actividad",
   "Recorded activity": "Actividad registrada",
-  "Actividad registrada": "Actividad registrada",
-  "Personal": "Personal",
-  "Atención al cliente": "Atención al cliente"
 });
   window.AnejoI18n.extendPatterns([
+  {"en":"{count} failed","es":"{count} sin entregar"},
+  {"en":"in {count} days","es":"en {count} días"},
+  {"en":"{count} guests","es":"{count} invitados"},
   {
     "en": "No available driver accepted the route for {date} ({count} stops). Assign one manually from Deliveries.",
     "es": "Ningún conductor disponible aceptó la ruta del {date} ({count} paradas). Asigna uno manualmente desde Entregas."
   },
   {
     "en": "{count} crit",
-    "es": "{count} críticas"
+    "es": "Críticas: {count}"
   }
 ]);
 
