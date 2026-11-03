@@ -1,0 +1,45 @@
+name: Bilingual populated UI acceptance
+on:
+  pull_request:
+    paths:
+      - 'public/hub/**'
+      - 'public/assets/js/*i18n*'
+      - 'functions/_lib/activity_labels.js'
+      - 'functions/_lib/localized_operating_content.js'
+      - 'functions/_lib/language_asset_version.js'
+      - 'functions/_middleware.js'
+      - 'functions/api/hub/owner/activity.js'
+      - 'functions/api/hub/kitchen/**'
+      - 'test/ui/*language-browser.cjs'
+      - 'test/ui/reading-edition-joined-browser.cjs'
+      - '.github/workflows/bilingual-ui.yml'
+jobs:
+  populated-bilingual-browser:
+    name: Populated English and Spanish operator workflows
+    runs-on: ubuntu-24.04
+    env:
+      ANEJO_AUDIT_CANONICAL: ${{ github.workspace }}
+      ANEJO_LANGUAGE_RUNTIME_ROOT: ${{ github.workspace }}
+      ANEJO_BROWSER_CHANNEL: chromium
+      ANEJO_OWNER_AUDIT_OUT: /tmp/anejo-bilingual-owner
+      ANEJO_CATERING_AUDIT_OUT: /tmp/anejo-bilingual-catering
+      ANEJO_READING_AUDIT_OUT: /tmp/anejo-bilingual-reading
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with: {node-version: 24, cache: npm}
+      - run: npm ci
+      - run: npm install --no-save --package-lock=false --ignore-scripts playwright@1.62.1
+      - run: npx playwright install --with-deps chromium
+      - run: npm run build:language -- --check
+      - run: node test/ui/owner-populated-language-browser.cjs
+      - run: node test/ui/catering-populated-language-browser.cjs
+      - run: node test/ui/reading-edition-joined-browser.cjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: bilingual-ui-synthetic-evidence
+          path: |
+            /tmp/anejo-bilingual-owner
+            /tmp/anejo-bilingual-catering
+            /tmp/anejo-bilingual-reading

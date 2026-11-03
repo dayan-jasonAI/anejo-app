@@ -65,7 +65,7 @@ function same(actual, expected, label) { assert.equal(normalize(actual), normali
   activityHelpers = await import(pathToFileURL(helperFile).href);
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
   const base = 'http://127.0.0.1:' + server.address().port;
-  const browser = await chromium.launch({ channel: 'chrome', headless: true });
+  const browser = await chromium.launch({ ...(process.env.ANEJO_BROWSER_CHANNEL === 'chromium' ? {} : { channel: 'chrome' }), headless: true });
   const context = await browser.newContext({ viewport: { width: 375, height: 812 }, serviceWorkers: 'block' });
   await context.route('**/*', route => {
     if (new URL(route.request().url()).origin === base) return route.continue();
