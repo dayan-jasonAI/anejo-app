@@ -60,3 +60,8 @@ test('recipe matrix server-generated explanations stay coupled to deterministic 
  assert.deepEqual(scenarios.map(r=>r.state),['missing','exists_unconfirmed','exists_confirmed']);
  for(const row of scenarios){assert.notEqual(tr(row.meaning),row.meaning);assert.doesNotMatch(tr(row.meaning),/Reference exists|No recipe reference|Exact catalog link/);}
 });
+
+
+test('training header fragment is translated even when punctuation is a separate node', () => {
+  assert.equal(tr('TRAINING'), 'CAPACITACIÓN');
+});

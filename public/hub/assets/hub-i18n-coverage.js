@@ -7413,6 +7413,7 @@
   else window.__anejoI18nPatterns = (window.__anejoI18nPatterns || []).concat(fragmentPatterns);
 
   var dashboardDictionary = {
+  "TRAINING": "CAPACITACIÓN",
   "TODAY": "HOY",
   "TOMORROW": "MAÑANA",
   "tap for the production plan": "toca para ver el plan de producción",
