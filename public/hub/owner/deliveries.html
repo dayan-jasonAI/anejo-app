@@ -27,7 +27,7 @@
 <script src="/hub/assets/hub.js"></script>
 <script src="/hub/owner/assets/owner.js"></script>
 <script src="/hub/owner/assets/readiness.js?v=20261103-resolution"></script>
-<script src="/hub/owner/assets/delivery-resolution.js?v=20261103-1"></script>
+<script src="/hub/owner/assets/delivery-resolution.js?v=20261103-2"></script>
 <script>
 (function () {
   Hub.boot();
@@ -55,8 +55,8 @@
     var count = ro.stops != null ? ro.stops : ro.stop_count || 0;
     parts.push(OwnerReadiness.label(count + (count === 1 ? ' stop' : ' stops'), count + (count === 1 ? ' parada' : ' paradas')));
     if (ro.total_miles_est != null) parts.push(ro.total_miles_est + ' mi');
-    if (ro.eta_complete_at) parts.push(OwnerReadiness.label('done ~', 'finaliza ~') + clockET(ro.eta_complete_at));
-    else if (ro.total_minutes != null) parts.push('~' + ro.total_minutes + ' min');
+    if (!['completed','canceled'].includes(ro.status) && ro.eta_complete_at) parts.push(OwnerReadiness.label('done ~', 'finaliza ~') + clockET(ro.eta_complete_at));
+    else if (!['completed','canceled'].includes(ro.status) && ro.total_minutes != null) parts.push('~' + ro.total_minutes + ' min');
     return parts.join(' · ');
   }
 
@@ -363,13 +363,13 @@
       routesEl.innerHTML = visible.length ? visible.map(function (ro) {
         var p = ro.progress, live = '', counts = '';
         if (p && p.active) {
-          var verb = p.active.status === 'arriving' ? 'arriving at' : 'en route to';
+          var verb = p.active.status === 'arriving' ? OwnerReadiness.label('Arriving at','Llegando a') : OwnerReadiness.label('En route to','En camino a');
           live = '<div class="row-sub" style="color:var(--gold-700,#8a7a2e);font-weight:600">' + verb + ' ' + Owner.esc(p.active.name) +
             (p.active.eta_at ? ' · ETA ' + etClock(p.active.eta_at) : '') + '</div>';
         }
-        if (p) counts = '<div class="row-sub">' + [p.done ? p.done + ' delivered' : '', (p.en_route + p.arriving) ? (p.en_route + p.arriving) + ' out' : '', p.picked ? p.picked + ' loaded' : '', p.failed ? p.failed + ' failed' : ''].filter(Boolean).join(' · ') + '</div>';
+        if (p) counts = '<div class="row-sub">' + [p.done ? p.done + ' '+OwnerReadiness.label('delivered','entregadas') : '', (p.en_route + p.arriving) ? (p.en_route + p.arriving) + ' '+OwnerReadiness.label('out','en camino') : '', p.picked ? p.picked + ' '+OwnerReadiness.label('loaded','cargadas') : '', p.failed ? p.failed + ' '+OwnerReadiness.label('failed','fallidas') : ''].filter(Boolean).join(' · ') + '</div>';
         var pay = ro.pay_cents != null ? '<b style="color:var(--green)">' + money(ro.pay_cents) + '</b> · ' : '';
-        var fin = ro.eta_complete_at && ro.status !== 'completed' ? ' · done ~' + etClock(ro.eta_complete_at) : '';
+        var fin = ro.eta_complete_at && !['completed','canceled'].includes(ro.status) ? ' · '+OwnerReadiness.label('done ~','finaliza ~') + etClock(ro.eta_complete_at) : '';
         return '<div class="row"><div class="row-main"><div class="row-title">' + Owner.esc(ro.driver_name || 'Unassigned') +
           (ro.ai_optimized ? ' ⚡' : '') + '</div>' + live + counts +
           '<div class="row-sub">' + pay + Owner.esc((ro.stops_completed || 0) + '/' + (ro.stop_count || 0) + ' stops') +
@@ -386,9 +386,9 @@
         var fb = dv.feedback_rating ? '<div class="row-sub" style="color:var(--gold-700,#8a7a2e)">' + stars(dv.feedback_rating) +
           (dv.feedback_comment ? ' “' + Owner.esc(String(dv.feedback_comment).slice(0, 80)) + '”' : '') + '</div>' : '';
         return '<div class="row"><div class="row-main"><div class="row-title">' + Owner.esc(dv.customer_name || dv.order_id || 'Delivery') + '</div>' +
-          '<div class="row-sub">' + (dv.completed_at ? Owner.clock(dv.completed_at) : dv.status==='completed'?OwnerReadiness.label('Completed · exact time not recorded','Completada · hora exacta sin registrar'):'pending') +
+          '<div class="row-sub">' + (dv.completed_at ? Owner.clock(dv.completed_at) : dv.status==='completed'?OwnerReadiness.label('Completed · exact time not recorded','Completada · hora exacta sin registrar'):OwnerReadiness.label('Pending','Pendiente')) +
           (dv.fail_reason ? ' · ' + Owner.esc(dv.fail_reason) : '') +
-          (dv.on_time === 1 ? ' · on time' : dv.on_time === 0 ? ' · late' : '') + '</div>' + fb + '</div>' +
+          (dv.on_time === 1 ? ' · '+OwnerReadiness.label('On time','A tiempo') : dv.on_time === 0 ? ' · '+OwnerReadiness.label('Late','Tarde') : '') + '</div>' + fb + '</div>' +
           Owner.badge(dv.status, Owner.kindFor(dv.status)) + proof + '</div>';
       }).join('') : '<div class="hub-empty" data-i18n>No deliveries for this date.</div>';
       if (window.AnejoI18n) window.AnejoI18n.refresh();
