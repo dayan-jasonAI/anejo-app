@@ -577,7 +577,7 @@
     Hub.api('/api/hub/owner/orders', { method: 'POST', body: body }).then(function (r) {
       btn.disabled = false;
       if (r && r.ok) {
-        Hub.toast('Order created');
+        Hub.toast(r.inventory && !r.inventory.ok ? 'Order saved. Inventory sync is pending.' : r.inventory && r.inventory.state === 'review' ? 'Order saved. Review the inventory alert.' : 'Order created');
         $('#o-lines').innerHTML = ''; addLine();
         $('#o-name').value = ''; $('#o-email').value = ''; $('#o-phone').value = ''; $('#o-note').value = '';
         $('#o-street').value = ''; $('#o-unit').value = ''; $('#o-city').value = '';

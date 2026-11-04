@@ -41,11 +41,12 @@ function fixture() {
   for (const migration of ['0170_inventory_sales.sql', '0171_inventory_sale_promotions.sql', '0172_inventory_sale_deductions.sql']) {
     DB.sqlite.exec(readFileSync(new URL(`../../migrations/${migration}`, import.meta.url), 'utf8'));
   }
+  DB.sqlite.exec("UPDATE menu_items SET stock_count=10,stock_count_basis='physical',stock_counted_at=1,inventory_revision=1 WHERE id='vida'");
   return DB;
 }
 const seed = (DB, status = 'pending') => DB.sqlite.prepare(
   'INSERT INTO orders (id,square_order_id,status,items,created_at,updated_at) VALUES (?,?,?,?,?,?)'
-).run('ord_synthetic', 'square_synthetic', status, '[]', Date.now(), Date.now());
+).run('ord_synthetic', 'square_synthetic', status, JSON.stringify([{ id: 'vida', name: 'VIDA', qty: 1, price_cents: 1999 }]), Date.now(), Date.now());
 const paidAlerts = (DB) => DB.sqlite.prepare("SELECT * FROM alerts WHERE alert_type='new_paid_order'").all();
 const payment = (DB, status, env = {}) => square({ env: { DB, ...env }, request: new Request('https://example.test/api/webhooks/square', {
   method: 'POST', body: JSON.stringify({ type: 'payment.updated', data: { object: {
@@ -55,7 +56,8 @@ const payment = (DB, status, env = {}) => square({ env: { DB, ...env }, request:
 
 test('completed payment creates one bilingual owner alert; retries after acknowledgement do not duplicate', async () => {
   const DB = fixture(); seed(DB);
-  assert.equal((await payment(DB, 'COMPLETED')).status, 200);
+  const captured = await payment(DB, 'COMPLETED');
+  assert.equal(captured.status, 200, await captured.clone().text());
   assert.equal(DB.sqlite.prepare('SELECT status FROM orders').get().status, 'paid');
   const [alert] = paidAlerts(DB);
   assert.ok(alert);

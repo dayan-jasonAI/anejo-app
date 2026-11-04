@@ -11,6 +11,8 @@ const assert = require('node:assert/strict');
   const { onRequestGet: inventoryGet, onRequestPost: inventoryPost } = await import('../../functions/api/hub/kitchen/inventory.js');
   const { onRequestGet: salesGet, onRequestPost: salesPost } = await import('../../functions/api/hub/kitchen/inventory-sales.js');
   const { onRequestGet: meGet } = await import('../../functions/api/me.js');
+  const { onRequestPost: squareWebhook } = await import('../../functions/api/webhooks/square.js');
+  const { stockReservationStatements, saleOfferSnapshot } = await import('../../functions/_lib/inventory_sales.js');
   const root = path.resolve('public');
   const productionCsp = fs.readFileSync(path.join(root, '_headers'), 'utf8').match(/Content-Security-Policy: (.+)/)[1];
   const evidence = process.env.ANEJO_INVENTORY_AUDIT_OUT || process.env.INVENTORY_SALES_BROWSER_EVIDENCE || path.resolve('../anejo-deliverables/inventory-sales-recovery-2026-11-03/browser-joined');
@@ -46,6 +48,7 @@ const assert = require('node:assert/strict');
     },
   };
   const env = ownerEnv({ MEDIA: media, ASSETS: assets });
+  env.SQUARE_ENV = 'sandbox';
   const syntheticNow = Date.now();
   env.DB.prepare("INSERT INTO inventory_items(id,name,unit,on_hand,par_level,active,revision,created_at,updated_at) VALUES('synthetic_dirty','Synthetic dry goods','oz',4,2,1,0,?,?)").bind(syntheticNow, syntheticNow).run();
   const kitchenCookie = 'anejo_sess=tok-kitchen';
@@ -162,16 +165,79 @@ const assert = require('node:assert/strict');
     await page.getByText('Aprobada para programar', { exact: true }).waitFor({ timeout: 12000 });
     assert.equal(env.DB.one("SELECT state FROM inventory_sale_promotions WHERE menu_item_id='vida'").state, 'reviewed');
     assert.equal(env.DB.one("SELECT reviewed_by FROM inventory_sale_promotions WHERE menu_item_id='vida'").reviewed_by, 'stf_owner');
+    const ownerReviewedStory = env.DB.one("SELECT state,snapshot_hash,jpeg_sha256,reviewed_by FROM inventory_sale_promotions WHERE menu_item_id='vida'");
     await page.evaluate(() => window.AnejoLang.set('en'));
     await page.getByText('Approved for scheduling', {exact:true}).waitFor();
     assert.equal(await page.locator('#onhand-synthetic_dirty').inputValue(), '29');
     await page.evaluate(() => window.AnejoLang.set('es'));
     await page.getByText('Aprobada para programar', {exact:true}).waitFor();
 
+    // Reserve five units against the approved offer, then run the real sandbox Square webhook.
+    // The synthetic order has no email or phone, so no customer-notification provider can run.
+    const orderId = 'ord_inventory_paid5_synthetic';
+    const squareOrderId = 'square_inventory_paid5_synthetic';
+    const beforePaymentOffer = env.DB.one("SELECT * FROM inventory_sale_offers WHERE menu_item_id='vida'");
+    const saleAt = Date.now();
+    const saleLines = [{ id:'vida', name:'VIDA', qty:5, price_cents:1999, sale_offer_revision:beforePaymentOffer.revision }];
+    const reservations = await stockReservationStatements(env, {
+      orderId, items:[{ id:'vida', qty:5, sale_offer_revision:beforePaymentOffer.revision }], at:saleAt,
+    });
+    await env.DB.batch([
+      env.DB.prepare(`INSERT INTO orders (id,square_order_id,items,delivery_date,delivery_window,subtotal_cents,
+        fee_cents,tax_pct,total_estimate_cents,status,customer_name,created_at,updated_at)
+        VALUES (?,?,?,?,?,?,?,?,?,'pending',?,?,?)`).bind(
+        orderId,squareOrderId,JSON.stringify(saleLines),'2026-12-01','lunch',9995,0,7,10695,'Synthetic paid inventory order',saleAt,saleAt
+      ),
+      ...reservations,
+    ]);
+    assert.equal(env.DB.one("SELECT COUNT(*) n FROM inventory_sale_reservations WHERE order_id=?", orderId).n, 1);
+    const captureAt = new Date(Date.now()).toISOString();
+    const webhook = await squareWebhook({ env, request:new Request('https://local.test/api/webhooks/square', {
+      method:'POST', headers:{ 'Content-Type':'application/json' },
+      body:JSON.stringify({ type:'payment.updated', data:{ object:{ payment:{
+        id:'payment_synthetic_paid5', order_id:squareOrderId, status:'COMPLETED', updated_at:captureAt,
+      } } } }),
+    }) });
+    assert.equal(webhook.status, 200, await webhook.text());
+    assert.equal(env.DB.one('SELECT status FROM orders WHERE id=?', orderId).status, 'paid');
+    assert.equal(env.DB.one("SELECT state FROM inventory_sale_jobs WHERE source_type='order' AND source_id=?", orderId).state, 'done');
+    assert.equal(env.DB.one("SELECT COUNT(*) n FROM inventory_sale_deductions WHERE source_type='order' AND source_id=?", orderId).n, 1);
+    assert.equal(env.DB.one("SELECT stock_count FROM menu_items WHERE id='vida'").stock_count, 15);
+    const remainingOffer = await saleOfferSnapshot(env);
+    assert.equal(remainingOffer.offers.find(item => item.item_id === 'vida').remaining, 15, 'prior reservations reduce the unreserved quantity once');
+    const currentPromotion = env.DB.one("SELECT * FROM inventory_sale_promotions WHERE menu_item_id='vida'");
+    assert.equal(currentPromotion.state, 'preview_ready', 'payment invalidates the earlier owner image approval and requests a fresh render');
+    assert.equal(currentPromotion.reviewed_by, null);
+    assert.notEqual(currentPromotion.snapshot_hash, promotion.snapshot_hash);
+    const currentStory = JSON.parse(currentPromotion.snapshot_json);
+    assert.equal(currentStory.source.remaining, 15, 'new Story snapshot contains the current sale quantity');
+    await page.evaluate(() => window.InventoryPage.refresh());
+    await page.waitForFunction(() => {
+      const promo = document.querySelector('.ivs-promo[data-ivs-promo="vida"]');
+      return !!promo && /Current listed quantity: 15|Cantidad publicada actual: 15/.test(promo.innerText)
+        && /Ready for owner review|Lista para revisión del propietario/.test(promo.innerText);
+    }, null, { timeout:15000 });
+    await page.waitForFunction(() => {
+      const image = document.querySelector('.ivs-promo[data-ivs-promo="vida"] .ivs-story-preview');
+      return !!image && image.complete && image.naturalWidth > 0 && image.naturalHeight > 0;
+    }, null, { timeout:20000 });
+    const refreshedPromotion = env.DB.one("SELECT * FROM inventory_sale_promotions WHERE menu_item_id='vida'");
+    assert.equal(refreshedPromotion.state, 'ready_for_review');
+    assert.notEqual(refreshedPromotion.jpeg_sha256, ownerReviewedStory.jpeg_sha256);
+    const currentJpeg = bytes.get(refreshedPromotion.jpeg_key);
+    assert.ok(currentJpeg && currentJpeg.length > 1000, 'regenerated 15-unit JPEG is persisted to isolated media');
+    assert.equal(currentJpeg[0], 0xff);
+    assert.equal(currentJpeg[1], 0xd8);
+    assert.match(await page.locator('.ivs-promo[data-ivs-promo="vida"] .ivs-story-preview').getAttribute('src'), new RegExp(currentPromotion.snapshot_hash));
+    assert.match(await page.locator('.ivs-promo[data-ivs-promo="vida"]').innerText(), /15/);
+    assert.equal(await page.locator('#onhand-synthetic_dirty').inputValue(), '29', 'paid sale refresh preserves unrelated dirty ingredient value');
+
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true, '375px Story and sale controls do not overflow');
     await page.locator('#inventory-sales-promotions').screenshot({ path: path.join(evidence, 'owner-reviewed-story.png') });
     const itemRevision = env.DB.one("SELECT inventory_revision,stock_count,availability FROM menu_items WHERE id='vida'");
-    assert.deepEqual({ revision: itemRevision.inventory_revision, quantity: itemRevision.stock_count, availability: itemRevision.availability }, { revision: 1, quantity: 20, availability: 'available' });
+    assert.deepEqual({ revision: itemRevision.inventory_revision, quantity: itemRevision.stock_count, availability: itemRevision.availability }, { revision: 2, quantity: 15, availability: 'available' });
+    assert.equal(env.DB.one("SELECT quantity FROM inventory_sale_offers WHERE menu_item_id='vida'").quantity, 20);
+    assert.equal(env.DB.one("SELECT COALESCE(SUM(quantity),0) n FROM inventory_sale_reservations WHERE menu_item_id='vida'").n, 5);
     assert.equal(env.DB.one("SELECT COUNT(*) n FROM inventory_changes WHERE action='menu_count'").n, 1);
     assert.equal(env.DB.one("SELECT COUNT(*) n FROM social_posts WHERE source='inventory' AND media_type='STORIES'").n, 1);
 
@@ -179,21 +245,23 @@ const assert = require('node:assert/strict');
     await context.clearCookies();
     await context.addCookies([{ name: 'anejo_sess', value: 'tok-kitchen', domain: '127.0.0.1', path: '/', httpOnly: true, sameSite: 'Lax' }]);
     currentRole = 'kitchen';
+    const latestPromotion = env.DB.one("SELECT * FROM inventory_sale_promotions WHERE menu_item_id='vida'");
     const kitchenRead = await page.evaluate(async () => (await fetch('/api/me', { cache: 'no-store' })).json());
     assert.equal(kitchenRead.role, 'kitchen');
     const denied = await page.evaluate(async data => {
       const response = await fetch('/api/hub/kitchen/inventory-sales', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
       return { status: response.status, body: await response.json() };
-    }, { op: 'approve', item_id: 'vida', snapshot_hash: promotion.snapshot_hash, jpeg_sha256: promotion.jpeg_sha256, reviewed: true });
+    }, { op: 'approve', item_id: 'vida', snapshot_hash: latestPromotion.snapshot_hash, jpeg_sha256: latestPromotion.jpeg_sha256, reviewed: true });
     assert.equal(denied.status, 403);
-    assert.equal(env.DB.one("SELECT state FROM inventory_sale_promotions WHERE menu_item_id='vida'").state, 'reviewed');
+    assert.equal(env.DB.one("SELECT state FROM inventory_sale_promotions WHERE menu_item_id='vida'").state, 'ready_for_review');
     assert.deepEqual(pageErrors, []);
     assert.deepEqual(cspErrors, [], 'production security policy permits the exact Story composition and preview');
     assert.deepEqual(external, []);
     fs.writeFileSync(path.join(evidence, 'validation.json'), JSON.stringify({
       status: 'passed', scope: 'Actual local inventory HTML and browser assets + API handlers + migrated SQLite + local catalog artwork/font reads + isolated media byte store',
-      scenarios: ['saved finished quantity 20 with for-sale intent', 'original VIDA catalog photo in SVG and generated JPEG', 'JPEG media-store readback loaded in browser before owner approval', 'kitchen role blocked from owner-only approval', 'unrelated dirty ingredient edit persisted across language change and finished-count readback'],
+      scenarios: ['saved finished quantity 20 with for-sale intent', 'initial exact catalog photo Story JPEG loaded and approved by owner', 'reserved and paid synthetic Square order for five units; finished stock reconciled 20→15 exactly once', 'offer reservation remains five and unreserved website quantity is fifteen, not ten', 'payment invalidated prior owner Story approval; regenerated 15-unit Story JPEG loaded in browser', 'kitchen role blocked from owner-only approval using current Story receipt', 'unrelated dirty ingredient edit persisted across language changes and payment refresh'],
       menu_item: 'vida', catalog_image: 'bowl_vida.jpg', count: itemRevision.stock_count, inventory_revision: itemRevision.inventory_revision,
+      owner_reviewed_initial_story: ownerReviewedStory, final_story_source_remaining: currentStory.source.remaining,
       offer_revision: offer.revision, promotion_state: env.DB.one("SELECT state FROM inventory_sale_promotions WHERE menu_item_id='vida'").state,
       production_csp: productionCsp, csp_errors: cspErrors, jpeg_bytes: jpeg.length, page_errors: pageErrors, external_requests: external,
       api_calls: browserApiCalls.filter(call => call.path.includes('inventory')),

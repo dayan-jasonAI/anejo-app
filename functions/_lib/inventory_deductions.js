@@ -6,7 +6,7 @@ import { packMapping } from './inventory_units.js';
 const PAID = ['paid','prep','ready','fulfilled'];
 const parse = (text, fallback) => { try { return JSON.parse(text); } catch { return fallback; } };
 const hash = async text => [...new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(text)))].map(v=>v.toString(16).padStart(2,'0')).join('');
-const count = value => Number.isSafeInteger(value) && value >= 0;
+const lineQuantity = value => (typeof value==='number'||typeof value==='string'&&/^[1-9]\d*$/.test(value.trim())) && Number.isSafeInteger(Number(value)) && Number(value)>0 ? Number(value) : null;
 const changes = result => Number(result?.meta?.changes || 0);
 async function sourceRecord(env, job) {
   if(job.source_type==='order') {
@@ -34,8 +34,9 @@ export async function processInventoryDeductionJob(env,{sourceType='order',sourc
     if(!line||line.id==='meta'||line.meta||line.qty===0||['delivery','fee','tax','discount'].includes(line.type||line.kind))continue;
     let saleId=sourceType==='quote'?(line.pricing_mode==='catalog'?line.product_id:null):line.id;
     if(sourceType==='order'&&line.addon===true&&typeof saleId==='string'&&saleId.startsWith('addon_'))saleId=saleId.slice(6);
-    if(!saleId||!count(line.qty)||line.qty<1){reviews++;await exception(env,job,'line_'+index,'Exact catalog item and selling quantity required / Faltan producto y cantidad exactos',{name:line.name||null,qty:line.qty??null},snapshotHash);continue;}
-    totals.set(saleId,(totals.get(saleId)||0)+line.qty);
+    const quantity=lineQuantity(line.qty);
+    if(!saleId||quantity==null){reviews++;await exception(env,job,'line_'+index,'Exact catalog item and selling quantity required / Faltan producto y cantidad exactos',{name:line.name||null,qty:line.qty??null},snapshotHash);continue;}
+    totals.set(saleId,(totals.get(saleId)||0)+quantity);
   }
   for(const [saleId,total] of totals) {
     let settled=false;
