@@ -68,7 +68,7 @@
     var controlsHtml = '<div class="ivs-sale-controls" data-ivs-sale="' + esc(id) + '">' +
       '<label class="ivs-toggle"><input type="checkbox" data-ivs-enabled' + (checked ? ' checked' : '') + (!sales ? ' disabled' : '') + '><span>' + txNode('Available for sale', 'Disponible para la venta') + '</span></label>' +
       '<label class="ivs-choice"><span>' + txNode('Sale window', 'Vigencia de venta') + '</span><select data-ivs-hours' + (!sales ? ' disabled' : '') + '>' + [4,12,24,48].map(function (n) { return '<option value="' + n + '" data-ivs-en="' + n + ' hours" data-ivs-es="' + n + ' horas"' + (hours === n ? ' selected' : '') + '>' + n + ' ' + esc(enEs('hours','horas')) + '</option>'; }).join('') + '</select></label>' +
-      '<label class="ivs-choice"><span>' + txNode('Story language', 'Idioma de Story') + '</span><select data-ivs-locale><option value="en"' + (locale === 'en' ? ' selected' : '') + '>EN</option><option value="es"' + (locale === 'es' ? ' selected' : '') + '>ES</option></select></label>' +
+      '<label class="ivs-choice"><span>' + txNode('Story language', 'Idioma de la historia') + '</span><select data-ivs-locale><option value="en"' + (locale === 'en' ? ' selected' : '') + '>EN</option><option value="es"' + (locale === 'es' ? ' selected' : '') + '>ES</option></select></label>' +
       '<span class="ivs-declaration" data-ivs-declaration>' + (!sales ? enEs('Availability status unavailable', 'Estado de disponibilidad no disponible') : decl ? (decl.enabled && decl.sale_expires_at <= Date.now() ? enEs('Sale window ended', 'Vigencia de venta terminada') : decl.enabled ? enEs('Sale declaration active', 'Declaración de venta activa') : enEs('Sale declaration paused', 'Declaración de venta pausada')) : enEs('Count only · no sale declaration', 'Solo conteo · sin declaración de venta')) + '</span><span class="ivs-declaration" data-ivs-sale-note></span>' +
       '</div>';
     var host = existing || document.createElement('div');
@@ -117,8 +117,8 @@
     });
   }
   function stateLabel(state) {
-    var map = { pending:['Preparing Story…','Preparando Story…'], preview_ready:['Preparing exact preview…','Preparando la vista previa exacta…'], ready_for_review:['Ready for owner review','Lista para revisión del propietario'], reviewed:['Approved for scheduling','Aprobada para programar'], published:['Published','Publicada'], withdrawn:['Unavailable · Story withdrawn','No disponible · Story retirada'], error:['Story preparation failed','Falló la preparación del Story'] };
-    return enEs.apply(null, map[state] || ['No Story prepared','No hay un Story preparado']);
+    var map = { pending:['Preparing Story…','Preparando historia…'], preview_ready:['Preparing exact preview…','Preparando la vista previa exacta…'], ready_for_review:['Ready for owner review','Lista para revisión del propietario'], reviewed:['Approved for scheduling','Aprobada para programar'], published:['Published','Publicada'], withdrawn:['Unavailable · Story withdrawn','No disponible · Historia retirada'], error:['Story preparation failed','Falló la preparación de la historia'] };
+    return enEs.apply(null, map[state] || ['No Story prepared','No hay una historia preparada']);
   }
   function promoCard(promo, item) {
     var id = String(promo.menu_item_id), offerData = offer(id), menu = findPrepared(id) || item || {}, qty = offerData ? offerData.remaining : null;
@@ -132,14 +132,14 @@
     var previewUrl = previewReady ? href(id, promo.snapshot_hash, true) : '';
     var owner = actorRole === 'owner';
     var card = '<article class="ivs-promo" data-ivs-promo="' + esc(id) + '"><div class="ivs-promo-head">' + (image ? '<img class="ivs-photo" src="' + esc(catalogPhoto(image)) + '" alt="' + esc(enEs('Catalog photo for ', 'Foto del catálogo para ') + (menu.name || promo.name || id)) + '" loading="lazy">' : '<div class="ivs-photo ivs-photo-empty" role="img" aria-label="' + esc(enEs('Catalog photo unavailable', 'Foto del catálogo no disponible')) + '"></div>') +
-      '<div class="ivs-promo-main"><strong>' + esc(displayName) + '</strong><span>' + esc(enEs('Current listed quantity: ', 'Cantidad publicada actual: ') + label) + '</span><span class="ivs-state">' + esc(stale ? enEs('Story snapshot needs refresh', 'La instantánea del Story necesita actualizarse') : stateLabel(promo.state)) + '</span><span>' + esc(enEs('Website: ', 'Sitio web: ') + (websiteEnabled == null ? enEs('unknown', 'desconocido') : websiteEnabled ? enEs('active', 'activo') : enEs('paused', 'en pausa'))) + '</span></div></div>' +
-      (previewReady ? '<img class="ivs-story-preview" src="' + esc(previewUrl) + '" alt="' + esc(enEs('Exact rendered Story preview', 'Vista previa exacta del Story renderizado')) + '"><a class="ivs-link" href="' + esc(previewUrl) + '" download="anejo-inventory-story-' + esc(id) + '.jpg">' + txNode('Download exact JPEG', 'Descargar JPEG exacto') + '</a>' : '') +
+      '<div class="ivs-promo-main"><strong>' + esc(displayName) + '</strong><span>' + esc(enEs('Current listed quantity: ', 'Cantidad publicada actual: ') + label) + '</span><span class="ivs-state">' + esc(stale ? enEs('Story snapshot needs refresh', 'La vista de la historia necesita actualizarse') : stateLabel(promo.state)) + '</span><span>' + esc(enEs('Website: ', 'Sitio web: ') + (websiteEnabled == null ? enEs('unknown', 'desconocido') : websiteEnabled ? enEs('active', 'activo') : enEs('paused', 'en pausa'))) + '</span></div></div>' +
+      (previewReady ? '<img class="ivs-story-preview" src="' + esc(previewUrl) + '" alt="' + esc(enEs('Exact rendered Story preview', 'Vista previa exacta de la historia renderizada')) + '"><a class="ivs-link" href="' + esc(previewUrl) + '" download="anejo-inventory-story-' + esc(id) + '.jpg">' + txNode('Download exact JPEG', 'Descargar JPEG exacto') + '</a>' : '') +
       '<p class="ivs-order-link"><a href="' + esc(url) + '" target="_blank" rel="noopener">' + esc(url) + '</a><small>' + esc(enEs('Customers choose delivery at checkout.', 'El cliente elige la entrega al finalizar la compra.')) + '</small></p>' +
       (blocked ? '<p class="ivs-error">' + esc(suppressionLabel(blocked.reason)) + '</p>' : '') +
       (promo.error ? '<p class="ivs-error" role="status">' + esc(promo.error) + '</p>' : '') +
-      '<div class="ivs-actions">' + (!stale && ['preview_ready','ready_for_review'].includes(promo.state) && !promo.jpeg_sha256 ? '<button type="button" class="ivs-button" data-ivs-render="' + esc(id) + '">' + txNode('Render exact JPEG', 'Renderizar JPEG exacto') + '</button>' : '') +
-      (stale || promo.state === 'error' || !promo.snapshot_hash ? '<button type="button" class="ivs-button" data-ivs-retry="' + esc(id) + '">' + txNode(stale ? 'Refresh current Story' : 'Retry Story preparation', stale ? 'Actualizar Story actual' : 'Reintentar preparación del Story') + '</button>' : '') +
-      (owner && !stale && previewReady && promo.state === 'ready_for_review' ? '<label class="ivs-review"><input type="checkbox" data-ivs-review="' + esc(id) + '" disabled' + (reviewDrafts.get(id) === reviewKey(promo) ? ' checked' : '') + '><span>' + txNode('I reviewed this Story', 'Revisé este Story') + '</span></label><button type="button" class="ivs-button" data-ivs-approve="' + esc(id) + '" disabled>' + txNode('Approve Story', 'Aprobar Story') + '</button>' : '') +
+      '<div class="ivs-actions">' + (!stale && ['preview_ready','ready_for_review'].includes(promo.state) && !promo.jpeg_sha256 ? '<button type="button" class="ivs-button" data-ivs-render="' + esc(id) + '">' + txNode('Render exact JPEG', 'Generar JPEG exacto') + '</button>' : '') +
+      (stale || promo.state === 'error' || !promo.snapshot_hash ? '<button type="button" class="ivs-button" data-ivs-retry="' + esc(id) + '">' + txNode(stale ? 'Refresh current Story' : 'Retry Story preparation', stale ? 'Actualizar historia actual' : 'Reintentar preparación de la historia') + '</button>' : '') +
+      (owner && !stale && previewReady && promo.state === 'ready_for_review' ? '<label class="ivs-review"><input type="checkbox" data-ivs-review="' + esc(id) + '" disabled' + (reviewDrafts.get(id) === reviewKey(promo) ? ' checked' : '') + '><span>' + txNode('I reviewed this Story', 'Revisé esta historia') + '</span></label><button type="button" class="ivs-button" data-ivs-approve="' + esc(id) + '" disabled>' + txNode('Approve Story', 'Aprobar historia') + '</button>' : '') +
       '</div>' + (owner && promo.state === 'reviewed' ? '<p class="ivs-confirmed">' + esc(enEs('Reviewed. Schedule or publish from ', 'Revisada. Programa o publica desde ')) + '<a href="/hub/owner/social.html">' + esc('/hub/owner/social.html') + '</a>.</p>' : '') + '</article>';
     return card;
   }
@@ -175,7 +175,7 @@
     host.innerHTML = ids.size ? Array.from(ids).map(function (id) {
       var p = promotion(id) || { menu_item_id:id, state:suppression(id) ? 'withdrawn' : 'pending', snapshot_hash:'', error:'' };
       var offerData = offer(id); return promoCard(p, offerData);
-    }).join('') : '<p class="ivs-empty">' + esc(enEs('No sale Stories are available yet.', 'Aún no hay Stories de venta disponibles.')) + '</p>';
+    }).join('') : '<p class="ivs-empty">' + esc(enEs('No sale Stories are available yet.', 'Aún no hay historias de venta disponibles.')) + '</p>';
     localize(section);
     Array.prototype.forEach.call(host.querySelectorAll('.ivs-story-preview'), function (image) {
       var card = image.closest('[data-ivs-promo]'), checkbox = card && card.querySelector('[data-ivs-review]'), approve = card && card.querySelector('[data-ivs-approve]');
@@ -193,9 +193,9 @@
       button.addEventListener('click', function () {
         var id = button.getAttribute('data-ivs-approve'), promo = promotion(id), review = section.querySelector('[data-ivs-review="' + CSS.escape(id) + '"]');
         if (!review || review.disabled || !review.checked || !promo || !promo.jpeg_sha256) return;
-        button.disabled = true; var card = button.closest('[data-ivs-promo]'); setCardStatus(card, enEs('Approving reviewed Story…', 'Aprobando Story revisado…'));
+        button.disabled = true; var card = button.closest('[data-ivs-promo]'); setCardStatus(card, enEs('Approving reviewed Story…', 'Aprobando historia revisada…'));
         post({ op:'approve', item_id:id, snapshot_hash:promo.snapshot_hash, jpeg_sha256:promo.jpeg_sha256, reviewed:true }).then(function (result) {
-          if (result && result.ok) { reviewDrafts.delete(id); refresh(); } else { button.disabled = false; setCardStatus(card, (result && result.error) || enEs('Could not approve Story.', 'No se pudo aprobar el Story.'), true); }
+          if (result && result.ok) { reviewDrafts.delete(id); refresh(); } else { button.disabled = false; setCardStatus(card, (result && result.error) || enEs('Could not approve Story.', 'No se pudo aprobar la historia.'), true); }
         });
       });
     });
@@ -209,27 +209,27 @@
     node.textContent = message || ''; node.classList.toggle('ivs-error', !!error);
   }
   function fetchSvg(id, promo) {
-    promo = promo || promotion(id); if (!promo || !promo.snapshot_hash) return Promise.reject(new Error(enEs('Current Story snapshot is unavailable.', 'La instantánea actual del Story no está disponible.')));
+    promo = promo || promotion(id); if (!promo || !promo.snapshot_hash) return Promise.reject(new Error(enEs('Current Story snapshot is unavailable.', 'La vista actual de la historia no está disponible.')));
     return fetch(href(id, promo.snapshot_hash, false), { credentials:'same-origin', cache:'no-store' }).then(function (response) {
-      if (!response.ok) throw new Error(enEs('Current Story preview could not be loaded.', 'No se pudo cargar la vista previa actual del Story.'));
+      if (!response.ok) throw new Error(enEs('Current Story preview could not be loaded.', 'No se pudo cargar la vista previa actual de la historia.'));
       return response.text();
     });
   }
   function renderExact(id) {
     renderQueue = renderQueue.then(function () {
       var card = section.querySelector('[data-ivs-promo="' + CSS.escape(String(id)) + '"]');
-      if (!window.InventoryStoryCard || typeof window.InventoryStoryCard.rasterize !== 'function') { setCardStatus(card, enEs('Story renderer is unavailable. Reload after the renderer loads.', 'El renderizador de Story no está disponible. Vuelve a cargar cuando esté disponible.'), true); return; }
-      setCardStatus(card, enEs('Rendering the exact catalog Story…', 'Renderizando el Story exacto del catálogo…'));
+      if (!window.InventoryStoryCard || typeof window.InventoryStoryCard.rasterize !== 'function') { setCardStatus(card, enEs('Story renderer is unavailable. Reload after the renderer loads.', 'No se puede generar la imagen de la historia. Vuelve a cargar para reintentar.'), true); return; }
+      setCardStatus(card, enEs('Rendering the exact catalog Story…', 'Generando la historia exacta del catálogo…'));
       var captured = promotion(id);
       return fetchSvg(id, captured).then(function (svg) { return window.InventoryStoryCard.rasterize(svg); }).then(function (dataUrl) {
         var promo = promotion(id);
-        if (!promo || !captured || promo.snapshot_hash !== captured.snapshot_hash) throw new Error(enEs('Inventory changed. Refresh the Story preview.', 'El inventario cambió. Actualiza la vista previa del Story.'));
+        if (!promo || !captured || promo.snapshot_hash !== captured.snapshot_hash) throw new Error(enEs('Inventory changed. Refresh the Story preview.', 'El inventario cambió. Actualiza la vista previa de la historia.'));
         return post({ op:'render', item_id:id, snapshot_hash:captured.snapshot_hash, data_url:dataUrl });
       }).then(function (result) {
         if (!result || !result.ok) { setCardStatus(card, (result && result.error) || enEs('JPEG render was not saved.', 'No se guardó el render JPEG.'), true); return; }
         setCardStatus(card, enEs('JPEG saved; loading exact readback…', 'JPEG guardado; cargando lectura exacta…'));
         return refresh();
-      }).catch(function (error) { setCardStatus(card, error.message || enEs('Story render failed.', 'Falló el render del Story.'), true); });
+      }).catch(function (error) { setCardStatus(card, error.message || enEs('Story render failed.', 'No se pudo generar la imagen de la historia.'), true); });
     });
     return renderQueue;
   }
@@ -237,9 +237,9 @@
     var promo = promotion(id), card = section.querySelector('[data-ivs-promo="' + CSS.escape(String(id)) + '"]');
     if (promo && !staleSnapshot(promo, offer(id)) && ['preview_ready','ready_for_review'].includes(promo.state) && promo.snapshot_hash) return renderExact(id);
     var control = controls.get(String(id)), locale = control ? control.locale.value : ((promo && promo.locale) || 'es');
-    setCardStatus(card, enEs('Retrying Story preparation…', 'Reintentando la preparación del Story…'));
+    setCardStatus(card, enEs('Retrying Story preparation…', 'Reintentando la preparación de la historia…'));
     return post({ op:'reconcile', item_id:id, locale:locale, force:true }).then(function (result) {
-      if (!result || !result.ok) { setCardStatus(card, (result && result.error) || enEs('Story retry failed.', 'Falló el reintento del Story.'), true); return; }
+      if (!result || !result.ok) { setCardStatus(card, (result && result.error) || enEs('Story retry failed.', 'No se pudo reintentar la historia.'), true); return; }
       return refresh();
     });
   }
@@ -326,7 +326,7 @@
     });
     document.addEventListener('inventory:rendered', onRendered);
     document.addEventListener('inventory:finished-saved', onFinishedSaved);
-    document.addEventListener('anejo:langchange', function () { localize(document); });
+    document.addEventListener('anejo:langchange', function () { localize(document); syncControls(); renderPromotions(); });
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init, { once:true }); else init();
 })(window, document);

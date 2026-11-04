@@ -158,6 +158,11 @@ const assert = require('node:assert/strict');
     await page.getByText('Aprobada para programar', { exact: true }).waitFor({ timeout: 12000 });
     assert.equal(env.DB.one("SELECT state FROM inventory_sale_promotions WHERE menu_item_id='vida'").state, 'reviewed');
     assert.equal(env.DB.one("SELECT reviewed_by FROM inventory_sale_promotions WHERE menu_item_id='vida'").reviewed_by, 'stf_owner');
+    await page.evaluate(() => window.AnejoLang.set('en'));
+    await page.getByText('Approved for scheduling', {exact:true}).waitFor();
+    assert.equal(await page.locator('#onhand-synthetic_dirty').inputValue(), '29');
+    await page.evaluate(() => window.AnejoLang.set('es'));
+    await page.getByText('Aprobada para programar', {exact:true}).waitFor();
 
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true, '375px Story and sale controls do not overflow');
     await page.locator('#inventory-sales-promotions').screenshot({ path: path.join(evidence, 'owner-reviewed-story.png') });
