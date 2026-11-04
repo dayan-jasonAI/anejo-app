@@ -58,32 +58,27 @@ export async function recordOutcome(env, routeId, driverId, outcome) {
 }
 
 // Mark `route` as offered to `driver` and notify them (push + SMS + in-app thread).
-export async function sendOffer(env, route, driver) {
+export async function sendOffer(env, route, driver, {waitUntil}={}) {
   const t = now();
-  await env.DB.prepare("UPDATE routes SET driver_id=?, offer_status='pending', offered_at=?, updated_at=? WHERE id=?")
-    .bind(driver.id, t, t, route.id).run();
-  await recordOutcome(env, route.id, driver.id, 'offered');
-
-  try { await sendPushTickle(env, { staffIds: [driver.id], notification: {
-    type: 'delivery_offer', id: `${route.id}:${t}`, url: '/hub/driver/route.html',
-  } }); } catch { /* push best-effort */ }
-
-  if (driver.phone) {
-    const link = `${appBase(env)}/hub/driver/route.html`;
-    try {
-      await sendSms(env, { to: driver.phone, body: `Añejo HUB: New delivery route — ${route.stop_count || ''} stop(s) on ${route.route_date}${offerTerms(route)}. Open the app to accept or deny: ${link}` });
-    } catch { /* sms no-op safe */ }
-  }
-
+  const claim=await env.DB.prepare("UPDATE routes SET driver_id=?, offer_status='pending', offered_at=?, updated_at=? WHERE id=? AND status='assigned'")
+    .bind(driver.id,t,t,route.id).run();
+  if(claim?.meta?.changes===0)return {ok:false,reason:'route_closed'};
+  await recordOutcome(env,route.id,driver.id,'offered');
+  let inApp={ok:false};
   try {
-    const thr = await driverThread(env, driver.id, t);
-    if (thr) {
-      await env.DB.prepare("INSERT INTO messages (id, thread_id, direction, channel, sender_id, sender_role, body, ai_drafted, created_at) VALUES (?,?,'outbound','in_app',NULL,'system',?,0,?)")
-        .bind(id('msg'), thr, `New delivery route offered — ${route.stop_count || ''} stop(s) on ${route.route_date}${offerTerms(route)}. Accept or deny in Route.`, t).run();
-      await env.DB.prepare('UPDATE threads SET last_message_at=?, updated_at=? WHERE id=?').bind(t, t, thr).run();
-    }
-  } catch { /* in-app notice best-effort */ }
-  return { ok: true, offered_to: driver.id };
+    const thr=await driverThread(env,driver.id,t);
+    if(thr){const mid=id('msg');await env.DB.batch([
+      env.DB.prepare("INSERT INTO messages(id,thread_id,direction,channel,sender_id,sender_role,body,ai_drafted,created_at) VALUES(?,?,'outbound','in_app',NULL,'system',?,0,?)").bind(mid,thr,`New delivery route offered — ${route.stop_count||''} stop(s) on ${route.route_date}${offerTerms(route)}. Accept or deny in Route.`,t),
+      env.DB.prepare('UPDATE threads SET last_message_at=?,updated_at=? WHERE id=?').bind(t,t,thr)
+    ]);inApp={ok:true,thread_id:thr,message_id:mid};}
+  }catch{inApp={ok:false,error:'In-app message persistence failed. The saved assignment remains visible in the driver app.'};}
+  // Persist in-app first. Provider latency/billing cannot gate the assignment or inbox.
+  const notify=(async()=>{
+    try{await sendPushTickle(env,{staffIds:[driver.id],notification:{type: 'delivery_offer',id:`${route.id}:${t}`,url:'/hub/driver/route.html?route_id='+encodeURIComponent(route.id)}});}catch{/* independent channel */}
+    if(driver.phone)try{await sendSms(env,{to:driver.phone,body:`Añejo HUB: New delivery route — ${route.stop_count||''} stop(s) on ${route.route_date}${offerTerms(route)}. Open the app to accept or deny: ${appBase(env)}/hub/driver/route.html?route_id=${encodeURIComponent(route.id)}`});}catch{/* independent channel */}
+  })();
+  if(typeof waitUntil==='function')waitUntil(notify);else await notify;
+  return {ok:true,offered_to:driver.id,in_app:inApp};
 }
 
 // Offer the route to the next eligible driver (active drivers, those toggled "available"
@@ -91,6 +86,7 @@ export async function sendOffer(env, route, driver) {
 export async function offerToNext(env, routeId) {
   const route = await env.DB.prepare('SELECT * FROM routes WHERE id=?').bind(routeId).first();
   if (!route) return { ok: false, reason: 'no_route' };
+  if(!['assigned','started'].includes(route.status))return {ok:false,reason:'route_closed'};
   if (route.offer_status === 'accepted') return { ok: true, already: 'accepted' };
 
   const declined = parseJson(route.declined_ids, []) || [];
@@ -126,6 +122,13 @@ export async function offerToNext(env, routeId) {
 export async function declineAndReoffer(env, routeId, driverId, outcome) {
   const route = await env.DB.prepare('SELECT * FROM routes WHERE id=?').bind(routeId).first();
   if (!route) return { ok: false, reason: 'no_route' };
+  if(route.status!=='assigned'||route.driver_id!==driverId||route.offer_status!=='pending')return {ok:false,reason:'offer_changed'};
+  if(route.dispatch_mode==='manual'){
+    await env.DB.prepare("UPDATE routes SET offer_status='declined',updated_at=? WHERE id=? AND driver_id=? AND offer_status='pending' AND status='assigned'").bind(now(),routeId,driverId).run();
+    await recordOutcome(env,routeId,driverId,outcome);
+    await raiseAlert(env,{alert_type:'delivery_failed',severity:'warning',title:'Assigned driver declined the route',body:'Review the manual assignment in Deliveries and choose a driver.',ref_type:'route',ref_id:routeId,dedupe_key:'manual-route-declined:'+routeId+':'+driverId});
+    return {ok:true,declined:true,owner_review:true};
+  }
   const declined = parseJson(route.declined_ids, []) || [];
   if (driverId && !declined.includes(driverId)) declined.push(driverId);
   await env.DB.prepare('UPDATE routes SET declined_ids=?, updated_at=? WHERE id=?').bind(toJson(declined), now(), routeId).run();

@@ -1,3 +1,4 @@
+import {findDriverRoute} from '../../../_lib/driver_routes.js';
 // Pickup confirmation — the kitchen → driver hand-off gate (Phase 3). The driver re-confirms
 // every bowl the kitchen prepped (the order_bowls rows) before the route departs; an order
 // can't go out for delivery until all its bowls are driver-confirmed. The driver taps each
@@ -8,7 +9,7 @@
 import { json, bad, id } from '../../../_lib/util.js';
 import { requireRole, currentStaff } from '../../../_lib/roles.js';
 import { capture } from '../../../_lib/track.js';
-import { now, today } from '../../../_lib/hub.js';
+import { now } from '../../../_lib/hub.js';
 import { raiseAlert } from '../../../_lib/alerts.js';
 import { ensureOrderBowls, fetchOrderBowls } from '../../../_lib/orderbowls.js';
 import { matchStaffByPin } from '../../../_lib/pinmatch.js';
@@ -16,11 +17,7 @@ import { limitOr429 } from '../../../_lib/ratelimit.js';
 
 const PAST_PICKUP = ['picked', 'en_route', 'arriving', 'delivered', 'done', 'failed'];
 
-async function activeRoute(env, driverId) {
-  return env.DB.prepare(
-    "SELECT * FROM routes WHERE driver_id=? AND route_date=? AND status IN ('assigned','started') ORDER BY CASE status WHEN 'started' THEN 0 ELSE 1 END, created_at DESC LIMIT 1"
-  ).bind(driverId, today()).first();
-}
+
 
 // Compact per-bowl shape for the driver checklist (name, size, who prepped, confirm state).
 function bowlView(bw) {
@@ -43,7 +40,7 @@ export const onRequestGet = async ({ request, env }) => {
   const staff = await currentStaff(env, request);
   if (!staff) return bad('No staff profile for this account.', 403);
 
-  const route = await activeRoute(env, staff.id);
+  const route = await findDriverRoute(env,staff.id,new URL(request.url).searchParams.get('route_id'));
   if (!route) return json({ route: null, stops: [] });
 
   const { results } = await env.DB.prepare(
@@ -83,7 +80,7 @@ export const onRequestPost = async ({ request, env }) => {
   const stopId = (b && b.stop_id || '').toString().trim();
   if (!stopId) return bad('Missing stop_id.');
 
-  const route = await activeRoute(env, staff.id);
+  const route = await findDriverRoute(env,staff.id,b.route_id||null);
   if (!route) return bad('No active route.', 404);
 
   const stop = await env.DB.prepare(

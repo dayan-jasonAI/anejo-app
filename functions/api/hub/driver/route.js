@@ -10,16 +10,7 @@ import { now, today, parseJson } from '../../../_lib/hub.js';
 import { recordOutcome, declineAndReoffer } from '../../../_lib/dispatch.js';
 import { formatAddress, directionsUrl, fullRouteUrl, clockET } from '../../../_lib/geo.js';
 
-// Find the driver's most relevant route for today (started first, else assigned).
-async function todaysRoute(env, driverId) {
-  const date = today();
-  return env.DB
-    .prepare(
-      "SELECT * FROM routes WHERE driver_id=? AND route_date=? AND status IN ('assigned','started') ORDER BY CASE status WHEN 'started' THEN 0 ELSE 1 END, created_at DESC LIMIT 1"
-    )
-    .bind(driverId, date)
-    .first();
-}
+import {findDriverRoute,pendingDriverOffers} from '../../../_lib/driver_routes.js';
 
 export const onRequestGet = async ({ request, env }) => {
   if (!env.DB) return bad('Database not configured.', 500);
@@ -28,8 +19,9 @@ export const onRequestGet = async ({ request, env }) => {
   const staff = await currentStaff(env, request);
   if (!staff) return bad('No staff profile for this account.', 403);
 
-  const route = await todaysRoute(env, staff.id);
-  if (!route) return json({ route: null, stops: [] });
+  const route = await findDriverRoute(env, staff.id, new URL(request.url).searchParams.get('route_id'));
+  const offers = await pendingDriverOffers(env,staff.id);
+  if (!route) return json({ route: null, stops: [], offers, today:today() });
 
   // Join each stop to its order so the driver app has the name, bowls, address, and live ETA.
   const { results } = await env.DB
@@ -75,7 +67,7 @@ export const onRequestGet = async ({ request, env }) => {
       .map((s) => ({ lat: (results.find((r) => r.stop_id === s.stop_id) || {}).delivery_lat, lng: (results.find((r) => r.stop_id === s.stop_id) || {}).delivery_lng, street: s.address }))
   );
 
-  return json({ route: { ...route, current_seq: route.current_seq || 0 }, stops, full_route_url });
+  return json({ route: { ...route, current_seq: route.current_seq || 0 }, stops, full_route_url, offers, today:today() });
 };
 
 export const onRequestPost = async ({ request, env }) => {
@@ -90,17 +82,17 @@ export const onRequestPost = async ({ request, env }) => {
   const action = (b && b.action || '').toString();
   if (!['start', 'complete', 'accept', 'decline'].includes(action)) return bad('Unknown action.');
 
-  const route = b && b.route_id
-    ? await env.DB.prepare('SELECT * FROM routes WHERE id=? AND driver_id=?').bind(b.route_id, staff.id).first()
-    : await todaysRoute(env, staff.id);
-  if (!route) return bad('No route found for today.', 404);
+  const route = await findDriverRoute(env,staff.id,b.route_id||null);
+  if (!route) return bad('No active route found for this driver.',404);
+  if (action==='start' && route.offer_status && route.offer_status!=='accepted') return bad('Accept this assignment before starting the route.',409);
 
   const ts = now();
 
   // Accept the offered delivery order → it becomes this driver's active route.
   if (action === 'accept') {
-    if (route.offer_status && route.offer_status !== 'pending') return json({ ok: true, offer_status: route.offer_status });
-    await env.DB.prepare("UPDATE routes SET offer_status='accepted', updated_at=? WHERE id=?").bind(ts, route.id).run();
+    if (route.offer_status==='accepted') return json({ok:true,offer_status:'accepted',already:true});
+    if (route.offer_status!=='pending') return bad('This offer changed. Refresh your assignments.',409);
+    await env.DB.prepare("UPDATE routes SET offer_status='accepted', updated_at=? WHERE id=? AND driver_id=? AND offer_status='pending' AND status='assigned'").bind(ts, route.id, staff.id).run();
     await recordOutcome(env, route.id, staff.id, 'accepted');
     await capture(env, { event: 'route.accepted', distinct_id: ctx.distinct_id, role: ctx.role, team: ctx.team, properties: { route_id: route.id } });
     return json({ ok: true, offer_status: 'accepted' });

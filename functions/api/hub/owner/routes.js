@@ -100,6 +100,7 @@ export const onRequestGet = async ({ request, env }) => {
     const res = await env.DB
       .prepare(
         'SELECT r.id, r.driver_id, r.route_date, r.stop_count, r.stops_completed, r.stops_failed, r.status, r.offer_status, ' +
+        "(SELECT properties FROM activity_log a WHERE a.event='delivery.owner_confirmed' AND json_extract(a.properties,'$.route_id')=r.id ORDER BY a.created_at DESC LIMIT 1) AS owner_confirmation, " +
         'r.ai_optimized, r.created_at, r.eta_complete_at, r.total_minutes, r.total_miles_est, r.pay_cents, st.name AS driver_name, ' +
         '(SELECT COUNT(*) FROM route_stops rs WHERE rs.route_id = r.id) AS stops ' +
         'FROM routes r LEFT JOIN staff st ON st.id = r.driver_id WHERE r.route_date=? ORDER BY r.created_at ASC'
@@ -112,7 +113,7 @@ export const onRequestGet = async ({ request, env }) => {
   return json({ ok: true, date, drivers, unassigned, routes });
 };
 
-export const onRequestPost = async ({ request, env }) => {
+export const onRequestPost = async ({ request, env, waitUntil }) => {
   const ctx = await requireRole(request, env, ['owner']);
   if (ctx instanceof Response) return ctx;
   if (!env.DB) return bad('Database not configured.', 500);
@@ -162,7 +163,7 @@ export const onRequestPost = async ({ request, env }) => {
     if (r.canceled) return bad('That route was canceled — its orders are back in the unassigned list.', 409);
     // A live offer is left alone: re-sending would text the same driver again. The 2-minute
     // offer sweep (admin/offers-tick) rolls a silent driver on its own.
-    if (r.route.offer_status === 'pending') return json({ ok: true, route_id: routeId, already: 'pending', offer_status: 'pending' });
+    if (r.route.offer_status === 'pending' && (!b.driver_id || b.driver_id===r.route.driver_id)) return json({ ok: true, route_id: routeId, already: 'pending', offer_status: 'pending' });
 
     let drv = null;
     const reDriverId = (b && b.driver_id || '').toString().trim();
@@ -172,8 +173,8 @@ export const onRequestPost = async ({ request, env }) => {
     }
     // Clear the declined list: everyone who passed earlier is eligible again (a driver who was
     // busy at 11 may be free at noon), otherwise a route that went unfilled can never re-fill.
-    await env.DB.prepare("UPDATE routes SET declined_ids='[]', updated_at=? WHERE id=?").bind(t, routeId).run();
-    const offer = drv ? await sendOffer(env, r.route, drv) : await offerToNext(env, routeId);
+    await env.DB.prepare("UPDATE routes SET declined_ids='[]',dispatch_mode='manual', updated_at=? WHERE id=?").bind(t, routeId).run();
+    const offer = drv ? await sendOffer(env, {...r.route,dispatch_mode:'manual'}, drv, {waitUntil}) : await offerToNext(env, routeId);
     await capture(env, {
       event: 'route.reoffered',
       distinct_id: ctx.distinct_id,
@@ -226,7 +227,7 @@ export const onRequestPost = async ({ request, env }) => {
 
   // Hand off to the shared route-creation core (geocode → optimize → miles → pay → insert →
   // stops → offer). Same logic as before; also used by automated dispatch (_lib/autodispatch).
-  const r = await assignRoute(env, { orders, orderIds, routeDate, driverId, driver, aiOptimized, ctx });
+  const r = await assignRoute(env, { orders, orderIds, routeDate, driverId, driver, aiOptimized, ctx, waitUntil });
   if (!r.ok) return bad(r.error || 'Could not assign the route.', 500);
   return json(r);
 };

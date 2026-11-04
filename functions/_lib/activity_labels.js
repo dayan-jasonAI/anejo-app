@@ -9,6 +9,7 @@
 // Present tense, sentence case, no jargon. Anything unmapped falls back to a humanized key rather
 // than being hidden — an unlabeled event is still information.
 const LABELS = {
+  'delivery.owner_confirmed':'Owner confirmed a completed delivery',
   "team_lead.message": "Sent a team-lead message",
   "sales.prospect_scored": "Scored a sales prospect",
   "social.post_scheduled": "Scheduled a social post",
@@ -57,6 +58,7 @@ const LABELS = {
 };
 
 const LABELS_ES = {
+  "delivery.owner_confirmed":"El propietario confirmó una entrega realizada",
   "user.signed_in": "Inició sesión",
   "user.invited": "Recibió una invitación al equipo",
   "dashboard.viewed": "Abrió el panel",

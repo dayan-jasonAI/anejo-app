@@ -46,6 +46,7 @@ export async function resolveOwnerDelivery(env,b,ctx) {
   for(const o of c.orders)match('orders',o,['status','updated_at']);
   for(const s of c.stops)match('route_stops',s,['order_id','status','updated_at']);
   if(c.route){match('routes',c.route,['driver_id','status','offer_status','updated_at']);conditions.push('(SELECT count(*) FROM route_stops WHERE route_id=?)=?');binds.push(c.route.id,c.stops.length);}
+  if(b.order_id){conditions.push("NOT EXISTS(SELECT 1 FROM route_stops s JOIN routes r ON r.id=s.route_id WHERE s.order_id=? AND r.status NOT IN ('canceled','completed') AND r.id<>?)");binds.push(b.order_id,c.route?.id||'');}
   const placeholders=c.orders.map(()=>'?').join(',');conditions.push(`(SELECT count(*) FROM deliveries WHERE order_id IN (${placeholders}))=?`);binds.push(...c.orders.map(o=>o.id),c.deliveries.length);
   for(const d of c.deliveries)match('deliveries',d,['status','updated_at']);
   const properties={...normalized,request_hash:requestHash,order_ids:c.orders.map(o=>o.id),order_id:c.orders.length===1?c.orders[0].id:null,route_id:c.route?.id||null,service_dates:[...new Set(c.orders.map(o=>o.delivery_date))],recorded_at:at,previous:c.orders.map(o=>({id:o.id,status:o.status})),previous_route_status:c.route?.status||null,client_notifications_sent:false,money_changed:false,proof_supplied:false};
@@ -56,7 +57,7 @@ export async function resolveOwnerDelivery(env,b,ctx) {
     if(!existing)statements.push(prepared(`INSERT INTO deliveries(id,order_id,route_id,driver_id,status,on_time,proof_skipped,completed_at,created_at,updated_at) SELECT ?,?,?,NULL,'completed',?,1,?,?,? WHERE ${proof}`,[id('del'),o.id,c.route?.id||null,b.on_time==null?null:b.on_time?1:0,occurred,at,at,auditId]));
     else if(existing.status!=='completed')statements.push(prepared(`UPDATE deliveries SET status='completed',on_time=COALESCE(?,on_time),completed_at=COALESCE(completed_at,?),updated_at=? WHERE id=? AND ${proof}`,[b.on_time==null?null:b.on_time?1:0,occurred,at,existing.id,auditId]));
     statements.push(prepared(`UPDATE orders SET status='fulfilled',updated_at=? WHERE id=? AND ${proof}`,[at,o.id,auditId]));
-    statements.push(prepared(`UPDATE route_stops SET status='done',delivered_at=COALESCE(delivered_at,?),updated_at=? WHERE order_id=? ${c.route?'AND route_id=?':''} AND ${proof}`,[occurred,at,o.id,...(c.route?[c.route.id]:[]),auditId]));
+    if(c.route)statements.push(prepared(`UPDATE route_stops SET status='done',delivered_at=COALESCE(delivered_at,?),updated_at=? WHERE order_id=? AND route_id=? AND ${proof}`,[occurred,at,o.id,c.route.id,auditId]));
     statements.push(prepared(`UPDATE alerts SET status='acknowledged',acknowledged_by=?,acknowledged_at=?,updated_at=? WHERE status='open' AND ref_type='order' AND ref_id=? AND alert_type='kitchen_ready_delivery' AND ${proof}`,[ctx.distinct_id,at,at,o.id,auditId]));
   }
   if(c.route){const rid=c.route.id;
