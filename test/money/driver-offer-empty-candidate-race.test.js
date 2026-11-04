@@ -5,7 +5,7 @@ import { offerToNext } from '../../functions/_lib/dispatch.js';
 
 async function scenario(transition, legacy = false) {
   const env = ownerEnv(), at = Date.now();
-  env.DB.sqlite.prepare("INSERT INTO staff(id,name,role,active,offers_accepted,created_at,updated_at)VALUES('driver_race','Synthetic Driver','driver',1,4,?,?)").run(at,at);
+  env.DB.sqlite.prepare("INSERT INTO staff(id,name,email,role,active,offers_accepted,created_at,updated_at)VALUES('driver_race','Synthetic Driver','synthetic-race@test.example','driver',1,4,?,?)").run(at,at);
   // The only eligible driver is already excluded: this must reach the empty-candidate branch.
   env.DB.sqlite.prepare("INSERT INTO routes(id,driver_id,route_date,status,offer_status,declined_ids,offered_at,created_at,updated_at)VALUES('route_race',NULL,'2026-10-31','assigned','unoffered',?,NULL,?,?)").run(JSON.stringify(['driver_race']),at,at);
   const prepare = env.DB.prepare.bind(env.DB);
