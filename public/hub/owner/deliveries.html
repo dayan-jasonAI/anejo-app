@@ -283,7 +283,7 @@
         return '<div class="row" data-route-id="' + rid + '"' + (linkedRoute === ro.id ? ' style="outline:2px solid var(--gold)"' : '') + '><div class="row-main"><div class="row-title"><span translate="no">' + Owner.esc(ro.driver_name || 'Unassigned') + '</span>' +
           (ro.ai_optimized ? ' ⚡' : '') + offer + '</div><div class="row-sub">' + routeMeta(ro) + '</div>' + confirmationHistory(ro) + actions + '</div>' +
           Owner.badge(ro.status, Owner.kindFor(ro.status)) + (!['completed','canceled'].includes(ro.status)?DeliveryResolution.menu('route',ro.id):'') + '</div>';
-      }).join('') : '<div class="hub-empty" data-i18n>No routes yet.</div>';
+      }).join('') : '<div class="hub-empty" data-i18n>No active routes for this date.</div>';
       if (window.AnejoI18n) window.AnejoI18n.refresh();
     });
   }
@@ -329,8 +329,8 @@
       '</div>' +
       autoDispatchHtml() +
       '</div>' +
-      '<label style="display:flex;gap:10px;align-items:center;min-height:44px;margin:12px 0"><input type="checkbox" id="show-route-history">'+OwnerReadiness.label('Show completed and canceled routes','Mostrar rutas completadas y canceladas')+'</label><div id="roll"></div><div class="hub-section"><h2 data-i18n>Routes today</h2><div id="routes" class="list"><div class="hub-loading">…</div></div></div>' +
-      '<div class="hub-section"><h2 data-i18n>Deliveries</h2><div id="drops" class="list"><div class="hub-loading">…</div></div></div>';
+      '<label style="display:flex;gap:10px;align-items:center;min-height:44px;margin:12px 0"><input type="checkbox" id="show-route-history">'+OwnerReadiness.label('Show completed and canceled routes','Mostrar rutas completadas y canceladas')+'</label><div id="roll"></div><div class="hub-section"><h2 data-i18n>Routes for the selected date</h2><div id="routes" class="list"><div class="hub-loading">…</div></div></div>' +
+      '<div class="hub-section"><h2 data-i18n>Deliveries for the selected date</h2><div id="drops" class="list"><div class="hub-loading">…</div></div></div>';
 
     document.getElementById('rdate').addEventListener('change',function(){loadAssign();loadToday();});
     document.getElementById('show-route-history').addEventListener('change',function(){loadAssign();loadToday();});
@@ -375,7 +375,7 @@
           '<div class="row-sub">' + pay + Owner.esc((ro.stops_completed || 0) + '/' + (ro.stop_count || 0) + ' stops') +
           (ro.total_miles_est != null ? ' · ' + ro.total_miles_est + ' mi' : '') + fin + '</div></div>' +
           Owner.badge(ro.status, Owner.kindFor(ro.status)) + (!['completed','canceled'].includes(ro.status)?DeliveryResolution.menu('route',ro.id):'') + '</div>';
-      }).join('') : '<div class="hub-empty" data-i18n>No routes today.</div>';
+      }).join('') : '<div class="hub-empty" data-i18n>No active routes for this date.</div>';
 
       var stars = function (n) { n = Number(n) || 0; var s = ''; for (var i = 0; i < 5; i++) s += i < n ? '★' : '☆'; return s; };
       var dropsEl = document.getElementById('drops');

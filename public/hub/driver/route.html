@@ -216,6 +216,7 @@
   function loadAll() {
     var selected=new URLSearchParams(location.search).get('route_id');
     return Hub.api('/api/hub/driver/route'+(selected?'?route_id='+encodeURIComponent(selected):'')).then(function(d){
+      if(!d||!Object.prototype.hasOwnProperty.call(d,'route'))throw new Error('route unavailable');
       routeData=d;
       if(!d||!d.route||d.route.offer_status==='pending'){pickupData=null;render();return;}
       return Hub.api('/api/hub/driver/pickup?route_id='+encodeURIComponent(d.route.id)).then(function(p){pickupData=p;render();}).catch(function(){pickupData={all_picked:false,stops:[]};render();});
@@ -271,7 +272,7 @@
         if (!window.confirm('Deny this delivery order? It will be offered to another driver.')) return;
         var b = this; b.disabled = true;
         Hub.api('/api/hub/driver/route', { method: 'POST', body: { action: 'decline', route_id:routeData.route.id } }).then(function (resp) {
-          if (resp && resp.ok) { Hub.toast('Order denied — passing to another driver'); loadAll(); } else { b.disabled = false; Hub.toast((resp && resp.error) || 'Error'); }
+          if (resp && resp.ok) { Hub.toast('Assignment declined'); loadAll(); } else { b.disabled = false; Hub.toast((resp && resp.error) || 'Error'); }
         });
       });
       refresh();
@@ -327,7 +328,7 @@
     // stop — and turns off the instant the route is done/canceled or every stop is handled.
     // An app that keeps pinging after the shift ends is a different product.
     var stillOpen = r.status !== 'completed' && r.status !== 'canceled' && !allHandled;
-    setTracking(stillOpen);
+    setTracking(stillOpen&&(!routeData.today||r.route_date<=routeData.today));
     refresh();
   }
 
@@ -443,7 +444,7 @@
   }
   function arriving(stop) {
     Hub.api('/api/hub/driver/stop', { method: 'POST', body: { route_id:routeData.route.id, stop_id: stop.stop_id, action: 'arriving' } }).then(function (resp) {
-      Hub.toast(resp && resp.ok ? 'Arriving-soon sent' : (resp && resp.error) || 'Error'); loadAll();
+      Hub.toast(resp && resp.ok ? 'Arrival update saved' : (resp && resp.error) || 'Error'); loadAll();
     });
   }
 
@@ -489,7 +490,7 @@
       } });
     }).then(function (resp) {
       btn.disabled = false;
-      if (resp && resp.ok) { Hub.toast('Delivered — customer notified'); closeSheet(); loadAll().then(scrollToCurrent); }
+      if (resp && resp.ok) { Hub.toast('Delivery saved'); closeSheet(); loadAll().then(scrollToCurrent); }
       else Hub.toast((resp && resp.error) || 'Error');
     });
   });

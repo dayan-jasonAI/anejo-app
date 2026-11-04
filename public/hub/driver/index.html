@@ -22,7 +22,7 @@
   </div>
 </div>
 
-<div class="hub-wrap">
+<div class="hub-wrap"><p class="row-sub"><span data-i18n>Signed in as</span>: <span id="driver-identity" translate="no">—</span></p>
   <div class="hub-section">
     <div class="card stat" id="clock-card">
       <div class="stat-num" id="clock-status" data-i18n>Loading…</div>
@@ -33,7 +33,7 @@
   </div>
 
   <div class="hub-section">
-    <h2 class="row-title" data-i18n>Your assigned route</h2><div id="driver-offers"></div>
+    <h2 class="row-title" data-i18n>Your assigned route</h2><div id="driver-offers"></div><p id="driver-assignment-status" role="status" class="row-sub" hidden></p>
     <div id="route-summary" class="card"><p class="row-sub" data-i18n>Loading…</p></div>
     <div id="route-stops" class="list" style="margin-top:10px"></div>
   </div>
@@ -145,6 +145,9 @@
   });
 
   function renderRoute(data) {
+    var warning=document.getElementById('driver-assignment-status');
+    if(!data||!Object.prototype.hasOwnProperty.call(data,'route')){warning.hidden=false;warning.textContent=window.AnejoI18n.text('Could not refresh assignments. Check your connection; the previous view is retained.');return;}
+    warning.hidden=true;
     var sum = document.getElementById('route-summary');
     var list = document.getElementById('route-stops');
     var offers=document.getElementById('driver-offers');
@@ -175,7 +178,7 @@
   var assignmentBusy=false;
   function loadDriverAssignments(){if(assignmentBusy||document.hidden)return;assignmentBusy=true;return Hub.api('/api/hub/driver/route').then(renderRoute).finally(function(){assignmentBusy=false;});}
   document.addEventListener('visibilitychange',loadDriverAssignments);window.addEventListener('focus',loadDriverAssignments);
-  var assignmentTimer=setInterval(loadDriverAssignments,20000);window.addEventListener('pagehide',function(){clearInterval(assignmentTimer);});
+  var assignmentTimer=setInterval(loadDriverAssignments,20000);window.addEventListener('pageshow',function(){clearInterval(assignmentTimer);assignmentTimer=setInterval(loadDriverAssignments,20000);loadDriverAssignments();});window.addEventListener('pagehide',function(){clearInterval(assignmentTimer);});
   // Upcoming scheduled shifts (owner-assigned). Hidden when none / endpoint absent.
   function loadSchedule() {
     Hub.api('/api/hub/driver/schedule').then(function (d) {
@@ -197,6 +200,7 @@
 
   Driver.guard().then(function (me) {
     if (!me) return;
+    document.getElementById('driver-identity').textContent=(me.staff&&me.staff.name)||me.name||me.email||'—';
     // Probe clock state without creating a shift (returns already_open if one exists).
     Hub.api('/api/hub/driver/clock-in', { method: 'POST', body: { probe: true } }).then(function (r) {
       if (r && r.ok && r.already_open) { openShift = r.shift; }

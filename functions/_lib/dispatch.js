@@ -60,7 +60,7 @@ export async function recordOutcome(env, routeId, driverId, outcome) {
 // Mark `route` as offered to `driver` and notify them (push + SMS + in-app thread).
 export async function sendOffer(env, route, driver, {waitUntil}={}) {
   const t = now();
-  const claim=await env.DB.prepare("UPDATE routes SET driver_id=?, offer_status='pending', offered_at=?, updated_at=? WHERE id=? AND status='assigned'")
+  const claim=await env.DB.prepare("UPDATE routes SET driver_id=?, offer_status='pending', offered_at=?, updated_at=? WHERE id=? AND status='assigned' AND COALESCE(offer_status,'unfilled') IN ('unoffered','pending','unfilled','declined')")
     .bind(driver.id,t,t,route.id).run();
   if(claim?.meta?.changes===0)return {ok:false,reason:'route_closed'};
   await recordOutcome(env,route.id,driver.id,'offered');
@@ -86,7 +86,7 @@ export async function sendOffer(env, route, driver, {waitUntil}={}) {
 export async function offerToNext(env, routeId) {
   const route = await env.DB.prepare('SELECT * FROM routes WHERE id=?').bind(routeId).first();
   if (!route) return { ok: false, reason: 'no_route' };
-  if(!['assigned','started'].includes(route.status))return {ok:false,reason:'route_closed'};
+  if(route.status!=='assigned')return {ok:false,reason:'route_closed'};
   if (route.offer_status === 'accepted') return { ok: true, already: 'accepted' };
 
   const declined = parseJson(route.declined_ids, []) || [];
@@ -124,14 +124,16 @@ export async function declineAndReoffer(env, routeId, driverId, outcome) {
   if (!route) return { ok: false, reason: 'no_route' };
   if(route.status!=='assigned'||route.driver_id!==driverId||route.offer_status!=='pending')return {ok:false,reason:'offer_changed'};
   if(route.dispatch_mode==='manual'){
-    await env.DB.prepare("UPDATE routes SET offer_status='declined',updated_at=? WHERE id=? AND driver_id=? AND offer_status='pending' AND status='assigned'").bind(now(),routeId,driverId).run();
+    const claim=await env.DB.prepare("UPDATE routes SET offer_status='declined',updated_at=? WHERE id=? AND driver_id=? AND offer_status='pending' AND status='assigned' AND offered_at IS ?").bind(now(),routeId,driverId,route.offered_at).run();
+    if(claim?.meta?.changes===0)return {ok:false,reason:'offer_changed'};
     await recordOutcome(env,routeId,driverId,outcome);
     await raiseAlert(env,{alert_type:'delivery_failed',severity:'warning',title:'Assigned driver declined the route',body:'Review the manual assignment in Deliveries and choose a driver.',ref_type:'route',ref_id:routeId,dedupe_key:'manual-route-declined:'+routeId+':'+driverId});
     return {ok:true,declined:true,owner_review:true};
   }
   const declined = parseJson(route.declined_ids, []) || [];
   if (driverId && !declined.includes(driverId)) declined.push(driverId);
-  await env.DB.prepare('UPDATE routes SET declined_ids=?, updated_at=? WHERE id=?').bind(toJson(declined), now(), routeId).run();
+  const claim=await env.DB.prepare("UPDATE routes SET declined_ids=?, updated_at=? WHERE id=? AND driver_id IS ? AND offer_status='pending' AND status='assigned' AND offered_at IS ?").bind(toJson(declined),now(),routeId,driverId,route.offered_at).run();
+  if(claim?.meta?.changes===0)return {ok:false,reason:'offer_changed'};
   if (driverId) await recordOutcome(env, routeId, driverId, outcome); // 'declined' | 'missed'
   return offerToNext(env, routeId);
 }

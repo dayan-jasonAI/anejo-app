@@ -76,7 +76,7 @@ const routesApiOk = (seconds) => new Response(JSON.stringify({ routes: [{ durati
 function stopEnv({ route, smsBodies }) {
   const DB = makeD1([
     [/FROM staff WHERE id=\?/, () => ({ id: 'stf_1', role: 'driver', active: 1, name: 'Driver One' })],
-    [/SELECT \* FROM routes WHERE driver_id=\? AND route_date=\?/, () => route],
+    [/SELECT \* FROM routes WHERE driver_id=\? AND status IN/, () => route],
     [/SELECT rs\.\*, o\.\* , rs\.id AS stop_id/, () => ({
       stop_id: STOP_ID, id: STOP_ID, route_id: ROUTE_ID, seq: 1,
       order_id: 'ord_1', customer_name: 'Sam', customer_phone: '+15615550100', sms_consent: 1,

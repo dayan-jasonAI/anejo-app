@@ -6,7 +6,7 @@ import {findDriverRoute} from '../../../_lib/driver_routes.js';
 // (/stop action:'arriving') is the backup. Consent-gated + no-op safe.
 import { json, bad } from '../../../_lib/util.js';
 import { requireRole, currentStaff } from '../../../_lib/roles.js';
-import { now } from '../../../_lib/hub.js';
+import { now, today } from '../../../_lib/hub.js';
 import { etaSeconds, clockET } from '../../../_lib/geo.js';
 import { notifyArrivingSoon } from '../../../_lib/notify.js';
 import { APPROACHING_MIN } from '../../../_lib/stop_progress.js';
@@ -34,7 +34,7 @@ export const onRequestPost = async ({ request, env }) => {
   if (!Number.isFinite(lat) || !Number.isFinite(lng)) return bad('Missing lat/lng.');
 
   const route = await findDriverRoute(env,staff.id,b.route_id||null);
-  if (!route || (route.offer_status && route.offer_status!=='accepted')) return json({ ok: true, route: null });   // nothing in progress; just accept
+  if (!route || (route.offer_status && route.offer_status!=='accepted') || (route.route_date>today()&&route.status!=='started')) return json({ ok: true, route: null });   // nothing in progress; just accept
 
   const ts = now();
   await env.DB.prepare('UPDATE routes SET driver_lat=?, driver_lng=?, driver_loc_at=?, updated_at=? WHERE id=?')

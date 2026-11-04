@@ -102,8 +102,8 @@ export async function assignRoute(env, { orders, orderIds, routeDate, driverId =
   const milesEst = pay.miles;
 
   await env.DB.prepare(
-    'INSERT INTO routes (id, driver_id, route_date, stop_count, ai_optimized, status, depart_at, eta_complete_at, total_minutes, total_meters, total_miles_est, pay_cents, created_at, updated_at, dispatch_mode) ' +
-    "VALUES (?,?,?,?,?,'assigned',?,?,?,?,?,?,?,?,?)"
+    'INSERT INTO routes (id, driver_id, route_date, stop_count, ai_optimized, status, depart_at, eta_complete_at, total_minutes, total_meters, total_miles_est, pay_cents, created_at, updated_at, dispatch_mode, offer_status) ' +
+    "VALUES (?,?,?,?,?,'assigned',?,?,?,?,?,?,?,?,?,'unoffered')"
   ).bind(routeId, driverId, routeDate, orderIds.length, bit(aiOptimized || optimized), departAt, etaCompleteAt, totalMinutes, totalMeters, milesEst, pay.total_cents, t, t, driverId&&!auto?'manual':'automatic').run();
 
   const stmt = env.DB.prepare(

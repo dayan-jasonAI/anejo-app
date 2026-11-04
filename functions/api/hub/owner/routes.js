@@ -173,8 +173,10 @@ export const onRequestPost = async ({ request, env, waitUntil }) => {
     }
     // Clear the declined list: everyone who passed earlier is eligible again (a driver who was
     // busy at 11 may be free at noon), otherwise a route that went unfilled can never re-fill.
-    await env.DB.prepare("UPDATE routes SET declined_ids='[]',dispatch_mode='manual', updated_at=? WHERE id=?").bind(t, routeId).run();
+    const claim=await env.DB.prepare("UPDATE routes SET declined_ids='[]',dispatch_mode='manual', updated_at=? WHERE id=? AND status='assigned' AND COALESCE(offer_status,'unfilled') IN ('pending','declined','unfilled') AND updated_at IS ?").bind(t,routeId,r.route.updated_at).run();
+    if(claim?.meta?.changes===0)return bad('This offer changed. Refresh your assignments.',409);
     const offer = drv ? await sendOffer(env, {...r.route,dispatch_mode:'manual'}, drv, {waitUntil}) : await offerToNext(env, routeId);
+    if(!offer?.ok)return bad('This offer changed. Refresh your assignments.',409);
     await capture(env, {
       event: 'route.reoffered',
       distinct_id: ctx.distinct_id,

@@ -153,3 +153,17 @@ test('resolution is local-only and leaves order/route money unchanged',async()=>
   const audit=env.DB.one("SELECT actor_id,actor_role,actor_type,properties FROM activity_log WHERE event='delivery.owner_confirmed'");const props=JSON.parse(audit.properties);assert.equal(audit.actor_id,'stf_owner');assert.equal(audit.actor_role,'owner');assert.equal(audit.actor_type,'human');assert.equal(props.reason,body.reason);assert.equal(props.occurred_at,null);assert.equal(props.client_notifications_sent,false);assert.equal(props.money_changed,false);assert.equal(props.proof_supplied,false);assert.ok(props.recorded_at);assert.equal(props.previous_route_status,'assigned');assert.equal(props.request_hash.length,64);
  }finally{globalThis.fetch=realFetch;close(env);}
 });
+
+
+test('orphan recovery never changes stops belonging to a canceled historical route',async()=>{
+ const env=fixture();addOrder(env,'history_order','ready');addRoute(env,'history_route',['history_order'],{status:'canceled',offer:'canceled'});
+ const before=env.DB.one('SELECT * FROM route_stops WHERE route_id=?','history_route');
+ const r=await resolveOwnerDelivery(env,await confirmedBody(env,{order_id:'history_order'}),{distinct_id:'stf_owner'});assert.equal(r.ok,true);
+ assert.deepEqual(env.DB.one('SELECT * FROM route_stops WHERE route_id=?','history_route'),before);close(env);
+});
+
+test('route assigned after orphan preview prevents a stale recovery claim',async()=>{
+ const env=fixture();addOrder(env,'race_order','ready');const b=await confirmedBody(env,{order_id:'race_order'});
+ const originalBatch=env.DB.batch.bind(env.DB);env.DB.batch=async stmts=>{addRoute(env,'race_route',['race_order']);return originalBatch(stmts);};
+ const r=await resolveOwnerDelivery(env,b,{distinct_id:'stf_owner'});assert.equal(r.status,409);assert.equal(env.DB.one('SELECT status FROM orders WHERE id=?','race_order').status,'ready');assert.equal(env.DB.one("SELECT count(*) AS n FROM activity_log WHERE event='delivery.owner_confirmed'").n,0);close(env);
+});

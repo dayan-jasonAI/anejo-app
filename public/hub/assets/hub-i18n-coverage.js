@@ -7505,6 +7505,16 @@
   else { (window.__hubI18nQueue = window.__hubI18nQueue || []).push(dashboardDictionary); window.__anejoI18nPatterns = (window.__anejoI18nPatterns || []).concat(dashboardPatterns); }
 
   var deliveryRecoveryDictionary={
+  "Signed in as":"Sesión de",
+  "Could not refresh assignments. Check your connection; the previous view is retained.":"No se pudieron actualizar las asignaciones. Revisa tu conexión; se conserva la vista anterior.",
+  "No active routes for this date.":"No hay rutas activas para esta fecha.",
+  "Routes for the selected date":"Rutas de la fecha seleccionada",
+  "Deliveries for the selected date":"Entregas de la fecha seleccionada",
+  "Assignment declined":"Asignación rechazada",
+  "Delivery saved":"Entrega guardada",
+  "Arrival update saved":"Aviso de llegada guardado",
+  "This route starts on its scheduled date. You can accept it in advance.":"Esta ruta comienza en la fecha programada. Puedes aceptarla con anticipación.",
+  "Finish every stop before completing the route.":"Termina cada parada antes de completar la ruta.",
   "Your assigned route": "Tu ruta asignada",
   "Assignment awaiting your response": "Asignación pendiente de tu respuesta",
   "Open to accept or decline": "Abrir para aceptar o rechazar",

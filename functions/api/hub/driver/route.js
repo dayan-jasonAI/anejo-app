@@ -84,7 +84,7 @@ export const onRequestPost = async ({ request, env }) => {
 
   const route = await findDriverRoute(env,staff.id,b.route_id||null);
   if (!route) return bad('No active route found for this driver.',404);
-  if (action==='start' && route.offer_status && route.offer_status!=='accepted') return bad('Accept this assignment before starting the route.',409);
+  if (['start','complete'].includes(action) && route.offer_status && route.offer_status!=='accepted') return bad('Accept this assignment before starting the route.',409);
 
   const ts = now();
 
@@ -92,7 +92,8 @@ export const onRequestPost = async ({ request, env }) => {
   if (action === 'accept') {
     if (route.offer_status==='accepted') return json({ok:true,offer_status:'accepted',already:true});
     if (route.offer_status!=='pending') return bad('This offer changed. Refresh your assignments.',409);
-    await env.DB.prepare("UPDATE routes SET offer_status='accepted', updated_at=? WHERE id=? AND driver_id=? AND offer_status='pending' AND status='assigned'").bind(ts, route.id, staff.id).run();
+    const claim=await env.DB.prepare("UPDATE routes SET offer_status='accepted', updated_at=? WHERE id=? AND driver_id=? AND offer_status='pending' AND status='assigned'").bind(ts, route.id, staff.id).run();
+    if(claim?.meta?.changes!==1)return bad('This offer changed. Refresh your assignments.',409);
     await recordOutcome(env, route.id, staff.id, 'accepted');
     await capture(env, { event: 'route.accepted', distinct_id: ctx.distinct_id, role: ctx.role, team: ctx.team, properties: { route_id: route.id } });
     return json({ ok: true, offer_status: 'accepted' });
@@ -102,15 +103,19 @@ export const onRequestPost = async ({ request, env }) => {
   if (action === 'decline') {
     if (route.offer_status === 'accepted') return bad('This route was already accepted.', 409);
     const r = await declineAndReoffer(env, route.id, staff.id, 'declined');
+    if(!r?.ok)return bad('This offer changed. Refresh your assignments.',409);
     await capture(env, { event: 'route.declined', distinct_id: ctx.distinct_id, role: ctx.role, team: ctx.team, properties: { route_id: route.id } });
     return json({ ok: true, declined: true, reoffered: !!(r && r.offered_to), unfilled: !!(r && r.unfilled) });
   }
 
   if (action === 'start') {
-    await env.DB
-      .prepare("UPDATE routes SET status='started', started_at=?, updated_at=? WHERE id=?")
-      .bind(ts, ts, route.id)
+    if(route.route_date>today())return bad('This route starts on its scheduled date. You can accept it in advance.',409);
+    if(route.status==='started')return json({ok:true,route:{id:route.id,status:'started'},already:true});
+    const claim=await env.DB
+      .prepare("UPDATE routes SET status='started', started_at=?, updated_at=? WHERE id=? AND driver_id=? AND status='assigned' AND COALESCE(offer_status,'accepted')='accepted'")
+      .bind(ts, ts, route.id,staff.id)
       .run();
+    if(claim?.meta?.changes!==1)return bad('This offer changed. Refresh your assignments.',409);
     await capture(env, {
       event: 'route.started',
       distinct_id: ctx.distinct_id,
@@ -135,11 +140,14 @@ export const onRequestPost = async ({ request, env }) => {
   const stopsFailed = (tally && tally.failed) || 0;
   const totalMinutes = route.started_at ? Math.max(0, Math.round((ts - route.started_at) / 60000)) : null;
 
-  await env.DB
-    .prepare("UPDATE routes SET status='completed', completed_at=?, stops_completed=?, stops_failed=?, total_minutes=?, updated_at=? WHERE id=?")
-    .bind(ts, stopsCompleted, stopsFailed, totalMinutes, ts, route.id)
+  const unfinished=await env.DB.prepare("SELECT count(*) AS n FROM route_stops WHERE route_id=? AND status NOT IN ('done','failed')").bind(route.id).first();
+  if(unfinished?.n||stopsCompleted+stopsFailed===0)return bad('Finish every stop before completing the route.',409);
+  const claim=await env.DB
+    .prepare("UPDATE routes SET status='completed', completed_at=?, stops_completed=?, stops_failed=?, total_minutes=?, updated_at=? WHERE id=? AND driver_id=? AND status IN ('assigned','started') AND NOT EXISTS(SELECT 1 FROM route_stops WHERE route_id=? AND status NOT IN ('done','failed'))")
+    .bind(ts,stopsCompleted,stopsFailed,totalMinutes,ts,route.id,staff.id,route.id)
     .run();
 
+  if(claim?.meta?.changes!==1)return bad('This offer changed. Refresh your assignments.',409);
   await capture(env, {
     event: 'route.completed',
     distinct_id: ctx.distinct_id,

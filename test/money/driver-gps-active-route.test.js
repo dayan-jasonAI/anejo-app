@@ -75,5 +75,5 @@ test('shared active-route lookup excludes closed routes and location blocks unac
   const shared=readFileSync(new URL('../../functions/_lib/driver_routes.js',import.meta.url),'utf8');
   assert.match(shared,/WHERE driver_id=\? AND status IN \('assigned','started'\)/);
   assert.match(SRC,/findDriverRoute\(env,staff.id,b.route_id\|\|null\)/);
-  assert.match(SRC,/route.offer_status!==\'accepted\'/);
+  assert.match(SRC,/route.offer_status!=='accepted'/);
 });
