@@ -1,3 +1,6 @@
+.inv-prep-card { flex-wrap: wrap; }
+.ivs-sale-controls { order: 5; }
+.ivs-sale-controls:has([data-ivs-enabled]:not(:checked)) .ivs-choice { display: none; }
 .ivs-section { margin-top: 18px; }
 .ivs-live,.ivs-website-status,.ivs-action-status { min-height: 22px; margin: 6px 0; color: #405247; font-size: 13px; line-height: 1.45; }
 .ivs-error { color: #8c271f !important; }

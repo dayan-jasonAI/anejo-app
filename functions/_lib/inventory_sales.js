@@ -22,6 +22,7 @@ function offerInvalidReason(offer, item, at) {
     : !item.active ? 'menu_item_inactive'
       : !isOrderable(item) ? 'menu_item_not_orderable'
         : !isAvailable(item) ? 'menu_item_unavailable'
+          : !Number.isSafeInteger(item.price_cents) || item.price_cents <= 0 ? 'catalog_price_missing'
           : !imagePath(item) ? 'catalog_image_missing'
             : !int(item.inventory_revision) || Number(item.inventory_revision) !== Number(offer.inventory_revision) ? 'inventory_revision_changed'
               : !offer.enabled ? 'offer_disabled'

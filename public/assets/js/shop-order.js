@@ -27,7 +27,7 @@ function openShop(key,edit=false){
  const formats=[...new Map(shopActive.variants.map(i=>[i.format,L(i.format,i.formatEs)])).entries()];
  $('shopFormat').innerHTML=formats.map(([value,label])=>`<option value="${escHtml(value)}">${escHtml(label)}</option>`).join('');$('shopFormat').value=(shopActive.variants.find(i=>shopDraft[i.id])||initial).format;
  $('shopScheduled').textContent=shopActive.variants.some(i=>/^(traditional_|catering_)/.test(i.id))?L('Prepared for scheduled delivery. Adding this item selects scheduled delivery for your order.','Preparado para entrega programada. Al agregarlo, tu pedido pasa a entrega programada.'):'';
- renderShopChoices();$('shopModalImage').src=shopPhoto(initial);$('shopDialog').showModal();const linkedChoice=$('shopChoices').querySelector('[data-shop-sku="'+CSS.escape(initial.id)+'"]');if(linkedChoice){linkedChoice.scrollIntoView({block:'nearest'});linkedChoice.querySelector('button:last-child')?.focus({preventScroll:true});}
+ renderShopChoices();$('shopModalImage').src=shopPhoto(initial);$('shopDialog').showModal();const linkedChoice=$('shopChoices').querySelector?.('[data-shop-sku="'+CSS.escape(initial.id)+'"]');if(linkedChoice){linkedChoice.scrollIntoView({block:'nearest'});linkedChoice.querySelector('button:last-child')?.focus({preventScroll:true});}
 }
 function renderShopChoices(){
  if(!shopActive)return;const format=$('shopFormat').value;const photoItem=shopActive.variants.find(i=>i.format===format);if(photoItem){$('shopModalImage').src=shopPhoto(photoItem);$('shopModalImage').alt=shopName(shopActive)+' · '+L(photoItem.format,photoItem.formatEs);}

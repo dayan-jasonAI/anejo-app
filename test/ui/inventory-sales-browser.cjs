@@ -1,11 +1,10 @@
 /* Joined local browser/API test: real inventory pages, handlers, migrated SQLite, local media only. */
-/* global process, Buffer, console, URL, Request, Response, setTimeout */
+/* global process, Buffer, console, URL, Request, Response, ReadableStream, Headers, localStorage, window, document, fetch */
 const { chromium } = require('playwright');
 const fs = require('node:fs');
 const path = require('node:path');
 const http = require('node:http');
 const assert = require('node:assert/strict');
-const crypto = require('node:crypto');
 
 (async () => {
   const { ownerEnv, OWNER_COOKIE } = await import('../helpers/sqlite-d1.js');
@@ -13,7 +12,7 @@ const crypto = require('node:crypto');
   const { onRequestGet: salesGet, onRequestPost: salesPost } = await import('../../functions/api/hub/kitchen/inventory-sales.js');
   const { onRequestGet: meGet } = await import('../../functions/api/me.js');
   const root = path.resolve('public');
-  const evidence = process.env.INVENTORY_SALES_BROWSER_EVIDENCE || path.resolve('../anejo-deliverables/inventory-sales-recovery-2026-11-03/browser-joined');
+  const evidence = process.env.ANEJO_INVENTORY_AUDIT_OUT || process.env.INVENTORY_SALES_BROWSER_EVIDENCE || path.resolve('../anejo-deliverables/inventory-sales-recovery-2026-11-03/browser-joined');
   fs.mkdirSync(evidence, { recursive: true });
   const bytes = new Map();
   const metadata = new Map();
@@ -78,7 +77,7 @@ const crypto = require('node:crypto');
         else result = Response.json({ ok: false, error: 'Synthetic test route not available.' }, { status: 404 });
         res.statusCode = result.status;
         result.headers.forEach((value, key) => res.setHeader(key, value));
-        res.end(await result.text());
+        res.end(result.headers.get('content-type')?.startsWith('image/') ? Buffer.from(await result.arrayBuffer()) : await result.text());
         return;
       }
       const relative = url.pathname === '/' ? '/hub/kitchen/inventory.html' : url.pathname;
@@ -96,8 +95,8 @@ const crypto = require('node:crypto');
 
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
   const base = `http://127.0.0.1:${server.address().port}`;
-  const browser = await chromium.launch({ headless: true, channel: 'chrome' });
-  const context = await browser.newContext({ viewport: { width: 1280, height: 1050 }, reducedMotion: 'reduce' });
+  const browser = await chromium.launch({ headless: true, channel: process.env.ANEJO_BROWSER_CHANNEL || 'chrome' });
+  const context = await browser.newContext({ viewport: { width: 375, height: 844 }, reducedMotion: 'reduce' });
   await context.addCookies([{ name: 'anejo_sess', value: 'tok-owner', domain: '127.0.0.1', path: '/', httpOnly: true, sameSite: 'Lax' }]);
   await context.addInitScript(() => { try { localStorage.setItem('anejo:lang', 'en'); localStorage.setItem('anejo_hub_role', 'owner'); } catch { /* local app origin has storage */ } });
   const page = await context.newPage();
@@ -120,6 +119,7 @@ const crypto = require('node:crypto');
     const dirty = page.locator('#onhand-synthetic_dirty');
     await dirty.fill('29');
     await page.evaluate(() => window.AnejoLang.set('es'));
+    assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true, '375px inventory page does not overflow');
     assert.equal(await dirty.inputValue(), '29', 'language change retains unrelated unsaved ingredient edit');
     assert.match(await page.locator('#inventory-search-status').innerText(), /Sin guardar|Unsaved/i);
 
@@ -159,7 +159,8 @@ const crypto = require('node:crypto');
     assert.equal(env.DB.one("SELECT state FROM inventory_sale_promotions WHERE menu_item_id='vida'").state, 'reviewed');
     assert.equal(env.DB.one("SELECT reviewed_by FROM inventory_sale_promotions WHERE menu_item_id='vida'").reviewed_by, 'stf_owner');
 
-    await page.screenshot({ path: path.join(evidence, 'owner-reviewed-story.png'), fullPage: true });
+    assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true, '375px Story and sale controls do not overflow');
+    await page.locator('#inventory-sales-promotions').screenshot({ path: path.join(evidence, 'owner-reviewed-story.png') });
     const itemRevision = env.DB.one("SELECT inventory_revision,stock_count,availability FROM menu_items WHERE id='vida'");
     assert.deepEqual({ revision: itemRevision.inventory_revision, quantity: itemRevision.stock_count, availability: itemRevision.availability }, { revision: 1, quantity: 20, availability: 'available' });
     assert.equal(env.DB.one("SELECT COUNT(*) n FROM inventory_changes WHERE action='menu_count'").n, 1);
@@ -186,7 +187,7 @@ const crypto = require('node:crypto');
       offer_revision: offer.revision, promotion_state: env.DB.one("SELECT state FROM inventory_sale_promotions WHERE menu_item_id='vida'").state,
       jpeg_bytes: jpeg.length, page_errors: pageErrors, external_requests: external,
       api_calls: browserApiCalls.filter(call => call.path.includes('inventory')),
-      production_writes: 0, provider_calls: 0,
+      live_production_writes: 0, provider_calls: 0,
     }, null, 2));
     console.log(`Inventory sales joined browser passed: ${evidence}`);
   } catch (error) {
@@ -198,8 +199,9 @@ const crypto = require('node:crypto');
     if (failedPromo?.jpeg_key && bytes.has(failedPromo.jpeg_key)) fs.writeFileSync(path.join(evidence, 'debug-render.jpg'), bytes.get(failedPromo.jpeg_key));
     console.error('Promotion UI:', await page.locator('#inventory-sales-promotions').innerText().catch(() => '<missing>'));
     console.error('Preview image:', await page.locator('.ivs-story-preview').evaluateAll(images => images.map(image => ({ src:image.src, complete:image.complete, width:image.naturalWidth, height:image.naturalHeight }))).catch(() => []));
+    console.error('Preview response:', await page.locator('.ivs-story-preview').first().evaluate(async image => { const response = await fetch(image.src); const data = new Uint8Array(await response.arrayBuffer()); return { status:response.status,type:response.headers.get('content-type'),bytes:data.length,head:Array.from(data.slice(0,16)) }; }).catch(error => String(error)));
     console.error('Request failures:', requestFailures);
-    await page.screenshot({ path: path.join(evidence, 'failure.png'), fullPage: true }).catch(() => {});
+    await page.screenshot({ path: path.join(evidence, 'failure.png') }).catch(() => {});
     console.error('Browser errors:', pageErrors);
     console.error('External requests:', external);
     throw error;

@@ -13,6 +13,14 @@ on:
       - 'test/ui/*language-browser.cjs'
       - 'test/ui/reading-edition-joined-browser.cjs'
       - 'test/ui/delivery-recovery-browser.cjs'
+      - 'test/ui/inventory-sales-browser.cjs'
+      - 'test/ui/inventory-stock-browser.cjs'
+      - 'public/assets/js/stock-highlights.js'
+      - 'public/assets/js/shop-order.js'
+      - 'public/assets/js/shop-families.js'
+      - 'functions/api/stock-highlights.js'
+      - 'functions/_lib/inventory_sales.js'
+      - 'functions/_lib/inventory_sale_promotions.js'
       - 'functions/api/hub/driver/**'
       - 'functions/api/hub/owner/delivery-resolution.js'
       - 'functions/_lib/owner_delivery_resolution.js'
@@ -40,6 +48,12 @@ jobs:
       - run: node test/ui/catering-populated-language-browser.cjs
       - run: node test/ui/reading-edition-joined-browser.cjs
       - run: node test/ui/delivery-recovery-browser.cjs
+      - run: node test/ui/inventory-sales-browser.cjs
+        env:
+          ANEJO_INVENTORY_AUDIT_OUT: /tmp/anejo-inventory-sales
+      - run: node test/ui/inventory-stock-browser.cjs
+        env:
+          ANEJO_STOCK_AUDIT_OUT: /tmp/anejo-inventory-stock
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -49,3 +63,5 @@ jobs:
             /tmp/anejo-bilingual-catering
             /tmp/anejo-bilingual-reading
             /tmp/delivery-recovery-browser
+            /tmp/anejo-inventory-sales
+            /tmp/anejo-inventory-stock

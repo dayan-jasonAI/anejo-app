@@ -36,6 +36,11 @@
   function declaration(id) { return sales && Array.isArray(sales.declarations) ? sales.declarations.find(function (d) { return String(d.menu_item_id) === String(id); }) || null : null; }
   function promotion(id) { return promotions.find(function (p) { return String(p.menu_item_id) === String(id); }) || null; }
   function offer(id) { return offers.find(function (o) { return String(o.item_id) === String(id); }) || null; }
+  function suppression(id) { return sales && Array.isArray(sales.suppressed) ? sales.suppressed.find(function (entry) { return entry.item_id === id; }) : null; }
+  function suppressionLabel(reason) {
+    var labels = { catalog_image_missing:['Catalog photo required · add it in Menu before promoting.','Falta la foto del catálogo · agrégala en Menú antes de promocionar.'], offer_expired:['Sale window ended','Vigencia de venta terminada'], zero_remaining:['All listed units are reserved','Todas las unidades publicadas están reservadas'], inventory_revision_changed:['Count changed · confirm sale availability again','Cambió el conteo · confirma de nuevo la disponibilidad de venta'], menu_item_unavailable:['Item is unavailable in Menu','El artículo no está disponible en Menú'], menu_item_not_orderable:['Complete this item in Menu before promoting','Completa este artículo en Menú antes de promocionar'] };
+    return enEs.apply(null, labels[reason] || ['Sale promotion unavailable · review this item','Promoción no disponible · revisa este artículo']);
+  }
   function staleSnapshot(promo, offerData) { return !!(promo && promo.state !== 'withdrawn' && (!offerData || Number(promo.offer_revision) !== Number(offerData.revision))); }
   function currentRevision(id) { var d = declaration(id); return d && Number.isInteger(Number(d.revision)) ? Number(d.revision) : null; }
   function ensureStyle() {
@@ -119,6 +124,7 @@
     var id = String(promo.menu_item_id), offerData = offer(id), menu = findPrepared(id) || item || {}, qty = offerData ? offerData.remaining : null;
     var image = (offerData && offerData.image) || menu.image || '';
     var displayName = promo.locale === 'es' ? (menu.name_es || offerData && offerData.name_es || menu.name || id) : (menu.name || offerData && offerData.name || id);
+    var blocked = suppression(id);
     var label = qty == null ? enEs('No active sale quantity', 'Sin cantidad de venta activa') : String(qty);
     var stale = staleSnapshot(promo, offerData);
     var url = '/order?product=' + encodeURIComponent(id) + (offerData ? '&offer_revision=' + encodeURIComponent(offerData.revision) : '');
@@ -129,6 +135,7 @@
       '<div class="ivs-promo-main"><strong>' + esc(displayName) + '</strong><span>' + esc(enEs('Current listed quantity: ', 'Cantidad publicada actual: ') + label) + '</span><span class="ivs-state">' + esc(stale ? enEs('Story snapshot needs refresh', 'La instantánea del Story necesita actualizarse') : stateLabel(promo.state)) + '</span><span>' + esc(enEs('Website: ', 'Sitio web: ') + (websiteEnabled == null ? enEs('unknown', 'desconocido') : websiteEnabled ? enEs('active', 'activo') : enEs('paused', 'en pausa'))) + '</span></div></div>' +
       (previewReady ? '<img class="ivs-story-preview" src="' + esc(previewUrl) + '" alt="' + esc(enEs('Exact rendered Story preview', 'Vista previa exacta del Story renderizado')) + '"><a class="ivs-link" href="' + esc(previewUrl) + '" download="anejo-inventory-story-' + esc(id) + '.jpg">' + txNode('Download exact JPEG', 'Descargar JPEG exacto') + '</a>' : '') +
       '<p class="ivs-order-link"><a href="' + esc(url) + '" target="_blank" rel="noopener">' + esc(url) + '</a><small>' + esc(enEs('Customers choose delivery at checkout.', 'El cliente elige la entrega al finalizar la compra.')) + '</small></p>' +
+      (blocked ? '<p class="ivs-error">' + esc(suppressionLabel(blocked.reason)) + '</p>' : '') +
       (promo.error ? '<p class="ivs-error" role="status">' + esc(promo.error) + '</p>' : '') +
       '<div class="ivs-actions">' + (!stale && ['preview_ready','ready_for_review'].includes(promo.state) && !promo.jpeg_sha256 ? '<button type="button" class="ivs-button" data-ivs-render="' + esc(id) + '">' + txNode('Render exact JPEG', 'Renderizar JPEG exacto') + '</button>' : '') +
       (stale || promo.state === 'error' || !promo.snapshot_hash ? '<button type="button" class="ivs-button" data-ivs-retry="' + esc(id) + '">' + txNode(stale ? 'Refresh current Story' : 'Retry Story preparation', stale ? 'Actualizar Story actual' : 'Reintentar preparación del Story') + '</button>' : '') +
@@ -164,9 +171,9 @@
     if (!section) return;
     websiteCard();
     var host = section.querySelector('.ivs-cards');
-    var ids = new Set(); promotions.forEach(function (p) { ids.add(String(p.menu_item_id)); }); offers.forEach(function (o) { ids.add(String(o.item_id)); });
+    var ids = new Set(); promotions.forEach(function (p) { ids.add(String(p.menu_item_id)); }); offers.forEach(function (o) { ids.add(String(o.item_id)); }); if (sales && Array.isArray(sales.suppressed)) sales.suppressed.forEach(function (entry) { var decl = declaration(entry.item_id); if (decl && decl.enabled) ids.add(String(entry.item_id)); });
     host.innerHTML = ids.size ? Array.from(ids).map(function (id) {
-      var p = promotion(id) || { menu_item_id:id, state:'pending', snapshot_hash:'', error:'' };
+      var p = promotion(id) || { menu_item_id:id, state:suppression(id) ? 'withdrawn' : 'pending', snapshot_hash:'', error:'' };
       var offerData = offer(id); return promoCard(p, offerData);
     }).join('') : '<p class="ivs-empty">' + esc(enEs('No sale Stories are available yet.', 'Aún no hay Stories de venta disponibles.')) + '</p>';
     localize(section);

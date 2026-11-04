@@ -144,3 +144,12 @@ test('legacy order without a declared offer follows the ordinary checkout and le
   assert.equal(env.DB.one('SELECT COUNT(*) n FROM orders').n, 1);
   assert.equal(env.DB.one('SELECT COUNT(*) n FROM inventory_sale_reservations').n, 0);
 });
+
+test('daily-lunch service-date products cannot bypass explicit finished-stock revision validation', async () => {
+  const { env } = await fixture();
+  const result = await post(env, { itemId: 'daily_lunch_quesadilla', qty: 1, revision: 1 });
+  assert.equal(result.response.status, 409);
+  assert.match(result.body.error, /published service date/);
+  assert.equal(result.calls.length, 0, 'no Square request before the invalid mixed authority is rejected');
+  assert.equal(env.DB.one('SELECT COUNT(*) n FROM orders').n, 0);
+});

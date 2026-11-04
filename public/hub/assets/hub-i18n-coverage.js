@@ -2,6 +2,7 @@
 (function () {
   "use strict";
   var dictionary = {
+    'Count finished menu items separately from ingredients. To promote an item, enter unreserved selling units, enable Available for sale and save. A 25-piece tray counts as one selling unit.': 'Cuenta los productos terminados aparte de los ingredientes. Para promocionar un artículo, ingresa unidades de venta sin reservar, activa Disponible para la venta y guarda. Una bandeja de 25 piezas cuenta como una unidad de venta.',
     'AÑEJO CATERING CO.': 'AÑEJO CATERING CO.',
     'anejocateringco.com/order': 'anejocateringco.com/order',
     '{value} inventory story': 'Story de inventario de {value}',

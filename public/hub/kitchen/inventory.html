@@ -167,7 +167,7 @@
 
   <section class="hub-section inv-subsection" aria-labelledby="prepared-heading">
     <div class="inv-section-title"><h2 id="prepared-heading">Ready to sell today</h2></div>
-    <p class="inv-help" style="margin-bottom:10px">Set how many finished bowls and drinks you made today. This stored count persists; today’s paid orders reduce the remaining quantity. Recount finished portions daily before planning prep. Blank means no limit.</p>
+    <p class="inv-help" style="margin-bottom:10px">Count finished menu items separately from ingredients. To promote an item, enter unreserved selling units, enable Available for sale and save. A 25-piece tray counts as one selling unit.</p>
     <div id="prepared"><div class="hub-loading">Loading today’s counts…</div></div>
   </section>
   <a class="btn ghost block" href="/hub/kitchen/restock.html">Go to restock orders</a>
@@ -217,6 +217,11 @@
       // Never hide unsaved edits; filtering retains the controls and their history in place.
       card.hidden = !match && !dirtyCards.has(card.getAttribute('data-card'));
       if (!card.hidden) shown++;
+    });
+    Array.prototype.forEach.call(document.querySelectorAll('[data-menu-id]'), function (card) {
+      var item = preparedRows.find(function (entry) { return String(entry.id) === card.getAttribute('data-menu-id'); });
+      var match = !term || String(item && (item.name + ' ' + item.name_es + ' ' + item.id) || '').toLocaleLowerCase().indexOf(term) !== -1;
+      card.hidden = !match && !preparedDrafts.has(card.getAttribute('data-menu-id'));
     });
     Array.prototype.forEach.call(document.querySelectorAll('[data-cost-search]'), function (card) { card.hidden = !!term && card.getAttribute('data-cost-search').indexOf(term) === -1; });
     $('#inventory-search-status').textContent = shown + ' of ' + currentItems.length + ' items shown' + (dirtyCards.size ? ' · Unsaved edits stay visible.' : '.');
@@ -565,6 +570,7 @@
     window.InventoryPage.refresh = load;
     window.InventoryPage.prepared = function () { return preparedRows.slice(); };
     applyPreparedLanguage();
+    filterInventory();
   }
   function applyPreparedLanguage() {
     var es = window.AnejoLang && window.AnejoLang.get() === 'es';
