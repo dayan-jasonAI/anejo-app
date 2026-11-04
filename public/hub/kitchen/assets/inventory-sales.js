@@ -41,7 +41,7 @@
     var labels = { catalog_image_missing:['Catalog photo required · add it in Menu before promoting.','Falta la foto del catálogo · agrégala en Menú antes de promocionar.'], offer_expired:['Sale window ended','Vigencia de venta terminada'], zero_remaining:['All listed units are reserved','Todas las unidades publicadas están reservadas'], inventory_revision_changed:['Count changed · confirm sale availability again','Cambió el conteo · confirma de nuevo la disponibilidad de venta'], menu_item_unavailable:['Item is unavailable in Menu','El artículo no está disponible en Menú'], menu_item_not_orderable:['Complete this item in Menu before promoting','Completa este artículo en Menú antes de promocionar'] };
     return enEs.apply(null, labels[reason] || ['Sale promotion unavailable · review this item','Promoción no disponible · revisa este artículo']);
   }
-  function staleSnapshot(promo, offerData) { return !!(promo && promo.state !== 'withdrawn' && (!offerData || Number(promo.offer_revision) !== Number(offerData.revision))); }
+  function staleSnapshot(promo, offerData) { return !!(promo && (promo.state === 'withdrawn' ? !!offerData : (!offerData || Number(promo.offer_revision) !== Number(offerData.revision)))); }
   function currentRevision(id) { var d = declaration(id); return d && Number.isInteger(Number(d.revision)) ? Number(d.revision) : null; }
   function ensureStyle() {
     if (document.getElementById('inventory-sales-css')) return;

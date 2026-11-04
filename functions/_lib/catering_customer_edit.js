@@ -81,7 +81,7 @@ export async function previewCustomerEdit(env, q, body) {
     if (!item || added.has(selection.id) || !quantity(selection.qty)) return fail('An added menu item is unavailable. Reload the menu.');
     if (item.stock_count != null && Number(item.stock_count) < selection.qty) return fail('An added menu item does not have enough stock.');
     added.add(selection.id);
-    lines.push({ product_id: item.id, name: item.name, name_es: item.name_es, qty: String(selection.qty), cents: item.price_cents * selection.qty, image: item.image || item.img });
+    lines.push({ product_id: item.id, name: item.name, name_es: item.name_es, qty: String(selection.qty), cents: item.price_cents * selection.qty, image: item.image || item.img, quantity_basis: 'catalog_units' });
   }
   const total = lines.reduce((sum, l) => sum + l.cents, 0);
   if (!lines.length || total < 1 || total > 10000000) return fail('Choose a menu total between $0.01 and $100,000.');

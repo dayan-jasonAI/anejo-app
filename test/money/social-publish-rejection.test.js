@@ -6,7 +6,8 @@ function fixture({status='publishing',marker=1,missing=false,writeFailure=false}
  const env=ownerEnv();env.DB.sqlite.prepare('INSERT INTO social_posts (id,status,caption,public_token,created_at,updated_at,auto_audit_required) VALUES (?,?,?,?,?,?,?)').run('p',status,'caption','token',1,1,marker);
  const prepare=env.DB.prepare.bind(env.DB);const writes=[];
  env.DB.prepare=sql=>{
- if(sql.startsWith('SELECT auto_audit_required'))return {bind(){return this;},async first(){if(missing)return null;throw new Error('source/marker unavailable');}};
+ if(sql.startsWith('SELECT source,media_type,platform,auto_audit_required')&&sql.includes('audit_detail_json'))return {bind(){return this;},async first(){if(missing)return null;throw new Error('source/approval evidence unavailable');}};
+ if(sql.startsWith('SELECT source,media_type,platform,auto_audit_required'))return {bind(){return this;},async first(){if(missing)return null;return {auto_audit_required:marker};}};
  if(sql.startsWith('UPDATE social_posts')){writes.push(sql);if(writeFailure)return {bind(){return this;},async run(){throw new Error('write unavailable');}};}
  return prepare(sql);
  };return {env,writes};

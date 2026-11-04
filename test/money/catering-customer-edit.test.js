@@ -30,6 +30,8 @@ test('server preserves rational owner unit price and ignores caller money and id
   b.lines[0].cents=1;b.additions[0].price_cents=1;b.customer_email='attacker@example.test';
   const p=await previewCustomerEdit(env,q,b);
   assert.equal(p.ok,true);assert.equal(p.lines[0].cents,5286);assert.equal(p.total_cents,14286);
+  assert.deepEqual({ product_id:p.lines[1].product_id, quantity_basis:p.lines[1].quantity_basis, qty:p.lines[1].qty, cents:p.lines[1].cents },
+    { product_id:'catering_croqueta-30', quantity_basis:'catalog_units', qty:'2', cents:9000 });
   await provider(async calls=>{const result=await applyCustomerEdit(env,{...b,preview_fingerprint:p.preview_fingerprint});assert.equal(result.ok,true);assert.equal(result.customer_email,'guest@example.test');assert.match(calls.at(-1).body.checkout_options.redirect_url,/^https:\/\/anejocateringco.com/);});
 });
 test('valid bearer required; supplied quote id never authorizes access and hostile origin rejected',async()=>{

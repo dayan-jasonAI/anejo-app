@@ -3,12 +3,13 @@ import assert from 'node:assert/strict';
 import { ownerEnv } from '../helpers/sqlite-d1.js';
 import { etParts, remainingByBowl } from '../../functions/_lib/ondemand.js';
 import { saveSaleOffer, stockReservationStatements } from '../../functions/_lib/inventory_sales.js';
+import { processPaidInventory } from '../../functions/_lib/inventory_deductions.js';
 
 function fixture() {
   const env = ownerEnv();
   const at = Date.now();
-  env.DB.prepare("UPDATE menu_items SET active=1,availability='available',inventory_revision=4,stock_count=20,stock_counted_at=? WHERE id='vida'").bind(at).run();
-  env.DB.prepare("UPDATE menu_items SET active=1,availability='available',inventory_revision=4,stock_count=8,stock_counted_at=? WHERE id='fuego'").bind(at).run();
+  env.DB.prepare("UPDATE menu_items SET active=1,availability='available',inventory_revision=4,stock_count=30,stock_counted_at=? WHERE id='vida'").bind(at - 2000).run();
+  env.DB.prepare("UPDATE menu_items SET active=1,availability='available',inventory_revision=4,stock_count=8,stock_counted_at=? WHERE id='fuego'").bind(at - 2000).run();
   env.DB.prepare("UPDATE menu_items SET active=1,availability='available',stock_count=NULL WHERE id='mar'").run();
   const date = etParts(new Date(at)).dateStr;
   const paidOrder = (id, items) => env.DB.prepare('INSERT INTO orders(id,items,delivery_date,status,fulfillment_mode,created_at,updated_at) VALUES(?,?,?,\'paid\',\'on_demand\',?,?)').bind(id, JSON.stringify(items), date, at - 1000, at - 1000).run();
@@ -20,11 +21,16 @@ function fixture() {
 
 test('same-day remainder uses current unreserved sale quantities, reservations, and legacy fallback', async () => {
   const { env, at, date } = fixture();
-  const fresh = await saveSaleOffer(env, { itemId:'vida', quantity:20, inventoryRevision:4, changeId:'sale_fresh_vida', actorId:'stf_owner', at });
+  const settled = await processPaidInventory(env);
+  assert.equal(settled.ok, true);
+  assert.equal(env.DB.one("SELECT stock_count FROM menu_items WHERE id='vida'").stock_count, 20);
+  assert.equal(env.DB.one("SELECT stock_count FROM menu_items WHERE id='fuego'").stock_count, 6);
+  const vidaRevision=env.DB.one("SELECT inventory_revision FROM menu_items WHERE id='vida'").inventory_revision;
+  const fresh = await saveSaleOffer(env, { itemId:'vida', quantity:20, inventoryRevision:vidaRevision, changeId:'sale_fresh_vida', actorId:'stf_owner', at });
   assert.equal(fresh.ok, true);
   // An expired declaration for fuego is not eligible to override its legacy count behavior.
   env.DB.prepare('INSERT INTO inventory_sale_offers(menu_item_id,quantity,revision,counted_at,sale_expires_at,inventory_revision,enabled,change_id) VALUES(?,?,?,?,?,?,?,?)')
-    .bind('fuego',12,1,at-2000,at-1,4,1,'sale_expired_fuego').run();
+    .bind('fuego',12,1,at-2000,at-1,env.DB.one("SELECT inventory_revision FROM menu_items WHERE id='fuego'").inventory_revision,1,'sale_expired_fuego').run();
 
   let remaining = await remainingByBowl(env, date, 10);
   assert.equal(remaining.vida, 20, 'paid order from before the absolute declaration is not subtracted twice');

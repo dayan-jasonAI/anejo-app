@@ -82,6 +82,9 @@ export function normalizeQuoteLines(raw) {
       cents,
       image: image || undefined,
       ...(['catalog','custom','quoted'].includes(row.pricing_mode) ? {pricing_mode:row.pricing_mode} : {}),
+      // Unit semantics are explicit provenance. A catalog price override does not erase the
+      // fact that this line counts catalog selling units; legacy lines never inherit it from mode.
+      ...(row.quantity_basis === 'catalog_units' ? {quantity_basis:'catalog_units'} : {}),
       ...(Number.isSafeInteger(row.unit_cents) && row.unit_cents >= 0 ? {unit_cents:row.unit_cents} : {}),
       ...(row.override_reason ? {override_reason:text(row.override_reason,MAX_DETAIL)} : {}),
     });

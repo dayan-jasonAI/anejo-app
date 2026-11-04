@@ -271,7 +271,7 @@ export const onRequestPost = async ({ request, env, waitUntil, context }) => {
   if (action === 'menu_count') {
     const itemId = (b && b.id || '').toString().trim();
     if (!itemId) return bad('Missing item id.');
-    const row = await env.DB.prepare('SELECT id, name, name_es, image, kind, active, availability, stock_count, stock_counted_at, inventory_revision, last_inventory_change_id FROM menu_items WHERE id=?').bind(itemId).first();
+    const row = await env.DB.prepare('SELECT id, name, name_es, image, kind, active, availability, stock_count, stock_counted_at, inventory_revision, stock_count_basis, last_inventory_change_id FROM menu_items WHERE id=?').bind(itemId).first();
     if (!row) return bad('Item not found.', 404);
 
     const raw = b && b.stock_count;
@@ -285,10 +285,11 @@ export const onRequestPost = async ({ request, env, waitUntil, context }) => {
     if (!Number.isInteger(b.expected_revision) || Number(b.expected_revision) !== Number(row.inventory_revision || 0)) return bad('Finished-item count changed. Refresh before saving.', 409);
 
     const availability = saleIntent?.for_sale ? 'available' : row.availability;
-    const after = { ...row, stock_count: next, stock_counted_at:t, inventory_revision: Number(row.inventory_revision || 0) + 1, last_inventory_change_id: null, availability,
+    const basis=saleIntent?.for_sale?'unreserved':'physical';
+    const after = { ...row, stock_count: next, stock_count_basis:basis, stock_counted_at:t, inventory_revision: Number(row.inventory_revision || 0) + 1, last_inventory_change_id: null, availability,
       ...(saleIntent ? { __sale_intent: saleIntent } : {}) };
     const change = makeChange({ itemId, action, actorId: by, before: row, after, at: t, table: 'menu_items', marker: 'last_inventory_change_id' });
-    const committed = await commitChange(env, { sql: 'UPDATE menu_items SET stock_count=?, availability=COALESCE(?,availability), updated_at=?, stock_counted_at=?, inventory_revision=inventory_revision+1,last_inventory_change_id=? WHERE id=? AND inventory_revision=?', args: [next, availability === row.availability ? null : availability, t, t, change.changeId, itemId, Number(row.inventory_revision || 0)] }, change);
+    const committed = await commitChange(env, { sql: 'UPDATE menu_items SET stock_count=?, stock_count_basis=?, availability=COALESCE(?,availability), updated_at=?, stock_counted_at=?, inventory_revision=inventory_revision+1,last_inventory_change_id=? WHERE id=? AND inventory_revision=?', args: [next, basis, availability === row.availability ? null : availability, t, t, change.changeId, itemId, Number(row.inventory_revision || 0)] }, change);
     if (!committed.ok) return bad('Menu count was not saved.', 409);
     await capture(env, {
       event: 'menu.stock_counted',

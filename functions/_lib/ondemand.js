@@ -121,15 +121,21 @@ export async function remainingByBowl(env, dateStr, limit, menu) {
   const holdMin = Number.isFinite(rawHold) && rawHold >= 0 ? rawHold : 30;
   const pendingCutoff = Date.now() - holdMin * 60 * 1000;
   const { results } = await env.DB.prepare(
-    `SELECT items FROM orders
+    `SELECT id,items FROM orders
        WHERE fulfillment_mode = 'on_demand' AND delivery_date = ? AND status != 'canceled'
          AND (status != 'pending' OR created_at >= ?)`
   ).bind(dateStr, pendingCutoff).all();
+  const baselineById=new Map((m?.items||[]).map(item=>[item.id,Number(item.stock_counted_at)||0]));
+  const accounted=new Set(), orderIds=(results||[]).map(row=>row.id).filter(id=>typeof id==='string');
+  if(orderIds.length){
+    const rows=await env.DB.prepare(`SELECT source_id,stock_item_id,state,effective_at,counted_at FROM inventory_sale_deductions WHERE source_type='order' AND source_id IN (${orderIds.map(()=>'?').join(',')})`).bind(...orderIds).all();
+    for(const movement of rows?.results||[]){const baseline=baselineById.get(movement.stock_item_id)||0;if(baseline>0&&(movement.effective_at<=baseline||movement.state!=='uncounted'&&movement.counted_at===baseline))accounted.add(movement.source_id+':'+movement.stock_item_id);}
+  }
   for (const row of results || []) {
     let items = [];
     try { items = JSON.parse(row.items) || []; } catch { /* skip unparseable rows */ }
     for (const it of items) {
-      if (remaining[it && it.id] != null) {
+      if (remaining[it && it.id] != null && !accounted.has(row.id+':'+it.id)) {
         remaining[it.id] = Math.max(0, remaining[it.id] - (Number(it.qty) || 0));
       }
     }

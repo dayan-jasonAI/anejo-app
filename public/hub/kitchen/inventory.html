@@ -249,13 +249,14 @@
     return labels[status] || 'Photo status unavailable';
   }
   function historySummary(change) {
-    var action = String(change.action || change.type || 'Inventory updated').replace(/[_-]+/g, ' ');
+    var action = change.action === 'paid_sale' ? tx('Paid sale', 'Venta pagada') : String(change.action || change.type || 'Inventory updated').replace(/[_-]+/g, ' ');
     var detail = change.summary || change.description || '';
     if (!detail) {
       var after = change.after;
       if (!after && change.after_json) { try { after = JSON.parse(change.after_json); } catch (_) { after = null; } }
       if (after && typeof after === 'object') {
         var parts = [];
+        if(after.sale_source_id){parts.push(tx('Order ', 'Pedido ') + after.sale_source_id);parts.push(tx('Sold ', 'Vendido ') + after.requested_qty);parts.push(tx('Recorded balance ', 'Saldo registrado ') + (after.stock_count==null ? tx('uncounted','sin conteo') : after.stock_count));}
         if (after.on_hand != null) parts.push('on hand ' + after.on_hand);
         if (after.count_quantity != null) parts.push('count ' + after.count_quantity);
         if (after.total_weight_grams != null) parts.push('weight ' + after.total_weight_grams + ' g');
@@ -521,10 +522,11 @@
       var availability = p.availability === 'available' ? tx('Available to order', 'Disponible para ordenar') : tx('Not available to order', 'No disponible para ordenar');
       var counted = p.stock_counted_at ? new Date(p.stock_counted_at).toLocaleString((window.AnejoLang && window.AnejoLang.get() === 'es' ? 'es-US' : 'en-US')) : tx('No count readback recorded', 'No hay lectura de conteo registrada');
       var photo = p.image ? '<img class="inv-prep-photo" src="' + esc(p.image.indexOf('/assets/img/') === 0 ? p.image : '/assets/img/' + p.image.replace(/^\//, '')) + '" alt="' + esc(tx('Catalog photo for ', 'Foto del catálogo para ') + (p.name || p.name_es || '')) + '" loading="lazy">' : '<div class="inv-prep-photo" role="img" aria-label="' + esc(tx('Catalog photo unavailable', 'Foto del catálogo no disponible')) + '"></div>';
+      var menuChanges = currentChanges.filter(function (entry) { return entry.item_id === p.id; });
       var draft = preparedDrafts.get(String(p.id)); var inputValue = draft ? draft.value : (p.stock_count == null ? '' : p.stock_count);
       return '<div class="card inv-prep-card" data-menu-id="' + esc(p.id) + '" data-inventory-revision="' + esc(p.inventory_revision) + '">' + photo + '<div class="inv-prep-main"><strong data-page-en="' + esc(p.name || p.name_es || '') + '" data-page-es="' + esc(p.name_es || p.name || '') + '">' + esc(tx(p.name || p.name_es || '', p.name_es || p.name || '')) + '</strong><div class="inv-meta">' + esc(label) + '</div><div class="inv-meta">' + esc(availability) + ' · ' + esc(counted) + ' · ' + tx('revision ', 'revisión ') + esc(p.inventory_revision) + '</div></div>' +
         '<input type="number" min="0" max="9999" step="1" inputmode="numeric" placeholder="—" aria-label="' + esc(tx('Today’s finished count for ', 'Cantidad de productos terminados de hoy para ') + (p.name || p.name_es || '')) + '" id="pq-' + esc(p.id) + '" value="' + esc(inputValue) + '">' +
-        '<button class="btn ghost" type="button" data-prep="' + esc(p.id) + '">' + tx('Set', 'Guardar') + '</button></div><div class="inv-prep-state" role="status" aria-live="polite" data-prep-status="' + esc(p.id) + '"></div>';
+        '<button class="btn ghost" type="button" data-prep="' + esc(p.id) + '">' + tx('Set', 'Guardar') + '</button></div><div class="inv-prep-state" role="status" aria-live="polite" data-prep-status="' + esc(p.id) + '"></div>' + (menuChanges.length ? '<details class="inv-ledger"><summary>' + tx('Recent changes', 'Cambios recientes') + ' (' + menuChanges.length + ')</summary><ol>' + menuChanges.map(historySummary).join('') + '</ol></details>' : '');
     }).join('') : '<div class="hub-empty">No prepared menu items were returned.</div>';
     preparedDrafts.forEach(function (draft, id) { var field = document.getElementById('pq-' + id); if (field) field.value = draft.value; });
     Array.prototype.forEach.call(document.querySelectorAll('[data-prep]'), function (button) {
@@ -635,6 +637,6 @@
 </script>
 <script src="/hub/kitchen/assets/inventory-production.js"></script>
 <script src="/hub/assets/inventory-story-card.js?v=20261103-2"></script>
-<script src="/hub/kitchen/assets/inventory-sales.js?v=20261103-2"></script>
+<script src="/hub/kitchen/assets/inventory-sales.js?v=20261104-1"></script>
 </body>
 </html>

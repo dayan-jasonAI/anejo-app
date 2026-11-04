@@ -169,20 +169,21 @@ export async function publishSocialPost(env, request, post, opts = {}) {
     }
     return { ok: false, error };
   };
-  if(post.source==='inventory'){let stockReview;try{stockReview=await verifyInventoryStoryReview(env,post);}catch{stockReview={ok:false,error:'Inventory Story approval could not be verified.'};}if(!stockReview.ok)return rejectApproval(stockReview.error);}
+
   // Re-read automatic approval evidence immediately before any provider operation.
   // Manual/legacy scheduling remains separate; NULL is not fabricated approval provenance.
   let approval;
-  try { approval = await env.DB.prepare(`SELECT auto_audit_required, campaign_review_id, campaign_cycle_id, audit_status, audit_scope, audit_detail_json, COALESCE(${SOCIAL_AUDIT_CURRENT},0) AS audit_current FROM social_posts WHERE id=?`).bind(post.id).first(); }
+  try { approval = await env.DB.prepare(`SELECT source,media_type,platform,auto_audit_required, campaign_review_id, campaign_cycle_id, audit_status, audit_scope, audit_detail_json, COALESCE(${SOCIAL_AUDIT_CURRENT},0) AS audit_current FROM social_posts WHERE id=?`).bind(post.id).first(); }
   catch {
     // A context source outage may not bypass an automatic requirement. A separate
     // marker read can still establish that an explicitly manual/legacy row is unaffected.
-    try { approval = await env.DB.prepare('SELECT auto_audit_required, campaign_review_id, campaign_cycle_id FROM social_posts WHERE id=?').bind(post.id).first(); } catch { approval = null; }
+    try { approval = await env.DB.prepare('SELECT source,media_type,platform,auto_audit_required, campaign_review_id, campaign_cycle_id FROM social_posts WHERE id=?').bind(post.id).first(); } catch { approval = null; }
     if (!approval || approval.auto_audit_required !== null) return rejectApproval('Automatic audit evidence unavailable.');
   }
   if (!approval) return rejectApproval('Publication approval record unavailable.');
   const campaignReview=await verifyCampaignPostReview(env,post.id,approval.campaign_review_id,approval.campaign_cycle_id);
   if(!campaignReview.ok)return rejectApproval(campaignReview.error);
+  if(approval?.source==='inventory'||post.source==='inventory'){let stockReview;try{stockReview=await verifyInventoryStoryReview(env,{...post,source:approval?.source||post.source,media_type:approval?.media_type||post.media_type,platform:approval?.platform||post.platform});}catch{stockReview={ok:false,error:'Inventory Story approval could not be verified.'};}if(!stockReview.ok)return rejectApproval(stockReview.error);}
   if (approval?.auto_audit_required && (!approval || !approval.audit_current || approval.audit_status!=='pass' || approval.audit_scope!=='caption_and_media')) {
     return rejectApproval('Automatic audit evidence is stale or unavailable. Re-audit before automatic publication.');
   }

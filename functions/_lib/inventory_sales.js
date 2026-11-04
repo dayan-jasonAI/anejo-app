@@ -1,3 +1,4 @@
+import { pendingSaleItems, stockSaleAliases } from './inventory_units.js';
 import { loadMenu, isAvailable, isOrderable } from './menu.js';
 
 export const DEFAULT_SALE_TTL_MS = 24 * 60 * 60 * 1000;
@@ -43,6 +44,7 @@ export async function saleOfferSnapshot(env, at = Date.now()) {
   try {
     const menu = await loadMenu(env);
     if (menu?.source !== 'd1') return { ok: false, error: 'sale_offer_authority_unavailable', read_at: at, offers: [], suppressed: [] };
+    const paidPending=await pendingSaleItems(env);
     const offersResult = await env.DB.prepare('SELECT * FROM inventory_sale_offers ORDER BY menu_item_id').all();
     const reservationsResult = await env.DB.prepare('SELECT r.menu_item_id,r.offer_revision,SUM(r.quantity) AS quantity FROM inventory_sale_reservations r JOIN inventory_sale_offers o ON o.menu_item_id=r.menu_item_id AND o.revision=r.offer_revision GROUP BY r.menu_item_id,r.offer_revision').all();
     if (offersResult?.success === false || reservationsResult?.success === false || !Array.isArray(offersResult?.results) || !Array.isArray(reservationsResult?.results)) throw new Error('read_failed');
@@ -55,7 +57,7 @@ export async function saleOfferSnapshot(env, at = Date.now()) {
     const offers = [], suppressed = [];
     for (const offer of offersResult.results) {
       const item = items.get(offer.menu_item_id);
-      const reason = offerInvalidReason(offer, item, at);
+      const reason = paidPending.has(offer.menu_item_id)?'paid_sale_pending':offerInvalidReason(offer, item, at);
       const quantity = Number(offer.quantity);
       const held = reserved.get(`${offer.menu_item_id}:${offer.revision}`) || 0;
       const remaining = quantity - held;
@@ -162,6 +164,7 @@ export async function stockReservationStatements(env, { orderId, items, at = Dat
     if (menu?.source !== 'd1') throw Error('menu_read_failed');
   } catch { throw new InventorySaleError('sale_offer_authority_unavailable'); }
   const menuItems = new Map((menu.items || []).map(item => [item.id, item]));
+  const paidPending=await pendingSaleItems(env);
   const claimed = [];
   for (const entry of merged.values()) {
     const offer = offers.get(entry.id);
@@ -169,6 +172,7 @@ export async function stockReservationStatements(env, { orderId, items, at = Dat
     if (!offer) throw new InventorySaleError('sale_offer_missing');
     const expectedRevision = entry.revision || Number(offer.revision);
     if (offer && Number(offer.revision) !== expectedRevision) throw new InventorySaleError('sale_offer_revision_changed');
+    if(paidPending.has(entry.id))throw new InventorySaleError('sale_inventory_pending');
     const invalid = offerInvalidReason(offer, menuItems.get(entry.id), at);
     if (invalid) {
       if (!entry.revision) continue;
@@ -186,14 +190,16 @@ export async function stockReservationStatements(env, { orderId, items, at = Dat
   if (!claimed.length) return [];
   const claims = [], reservations = [];
   for (const item of claimed) {
+    const aliases=stockSaleAliases(item.id);
+    const noPending="NOT EXISTS(SELECT 1 FROM inventory_sale_jobs j,json_each(CASE WHEN j.source_type='order' THEN j.snapshot_json ELSE COALESCE(json_extract(j.snapshot_json,'$.lines'),'[]') END) l WHERE j.state IN ('pending','error') AND (CASE WHEN j.source_type='order' THEN CASE WHEN json_extract(l.value,'$.addon')=1 AND json_extract(l.value,'$.id') LIKE 'addon_%' THEN substr(json_extract(l.value,'$.id'),7) ELSE json_extract(l.value,'$.id') END WHEN (json_extract(l.value,'$.pricing_mode')='catalog' OR json_extract(l.value,'$.quantity_basis')='catalog_units') THEN json_extract(l.value,'$.product_id') END) IN ("+aliases.map(()=>'?').join(',')+"))";
     claims.push(env.DB.prepare(`INSERT INTO inventory_sale_checkout_claims(order_id,menu_item_id,offer_revision,quantity,accepted,claimed_at)
       SELECT ?,?,?,?,CASE WHEN EXISTS(
         SELECT 1 FROM inventory_sale_offers o JOIN menu_items m ON m.id=o.menu_item_id
         WHERE o.menu_item_id=? AND o.revision=? AND o.enabled=1 AND o.counted_at<=? AND o.sale_expires_at>? AND o.sale_expires_at-o.counted_at<=? AND o.quantity>0
           AND o.inventory_revision=? AND m.active=1 AND m.inventory_revision=? AND m.availability='available'
-          AND o.quantity-COALESCE((SELECT SUM(r.quantity) FROM inventory_sale_reservations r WHERE r.menu_item_id=o.menu_item_id AND r.offer_revision=o.revision),0)>=?
+          AND ${noPending} AND o.quantity-COALESCE((SELECT SUM(r.quantity) FROM inventory_sale_reservations r WHERE r.menu_item_id=o.menu_item_id AND r.offer_revision=o.revision),0)>=?
       ) THEN 1 ELSE 0 END,?`)
-      .bind(orderId, item.id, item.revision, item.qty, item.id, item.revision, at, at, MAX_SALE_TTL_MS, item.inventoryRevision, item.inventoryRevision, item.qty, at));
+      .bind(orderId, item.id, item.revision, item.qty, item.id, item.revision, at, at, MAX_SALE_TTL_MS, item.inventoryRevision, item.inventoryRevision, ...aliases, item.qty, at));
     reservations.push(env.DB.prepare(`INSERT INTO inventory_sale_reservations(order_id,menu_item_id,offer_revision,quantity,reserved_at)
       SELECT order_id,menu_item_id,offer_revision,quantity,claimed_at FROM inventory_sale_checkout_claims
       WHERE order_id=? AND menu_item_id=? AND accepted=1`)

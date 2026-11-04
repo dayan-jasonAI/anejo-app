@@ -227,7 +227,7 @@ function fakeDB(mediaRows) {
     _seqWrites: seqWrites,
     _postUpdates: postUpdates,
     prepare(sql) {
-      if (sql.startsWith('SELECT auto_audit_required')) return {bind:()=>({first:async()=>({auto_audit_required:null})})};
+      if (sql.startsWith('SELECT source,media_type,platform,auto_audit_required')) return {bind:()=>({first:async()=>({source:null,media_type:null,platform:'instagram',auto_audit_required:null,campaign_review_id:null,campaign_cycle_id:null,audit_current:1})})};
       if (sql.includes('FROM social_post_media WHERE post_id=?')) {
         return { bind: () => ({ all: async () => ({ results: mediaRows.map((r) => ({ ...r })) }) }) };
       }

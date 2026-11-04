@@ -329,7 +329,7 @@ export const onRequestPost = async ({ request, env }) => {
 
     const mutation = env.DB.prepare(
         `UPDATE menu_items SET name=?, name_es=?, price_cents=?, description=?, description_es=?,
-           image=?, sort=?, active=?, availability=?, ${stockCountChanged ? 'stock_count=?, stock_counted_at=?, inventory_revision=inventory_revision+1,last_inventory_change_id=?,' : ''}prep_minutes=?, updated_at=? WHERE id=?${stockCountChanged ? ' AND inventory_revision=?' : ''}`
+           image=?, sort=?, active=?, availability=?, ${stockCountChanged ? "stock_count=?, stock_count_basis='physical', stock_counted_at=?, inventory_revision=inventory_revision+1,last_inventory_change_id=?," : ''}prep_minutes=?, updated_at=? WHERE id=?${stockCountChanged ? ' AND inventory_revision=?' : ''}`
       ).bind(
         next.name, next.name_es, next.price_cents, next.description, next.description_es,
         next.image, next.sort, next.active, next.availability || 'available',

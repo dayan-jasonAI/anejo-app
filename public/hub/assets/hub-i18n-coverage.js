@@ -2,6 +2,18 @@
 (function () {
   "use strict";
   var dictionary = {
+    "Order saved. Inventory sync is pending.": "Pedido guardado. El inventario está pendiente de sincronizar.",
+    "Order saved. Review the inventory alert.": "Pedido guardado. Revisa la alerta de inventario.",
+    "The live catalog could not be checked. No order was created.": "No se pudo consultar el catálogo actual. No se creó ningún pedido.",
+    "A selected catalog item is no longer active. Refresh the catalog and try again.": "Un artículo seleccionado ya no está activo. Actualiza el catálogo y vuelve a intentar.",
+    "Catalog item selection is invalid.": "La selección del artículo del catálogo no es válida.",
+
+    'Search catalog': 'Buscar en el catálogo',
+    'Catalog item': 'Artículo del catálogo',
+    'Paid sale': 'Venta pagada',
+    'Recorded balance': 'Saldo registrado',
+    'Sold': 'Vendido',
+    'uncounted': 'sin conteo',
     'Inventory story': 'Historia de inventario',
     "Catalog artwork exceeds the image limit.": "La imagen del catálogo supera el límite permitido.",
     "Catalog artwork is unavailable.": "La imagen del catálogo no está disponible.",

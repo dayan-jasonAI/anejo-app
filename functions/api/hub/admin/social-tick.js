@@ -1,3 +1,4 @@
+import { processPaidInventory } from '../../../_lib/inventory_deductions.js';
 // POST /api/hub/admin/social-tick — publish social posts whose scheduled time has arrived.
 // Auth: owner session OR the X-Cron-Key header, same as every other tick.
 //
@@ -43,10 +44,12 @@ export const onRequestPost = async ({ request, env }) => {
 };
 
 async function runTick(request, env) {
+  let paid_inventory;
+  try{paid_inventory=await processPaidInventory(env,{limit:20});}catch{paid_inventory={ok:false,error:'paid_inventory_queue_unavailable'};}
 
   // Not configured is not an error — it is the normal state before the Meta token exists. Say so
   // and stop, rather than marking every due post as failed once a minute.
-  if (!igConfigured(env)) return json({ ok: true, skipped: 'instagram_not_configured', published: [], missed: [] });
+  if (!igConfigured(env)) return json({ ok: true, skipped: 'instagram_not_configured', paid_inventory, published: [], missed: [] });
 
   const t = now();
   const published = [], missed = [], failed = [];
@@ -58,7 +61,7 @@ async function runTick(request, env) {
       // will not accept a post without an image, so those must never be claimed here — they would
       // burn through 'publishing' into 'failed' once a minute. Slides live in social_post_media
       // now (carousels), so the old media_key IS NOT NULL check would miss every new post.
-      "SELECT id, caption, scheduled_at, media_type FROM social_posts WHERE status='scheduled' AND scheduled_at IS NOT NULL AND scheduled_at <= ? AND EXISTS (SELECT 1 FROM social_post_media m WHERE m.post_id = social_posts.id) ORDER BY scheduled_at LIMIT 5"
+      "SELECT id, caption, scheduled_at, media_type, source, platform FROM social_posts WHERE status='scheduled' AND scheduled_at IS NOT NULL AND scheduled_at <= ? AND EXISTS (SELECT 1 FROM social_post_media m WHERE m.post_id = social_posts.id) ORDER BY scheduled_at LIMIT 5"
     ).bind(t).all();
     due = (r && r.results) || [];
   } catch {
@@ -107,5 +110,5 @@ async function runTick(request, env) {
     published.push({ id: p.id, permalink: res.permalink || null });
   }
 
-  return json({ ok: true, at: t, checked: due.length, published, failed, missed });
+  return json({ ok: true, at: t, checked: due.length, paid_inventory, published, failed, missed });
 };

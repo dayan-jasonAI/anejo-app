@@ -15,6 +15,7 @@ on:
       - 'test/ui/delivery-recovery-browser.cjs'
       - 'test/ui/inventory-sales-browser.cjs'
       - 'test/ui/inventory-stock-browser.cjs'
+      - 'test/ui/manual-order-catalog-browser.cjs'
       - 'public/assets/js/stock-highlights.js'
       - 'public/assets/js/shop-order.js'
       - 'public/assets/js/shop-families.js'
@@ -54,6 +55,7 @@ jobs:
       - run: node test/ui/inventory-stock-browser.cjs
         env:
           ANEJO_STOCK_AUDIT_OUT: /tmp/anejo-inventory-stock
+      - run: node test/ui/manual-order-catalog-browser.cjs
       - uses: actions/upload-artifact@v4
         if: always()
         with:
