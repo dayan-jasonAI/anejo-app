@@ -101,7 +101,9 @@ export async function offerToNext(env, routeId) {
 
   if (!next) {
     const t = now();
-    await env.DB.prepare("UPDATE routes SET offer_status='unfilled', updated_at=? WHERE id=?").bind(t, routeId).run();
+    // Candidate lookup is asynchronous. Do not overwrite an acceptance, owner reassignment or closure.
+    const claim=await env.DB.prepare("UPDATE routes SET offer_status='unfilled',updated_at=? WHERE id=? AND status='assigned' AND offer_status IS ? AND driver_id IS ? AND offered_at IS ? AND updated_at IS ?").bind(t,routeId,route.offer_status??null,route.driver_id??null,route.offered_at??null,route.updated_at??null).run();
+    if(claim?.meta?.changes===0)return {ok:false,reason:'offer_changed'};
     await recordOutcome(env, routeId, null, 'unfilled');
     try {
       await raiseAlert(env, {

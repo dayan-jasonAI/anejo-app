@@ -7546,6 +7546,7 @@
   "Accept this assignment before updating its stops.": "Acepta esta asignación antes de actualizar sus paradas.",
   "Max wait (min, freshness)": "Espera máxima (minutos, frescura)",
   "Max stops / route": "Máximo de paradas por ruta",
+  "This clears active queues and keeps your audit history. It sends no client message or payment. Completed routes may make existing driver pay due.": "Esto despeja las listas activas y conserva el historial. No envía mensajes ni pagos. Al completar una ruta, el pago pendiente del conductor puede pasar a la lista por pagar.",
   "On time": "A tiempo",
   "Late": "Tarde",
   "Arriving at": "Llegando a",
