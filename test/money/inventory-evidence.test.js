@@ -56,7 +56,7 @@ test('finished-menu count uses the same atomic evidence ledger', async () => {
   assert.equal((await onRequestPost({ env, request: req('inventory', { action: 'menu_count', id: 'vida', stock_count: 6.5 }) })).status, 400);
   assert.equal((await onRequestPost({ env, request: req('inventory', { action: 'menu_count', id: 'vida', stock_count: 6, expected_revision: 10 }) })).status, 409);
   assert.equal(env.DB.one('SELECT COUNT(*) n FROM inventory_changes').n, 0);
-  const r = await onRequestPost({ env, request: req('inventory', { action: 'menu_count', id: 'vida', stock_count: 6 }) });
+  const r = await onRequestPost({ env, request: req('inventory', { action: 'menu_count', id: 'vida', stock_count: 6, expected_revision: 0 }) });
   assert.equal(r.status, 200);
   const body = await r.json(); assert.equal(body.change_id != null, true);
   assert.equal(env.DB.one("SELECT stock_count FROM menu_items WHERE id='vida'").stock_count, 6);

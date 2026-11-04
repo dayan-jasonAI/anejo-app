@@ -58,6 +58,9 @@
   .inv-ledger li { padding:5px 0; color:#47534a; font-size:13px; line-height:1.45; }
   .inv-status { min-height:22px; margin-top:8px; color:#3e4e43; font-size:13px; }
   .inv-error { color:#8c271f; }
+  .inv-status button { min-height:44px; margin:6px 6px 0 0; }
+  .inv-prep-photo { width:64px; height:64px; flex:0 0 64px; object-fit:cover; border-radius:10px; border:1px solid #d9ded8; background:#f0f1eb; }
+  .inv-prep-state { min-height:22px; margin:4px 0 8px; font-size:13px; color:#3e4e43; }
   .inv-archive { min-height:44px; margin-top:8px; border:0; padding:0 4px; color:#8c271f; background:transparent; font-size:13px; text-decoration:underline; cursor:pointer; }
   .inv-subsection { margin-top:30px; }
   .inv-prep-card { display:flex; align-items:center; gap:10px; margin-bottom:8px; }
@@ -137,7 +140,7 @@
       <div class="inv-fields">
         <div class="inv-field inv-full"><label for="a-name">Item name</label><input id="a-name" type="text" maxlength="80" autocomplete="off" required></div>
         <div class="inv-field"><label for="a-unit">On-hand unit</label><input id="a-unit" type="text" maxlength="16" placeholder="lb, each, case"></div>
-        <div class="inv-field"><label for="a-onhand">On hand</label><input id="a-onhand" type="number" step="any" min="0" inputmode="decimal"></div>
+        <div class="inv-field"><label for="a-onhand">On hand</label><input id="a-onhand" type="number" step="any" min="0" inputmode="decimal" required></div>
         <div class="inv-field"><label for="a-count">Count quantity</label><input id="a-count" type="number" step="any" min="0" inputmode="decimal"></div>
         <div class="inv-field"><label for="a-weight">Total weight (grams)</label><input id="a-weight" type="number" step="any" min="0" inputmode="decimal"></div>
         <div class="inv-field"><label for="a-expires">Stock expires on</label><input id="a-expires" type="date"></div>
@@ -164,7 +167,7 @@
 
   <section class="hub-section inv-subsection" aria-labelledby="prepared-heading">
     <div class="inv-section-title"><h2 id="prepared-heading">Ready to sell today</h2></div>
-    <p class="inv-help" style="margin-bottom:10px">Set how many finished bowls and drinks you made today. This stored count persists; today’s paid orders reduce the remaining quantity. Recount finished portions daily before planning prep. Blank means no limit.</p>
+    <p class="inv-help" style="margin-bottom:10px">Count finished menu items separately from ingredients. To promote an item, enter unreserved selling units, enable Available for sale and save. A 25-piece tray counts as one selling unit.</p>
     <div id="prepared"><div class="hub-loading">Loading today’s counts…</div></div>
   </section>
   <a class="btn ghost block" href="/hub/kitchen/restock.html">Go to restock orders</a>
@@ -180,7 +183,32 @@
   var bootRoleOwner = false, isOwner = false, currentItems = [], currentChanges = [];
   function dateValue(value) { return value == null ? '' : String(value).slice(0, 10); }
 
-  var dirtyCards = new Set();
+  var dirtyCards = new Set(), dirtyDrafts = new Map(), preparedRows = [], preparedDrafts = new Map();
+  function tx(en, es) { return (window.AnejoLang && window.AnejoLang.get() === 'es') ? es : en; }
+  function uuid() {
+    if (window.crypto && typeof window.crypto.randomUUID === 'function') return window.crypto.randomUUID();
+    var bytes = new Uint8Array(16); window.crypto.getRandomValues(bytes); bytes[6] = (bytes[6] & 15) | 64; bytes[8] = (bytes[8] & 63) | 128;
+    return Array.prototype.map.call(bytes, function (b, i) { return ([4,6,8,10].indexOf(i) >= 0 ? '-' : '') + ('0' + b.toString(16)).slice(-2); }).join('');
+  }
+  var saveRequests = new Map();
+  function requestId(body) {
+    var key = JSON.stringify(body), prior = saveRequests.get(key);
+    if (!prior) { prior = uuid(); saveRequests.set(key, prior); }
+    return prior;
+  }
+  function postStable(path, body) {
+    return K.post(path, body).then(function (result) {
+      if (!result || result._networkError) return K.post(path, body);
+      return result;
+    }).then(function (result) {
+      return !result || result._networkError ? { _unknown: true, error: tx('Save status is unknown. Check the connection and reload before trying again.', 'No se pudo confirmar el guardado. Verifica la conexión y vuelve a cargar antes de intentarlo otra vez.') } : result;
+    });
+  }
+  function rowStatus(card, message, isError) {
+    var status = card && card.querySelector('[data-row-status]');
+    if (!status) return;
+    status.classList.toggle('inv-error', !!isError); status.textContent = message;
+  }
   function filterInventory() {
     var term = $('#inventory-search').value.trim().toLocaleLowerCase(), shown = 0;
     Array.prototype.forEach.call(document.querySelectorAll('[data-card]'), function (card) {
@@ -190,13 +218,23 @@
       card.hidden = !match && !dirtyCards.has(card.getAttribute('data-card'));
       if (!card.hidden) shown++;
     });
+    Array.prototype.forEach.call(document.querySelectorAll('[data-menu-id]'), function (card) {
+      var item = preparedRows.find(function (entry) { return String(entry.id) === card.getAttribute('data-menu-id'); });
+      var match = !term || String(item && (item.name + ' ' + item.name_es + ' ' + item.id) || '').toLocaleLowerCase().indexOf(term) !== -1;
+      card.hidden = !match && !preparedDrafts.has(card.getAttribute('data-menu-id'));
+    });
     Array.prototype.forEach.call(document.querySelectorAll('[data-cost-search]'), function (card) { card.hidden = !!term && card.getAttribute('data-cost-search').indexOf(term) === -1; });
     $('#inventory-search-status').textContent = shown + ' of ' + currentItems.length + ' items shown' + (dirtyCards.size ? ' · Unsaved edits stay visible.' : '.');
   }
   $('#inventory-search').addEventListener('input', filterInventory);
   $('#items').addEventListener('input', function (event) {
     var card = event.target.closest('[data-card]');
-    if (card) { dirtyCards.add(card.getAttribute('data-card')); filterInventory(); }
+    if (card) {
+      var id = card.getAttribute('data-card'), old = dirtyDrafts.get(id);
+      if (!old) old = { revision: card.getAttribute('data-revision'), values: {} };
+      var key = event.target.classList.contains('i-onhand') ? 'on_hand' : event.target.classList.contains('i-count') ? 'count_quantity' : event.target.classList.contains('i-weight') ? 'total_weight_grams' : 'expires_on';
+      old.values[key] = event.target.value; dirtyDrafts.set(id, old); dirtyCards.add(id); filterInventory();
+    }
   });
   function numberText(value, fallback) {
     return value == null || value === '' ? fallback : esc(value);
@@ -243,7 +281,7 @@
     var status = it.photo_key ? photoLabel(it.photo_status) : 'No inventory photo';
     var review = isOwner && it.photo_key && it.photo_status === 'pending'
       ? '<div class="inv-review"><button class="btn gold" type="button" data-review="approve" data-id="' + esc(it.id) + '" data-key="' + esc(it.photo_key) + '">Approve photo</button><button class="btn ghost" type="button" data-review="reject" data-id="' + esc(it.id) + '" data-key="' + esc(it.photo_key) + '">Reject photo</button></div>' : '';
-    return '<article class="inv-card' + (below ? ' below' : '') + '" data-card="' + esc(it.id) + '">' +
+    return '<article class="inv-card' + (below ? ' below' : '') + '" data-card="' + esc(it.id) + '" data-revision="' + esc(it.revision == null ? '' : it.revision) + '">' +
       '<div class="inv-head">' + photoMarkup(it) + '<div class="inv-name">' + esc(it.name) +
       '<div class="inv-meta">' + (it.unit ? esc(it.unit) + ' · ' : '') + 'Par ' + numberText(it.par_level, '—') + '</div>' +
       '<div class="inv-meta">' + (it.counted_at ? 'Last count saved ' + esc(new Date(it.counted_at).toLocaleString((typeof window !== 'undefined' && window.AnejoLang && window.AnejoLang.get() === 'es' ? 'es-US' : 'en-US'))) : 'No count timestamp recorded') + '</div>' +
@@ -312,7 +350,19 @@
     }).join('');
     $('#cost-sheet').innerHTML = '<p class="inv-help">Latest ' + sheet.lines.length + ' receipt lines · read ' + esc(new Date(sheet.read_at).toLocaleString((typeof window !== 'undefined' && window.AnejoLang && window.AnejoLang.get() === 'es' ? 'es-US' : 'en-US'))) + (sheet.has_more ? ' · Older lines are not included in this view.' : '') + '</p>' + (rows || '<p class="inv-help">No paid receipt costs imported yet.</p>');
   }
-  function load() {
+  function restoreDirtyDrafts() {
+    dirtyDrafts.forEach(function (draft, id) {
+      var card = document.querySelector('[data-card="' + CSS.escape(String(id)) + '"]');
+      if (!card) return;
+      Object.keys(draft.values).forEach(function (key) {
+        var selector = key === 'on_hand' ? '.i-onhand' : key === 'count_quantity' ? '.i-count' : key === 'total_weight_grams' ? '.i-weight' : '.i-expires';
+        var field = card.querySelector(selector); if (field) field.value = draft.values[key];
+      });
+      card.setAttribute('data-revision', draft.revision == null ? '' : draft.revision);
+      dirtyCards.add(String(id));
+    });
+  }
+  function load(onReadback) {
     K.get('/api/hub/kitchen/inventory').then(function (d) {
       if (!d || d.ok !== true || !Array.isArray(d.items) || d.error || d._networkError || d._status) return showLoadError((d && d.error) || 'Could not load inventory.');
       currentItems = d.items;
@@ -321,10 +371,10 @@
       $('#items').innerHTML = currentItems.length
         ? '<div class="inv-section-title"><span class="inv-count">' + currentItems.length + (currentItems.length === 1 ? ' active item' : ' active items') + '</span></div><div class="inv-list">' + currentItems.map(itemCard).join('') + '</div>'
         : '<div class="hub-empty">No inventory items yet. Use “Add inventory item” to create the first one.</div>';
+      restoreDirtyDrafts();
       Array.prototype.forEach.call(document.querySelectorAll('[data-photo-thumb]'), function (img) {
         img.addEventListener('error', function () { var box = img.parentNode; box.textContent = 'Photo unavailable'; box.setAttribute('aria-label', 'Inventory photo unavailable'); });
       });
-      dirtyCards.clear();
       bindItems();
       renderCostSheet(d.cost_sheet);
       filterInventory();
@@ -337,6 +387,39 @@
       sel.value = keep;
       if (window.AnejoI18n) window.AnejoI18n.refresh();
       document.dispatchEvent(new CustomEvent('inventory:changed'));
+      document.dispatchEvent(new CustomEvent('inventory:rendered', { detail: { prepared: d.prepared } }));
+      if (typeof onReadback === 'function') onReadback(d);
+    });
+  }
+  function reloadChoice(card) {
+    var status = card && card.querySelector('[data-row-status]'); if (!status) return;
+    status.textContent = tx('Conflict. Your input is preserved. ', 'Conflicto. Se conserva tu entrada. ');
+    var button = document.createElement('button'); button.type = 'button'; button.textContent = tx('Discard draft and reload latest', 'Descartar borrador y cargar lo reciente');
+    button.addEventListener('click', function () { var id = card.getAttribute('data-card'); dirtyDrafts.delete(String(id)); dirtyCards.delete(String(id)); status.textContent = tx('Reloading latest data.', 'Cargando datos recientes.'); load(); }); status.appendChild(button);
+  }
+  function countReadback(body, data) {
+    var fresh = Array.isArray(data && data.items) && data.items.find(function (item) { return String(item.id) === String(body.id); });
+    return !!fresh && Number(fresh.on_hand) === Number(body.on_hand) &&
+      (!Object.prototype.hasOwnProperty.call(body,'count_quantity') || (body.count_quantity == null ? fresh.count_quantity == null : Number(fresh.count_quantity) === Number(body.count_quantity))) &&
+      (!Object.prototype.hasOwnProperty.call(body,'total_weight_grams') || (body.total_weight_grams == null ? fresh.total_weight_grams == null : Number(fresh.total_weight_grams) === Number(body.total_weight_grams))) &&
+      (body.expires_on == null || String(fresh.expires_on || '') === String(body.expires_on));
+  }
+  function rowSaved(card, body, verify) {
+    load(function (data) {
+      if (verify(data)) {
+        dirtyDrafts.delete(String(body.id)); dirtyCards.delete(String(body.id));
+        var fresh = currentItems.find(function (item) { return String(item.id) === String(body.id); });
+        var currentCard = document.querySelector('[data-card="' + CSS.escape(String(body.id)) + '"]');
+        if (fresh && currentCard) {
+          currentCard.querySelector('.i-onhand').value = fresh.on_hand == null ? '' : fresh.on_hand;
+          currentCard.querySelector('.i-count').value = fresh.count_quantity == null ? '' : fresh.count_quantity;
+          currentCard.querySelector('.i-weight').value = fresh.total_weight_grams == null ? '' : fresh.total_weight_grams;
+          currentCard.querySelector('.i-expires').value = dateValue(fresh.expires_on);
+        }
+        rowStatus(currentCard, tx('Saved and read back.', 'Guardado y confirmado al volver a leer.'), false);
+      } else {
+        rowStatus(document.querySelector('[data-card="' + CSS.escape(String(body.id)) + '"]'), tx('Save was acknowledged, but readback did not match. Check before retrying.', 'El guardado fue aceptado, pero la lectura no coincide. Verifica antes de reintentar.'), true);
+      }
     });
   }
   function bindItems() {
@@ -345,20 +428,27 @@
         var id = button.getAttribute('data-count'), card = button.closest('[data-card]');
         var fields = [card.querySelector('.i-onhand'), card.querySelector('.i-count'), card.querySelector('.i-weight')];
         var values = fields.map(function (el) { return el.value === '' ? null : Number(el.value); });
-        if (fields.some(function (el, i) { return el.value !== '' && (!Number.isFinite(values[i]) || values[i] < 0); })) {
-          Hub.toast('Enter valid non-negative amounts.'); return;
-        }
         var item = currentItems.find(function (it) { return String(it.id) === String(id); });
         var status = card.querySelector('[data-row-status]');
-        button.disabled = true; status.textContent = 'Saving counts…';
-        K.post('/api/hub/kitchen/inventory', {
+        if (fields[0].value === '') { rowStatus(card, tx('Enter on-hand quantity before saving.', 'Ingresa la cantidad disponible antes de guardar.'), true); fields[0].focus(); return; }
+        if (fields.some(function (el, i) { return el.value !== '' && (!Number.isFinite(values[i]) || values[i] < 0); })) {
+          rowStatus(card, tx('Enter valid non-negative amounts.', 'Ingresa cantidades válidas que no sean negativas.'), true); return;
+        }
+        if (fields[1].value !== '' && !Number.isSafeInteger(values[1])) { rowStatus(card, tx('Count quantity must be a whole number.', 'La cantidad contada debe ser un número entero.'), true); fields[1].focus(); return; }
+        var draft = dirtyDrafts.get(String(id)), baseRevision = draft ? draft.revision : card.getAttribute('data-revision');
+        var body = {
           action:'count', id:id, on_hand:values[0], count_quantity:values[1], total_weight_grams:values[2],
           expires_on:card.querySelector('.i-expires').value || null,
-          expected_revision:item && item.revision
-        }).then(function (d) {
+          expected_revision:baseRevision === '' || baseRevision == null ? (item && item.revision) : Number(baseRevision)
+        };
+        body.request_id = requestId(body);
+        button.disabled = true; rowStatus(card, tx('Saving counts…', 'Guardando cantidades…'), false);
+        postStable('/api/hub/kitchen/inventory', body).then(function (d) {
           button.disabled = false;
-          if (d && d.ok) { status.textContent = 'Counts saved.'; load(); }
-          else { status.textContent = (d && d.error) || 'Could not save counts.'; status.classList.add('inv-error'); }
+          if (d && d.ok) rowSaved(card, body, function (data) { return countReadback(body, data); });
+          else if (d && d._unknown) rowStatus(card, d.error, true);
+          else if (d && d._status === 409) reloadChoice(card);
+          else rowStatus(card, (d && d.error) || tx('Could not save counts.', 'No se pudieron guardar las cantidades.'), true);
         });
       });
     });
@@ -373,8 +463,11 @@
           return K.post('/api/hub/kitchen/inventory-photo', { id:id, data_url:dataUrl, expected_revision:item && item.revision });
         }).then(function (d) {
           input.disabled = false; input.value = '';
-          if (d && d.ok) { state.textContent = 'Photo uploaded and waiting for owner review.'; load(); }
-          else state.textContent = (d && d.error) || 'Photo upload failed. Your inventory counts are unchanged.';
+          if (d && d.ok) { state.textContent = tx('Photo upload saved; checking readback…', 'Foto guardada; verificando la lectura…'); load(function (data) { var fresh = (data.items || []).find(function (row) { return String(row.id) === String(id); }); state.textContent = fresh && fresh.photo_key ? tx('Photo uploaded and waiting for owner review.', 'Foto cargada y pendiente de revisión del propietario.') : tx('Photo save was acknowledged, but readback is unknown.', 'La foto fue aceptada, pero no se pudo confirmar al volver a leer.'); }); }
+          else if (d && d._networkError) state.textContent = tx('Photo upload status is unknown. Reload inventory before trying again.', 'No se conoce el estado de la foto. Recarga el inventario antes de intentarlo otra vez.');
+          else if (d && d._unknown) state.textContent = d.error;
+          else if (d && d._status === 409) { state.textContent = tx('Conflict. Photo was not confirmed. Reload inventory before retrying.', 'Conflicto. No se confirmó la foto. Vuelve a cargar el inventario antes de reintentar.'); load(); }
+          else state.textContent = (d && d.error) || tx('Photo upload failed. Your inventory counts are unchanged.', 'No se pudo cargar la foto. Las cantidades de inventario no cambiaron.');
         }).catch(function (error) {
           input.disabled = false; input.value = ''; state.textContent = error.message || 'Could not prepare this photo.';
         });
@@ -386,12 +479,16 @@
         var card = button.closest('[data-card]'), status = card.querySelector('[data-row-status]');
         var buttons = card.querySelectorAll('[data-review]'); Array.prototype.forEach.call(buttons, function (b) { b.disabled = true; });
         status.textContent = 'Saving owner review…';
-        K.post('/api/hub/kitchen/inventory', {
+        var reviewBody = {
           action:'review_photo', id:id, photo_key:button.getAttribute('data-key'), decision:button.getAttribute('data-review'),
           expected_revision:item && item.revision
-        }).then(function (d) {
-          if (d && d.ok) { status.textContent = 'Photo review saved.'; load(); }
-          else { status.textContent = (d && d.error) || 'Could not save photo review.'; Array.prototype.forEach.call(buttons, function (b) { b.disabled = false; }); }
+        };
+        reviewBody.request_id = requestId(reviewBody);
+        postStable('/api/hub/kitchen/inventory', reviewBody).then(function (d) {
+          if (d && d.ok) load(function (data) { var expected = reviewBody.decision === 'approve' ? 'approved' : 'rejected'; var fresh = (data.items || []).find(function (row) { return String(row.id) === String(id); }); rowStatus(document.querySelector('[data-card="' + CSS.escape(String(id)) + '"]'), fresh && fresh.photo_status === expected ? tx('Photo review saved and read back.', 'Revisión de foto guardada y confirmada.') : tx('Review was acknowledged, but readback is unknown.', 'La revisión fue aceptada, pero no se pudo confirmar al volver a leer.'), !(fresh && fresh.photo_status === expected)); });
+          else if (d && d._unknown) { rowStatus(card, d.error, true); Array.prototype.forEach.call(buttons, function (b) { b.disabled = false; }); }
+          else if (d && d._status === 409) reloadChoice(card);
+          else { rowStatus(card, (d && d.error) || tx('Could not save photo review.', 'No se pudo guardar la revisión de la foto.'), true); Array.prototype.forEach.call(buttons, function (b) { b.disabled = false; }); }
         });
       });
     });
@@ -400,42 +497,98 @@
         if (!window.confirm('Archive this inventory item?')) return;
         var id = button.getAttribute('data-archive'), item = currentItems.find(function (it) { return String(it.id) === String(id); });
         button.disabled = true;
-        K.post('/api/hub/kitchen/inventory', { action:'archive', id:id, expected_revision:item && item.revision }).then(function (d) {
-          if (d && d.ok) load();
-          else { button.disabled = false; Hub.toast((d && d.error) || 'Could not archive the item.'); }
+        var archiveBody = { action:'archive', id:id, expected_revision:item && item.revision };
+        archiveBody.request_id = requestId(archiveBody);
+        postStable('/api/hub/kitchen/inventory', archiveBody).then(function (d) {
+          if (d && d.ok) load(function (data) { var removed = !(data.items || []).some(function (row) { return String(row.id) === String(id); }); if (!removed) rowStatus(document.querySelector('[data-card="' + CSS.escape(String(id)) + '"]'), tx('Archive was acknowledged, but the item still appears in readback.', 'El archivo fue aceptado, pero el artículo aún aparece al volver a leer.'), true); });
+          else if (d && d._unknown) { button.disabled = false; rowStatus(button.closest('[data-card]'), d.error, true); }
+          else if (d && d._status === 409) { button.disabled = false; reloadChoice(button.closest('[data-card]')); }
+          else { button.disabled = false; rowStatus(button.closest('[data-card]'), (d && d.error) || tx('Could not archive the item.', 'No se pudo archivar el artículo.'), true); }
         });
       });
     });
   }
   function renderPrepared(prepared, preparedStatus) {
+    preparedRows = Array.isArray(prepared) ? prepared : [];
     if (preparedStatus !== 'available') {
-      $('#prepared').innerHTML = '<div class="hub-empty inv-error" role="status">Today’s finished-item counts are unavailable right now. No count values are being shown.</div>';
+      $('#prepared').innerHTML = '<div class="hub-empty inv-error" role="status">' + tx('Today’s finished-item counts are unavailable right now. No count values are being shown.', 'Las cantidades de productos terminados no están disponibles. No se muestran cantidades.') + '</div>';
       return;
     }
-    var rows = Array.isArray(prepared) ? prepared : [];
+    var rows = preparedRows;
     $('#prepared').innerHTML = rows.length ? rows.map(function (p) {
       var remaining = p.remaining;
-      var label = p.stock_count == null ? 'No limit set' + (remaining != null ? ' · ' + remaining + ' left today' : '') : (remaining != null ? remaining + ' left of ' + p.stock_count + ' today' : p.stock_count + ' stored count');
-      label += p.stock_counted_at ? ' · last count ' + new Date(p.stock_counted_at).toLocaleString((typeof window !== 'undefined' && window.AnejoLang && window.AnejoLang.get() === 'es' ? 'es-US' : 'en-US')) : ' · no verified count date';
-      return '<div class="card inv-prep-card"><div class="inv-prep-main"><strong>' + esc(p.name) + '</strong><div class="inv-meta">' + esc(label) + '</div></div>' +
-        '<input type="number" min="0" max="9999" step="1" inputmode="numeric" placeholder="—" aria-label="Today’s finished count for ' + esc(p.name) + '" id="pq-' + esc(p.id) + '" value="' + (p.stock_count == null ? '' : esc(p.stock_count)) + '">' +
-        '<button class="btn ghost" type="button" data-prep="' + esc(p.id) + '">Set</button></div>';
+      var label = p.stock_count == null ? tx('No limit set', 'Sin límite establecido') + (remaining != null ? ' · ' + remaining + tx(' left today', ' disponibles hoy') : '') : (remaining != null ? remaining + tx(' left of ', ' disponibles de ') + p.stock_count + tx(' today', ' hoy') : p.stock_count + tx(' stored count', ' cantidad guardada'));
+      var availability = p.availability === 'available' ? tx('Available to order', 'Disponible para ordenar') : tx('Not available to order', 'No disponible para ordenar');
+      var counted = p.stock_counted_at ? new Date(p.stock_counted_at).toLocaleString((window.AnejoLang && window.AnejoLang.get() === 'es' ? 'es-US' : 'en-US')) : tx('No count readback recorded', 'No hay lectura de conteo registrada');
+      var photo = p.image ? '<img class="inv-prep-photo" src="' + esc(p.image.indexOf('/assets/img/') === 0 ? p.image : '/assets/img/' + p.image.replace(/^\//, '')) + '" alt="' + esc(tx('Catalog photo for ', 'Foto del catálogo para ') + (p.name || p.name_es || '')) + '" loading="lazy">' : '<div class="inv-prep-photo" role="img" aria-label="' + esc(tx('Catalog photo unavailable', 'Foto del catálogo no disponible')) + '"></div>';
+      var draft = preparedDrafts.get(String(p.id)); var inputValue = draft ? draft.value : (p.stock_count == null ? '' : p.stock_count);
+      return '<div class="card inv-prep-card" data-menu-id="' + esc(p.id) + '" data-inventory-revision="' + esc(p.inventory_revision) + '">' + photo + '<div class="inv-prep-main"><strong data-page-en="' + esc(p.name || p.name_es || '') + '" data-page-es="' + esc(p.name_es || p.name || '') + '">' + esc(tx(p.name || p.name_es || '', p.name_es || p.name || '')) + '</strong><div class="inv-meta">' + esc(label) + '</div><div class="inv-meta">' + esc(availability) + ' · ' + esc(counted) + ' · ' + tx('revision ', 'revisión ') + esc(p.inventory_revision) + '</div></div>' +
+        '<input type="number" min="0" max="9999" step="1" inputmode="numeric" placeholder="—" aria-label="' + esc(tx('Today’s finished count for ', 'Cantidad de productos terminados de hoy para ') + (p.name || p.name_es || '')) + '" id="pq-' + esc(p.id) + '" value="' + esc(inputValue) + '">' +
+        '<button class="btn ghost" type="button" data-prep="' + esc(p.id) + '">' + tx('Set', 'Guardar') + '</button></div><div class="inv-prep-state" role="status" aria-live="polite" data-prep-status="' + esc(p.id) + '"></div>';
     }).join('') : '<div class="hub-empty">No prepared menu items were returned.</div>';
+    preparedDrafts.forEach(function (draft, id) { var field = document.getElementById('pq-' + id); if (field) field.value = draft.value; });
     Array.prototype.forEach.call(document.querySelectorAll('[data-prep]'), function (button) {
       button.addEventListener('click', function () {
         var id = button.getAttribute('data-prep'), field = document.getElementById('pq-' + id);
-        button.disabled = true;
-        K.post('/api/hub/kitchen/inventory', { action:'menu_count', id:id, stock_count:(field.value || '').trim() }).then(function (d) {
+        var status = document.querySelector('[data-prep-status="' + CSS.escape(id) + '"]'), value = field.value.trim();
+        if (value !== '' && (!/^\d+$/.test(value) || Number(value) > 9999)) { status.classList.add('inv-error'); status.textContent = tx('Enter a whole number from 0 to 9999, or leave blank for uncounted.', 'Ingresa un número entero de 0 a 9999, o deja el campo vacío para sin conteo.'); field.focus(); return; }
+        var prepared = preparedRows.find(function (row) { return String(row.id) === String(id); });
+        var draft = preparedDrafts.get(String(id));
+        if (!draft) draft = { value:value, revision:Number(prepared && prepared.inventory_revision) };
+        draft.value = value; preparedDrafts.set(String(id), draft);
+        var body = { action:'menu_count', id:id, stock_count:value, expected_revision:draft.revision, inventory_revision:draft.revision };
+        if (window.InventorySales && typeof window.InventorySales.prepareSave === 'function') {
+          try {
+            var extra = window.InventorySales.prepareSave(body, prepared);
+            if (extra && typeof extra === 'object') body = Object.assign({}, body, extra);
+          } catch (error) { status.classList.add('inv-error'); status.textContent = error.message; return; }
+        }
+        body.expected_revision = draft.revision;
+        body.inventory_revision = draft.revision;
+        body.request_id = requestId(body);
+        button.disabled = true; status.classList.remove('inv-error'); status.textContent = tx('Saving count…', 'Guardando cantidad…');
+        postStable('/api/hub/kitchen/inventory', body).then(function (d) {
           button.disabled = false;
-          if (d && d.ok) load(); else Hub.toast((d && d.error) || 'Could not save today’s count.');
+          if (d && d.ok) load(function (data) {
+            var latest = (data.prepared || []).find(function (row) { return String(row.id) === String(id); });
+            if (latest && Number(latest.inventory_revision) > Number(draft.revision) && (value === '' ? latest.stock_count == null : Number(latest.stock_count) === Number(value))) {
+              preparedDrafts.delete(String(id));
+              var nextStatus = document.querySelector('[data-prep-status="' + CSS.escape(id) + '"]'); if (nextStatus) nextStatus.textContent = tx('Count saved and read back.', 'Cantidad guardada y confirmada al volver a leer.');
+              var readbackInput = document.getElementById('pq-' + id); if (readbackInput) readbackInput.value = latest.stock_count == null ? '' : latest.stock_count;
+              document.dispatchEvent(new CustomEvent('inventory:finished-saved', { detail: { response:d, body:body, item:latest } }));
+            } else { var nextStatus = document.querySelector('[data-prep-status="' + CSS.escape(id) + '"]'); if (nextStatus) { nextStatus.classList.add('inv-error'); nextStatus.textContent = tx('Save was acknowledged, but readback did not match.', 'El guardado fue aceptado, pero la lectura no coincide.'); } }
+          });
+          else if (d && d._unknown) { status.classList.add('inv-error'); status.textContent = d.error; }
+          else if (d && d._status === 409) {
+            status.classList.add('inv-error'); status.textContent = tx('Conflict. Your count is preserved. ', 'Conflicto. Se conserva tu cantidad. ');
+            var reload = document.createElement('button'); reload.type = 'button'; reload.textContent = tx('Discard count and reload', 'Descartar cantidad y recargar');
+            reload.addEventListener('click', function () { preparedDrafts.delete(String(id)); load(); }); status.appendChild(reload);
+          }
+          else { status.classList.add('inv-error'); status.textContent = (d && d.error) || tx('Could not save today’s count.', 'No se pudo guardar la cantidad de hoy.'); }
         });
       });
     });
+    if (!window.InventoryPage) window.InventoryPage = {};
+    window.InventoryPage.refresh = load;
+    window.InventoryPage.prepared = function () { return preparedRows.slice(); };
+    applyPreparedLanguage();
+    filterInventory();
   }
+  function applyPreparedLanguage() {
+    var es = window.AnejoLang && window.AnejoLang.get() === 'es';
+    Array.prototype.forEach.call(document.querySelectorAll('#prepared [data-page-en][data-page-es]'), function (node) { node.textContent = es ? node.getAttribute('data-page-es') : node.getAttribute('data-page-en'); });
+  }
+  document.addEventListener('anejo:langchange', applyPreparedLanguage);
+  $('#prepared').addEventListener('input', function (event) {
+    if (!event.target.matches('[id^="pq-"]')) return;
+    var id = event.target.id.slice(3), prior = preparedDrafts.get(id), row = preparedRows.find(function (item) { return String(item.id) === id; });
+    preparedDrafts.set(id, { value:event.target.value, revision:prior ? prior.revision : Number(row && row.inventory_revision) });
+  });
   $('#add-form').addEventListener('submit', function (event) {
     event.preventDefault();
     var name = $('#a-name').value.trim(), status = $('#add-status');
     if (!name) { $('#a-name').focus(); status.textContent = 'Enter an item name.'; status.classList.add('inv-error'); return; }
+    if ($('#a-onhand').value === '') { $('#a-onhand').focus(); status.textContent = tx('Enter on-hand quantity; use 0 only when none is present.', 'Ingresa la cantidad disponible; usa 0 solo si no hay existencias.'); status.classList.add('inv-error'); return; }
     var numeric = ['a-onhand','a-count','a-weight','a-par','a-cost'];
     for (var i=0;i<numeric.length;i++) {
       var field = $('#' + numeric[i]);
@@ -443,8 +596,8 @@
         field.focus(); status.textContent = 'Enter a valid non-negative value for ' + field.labels[0].textContent + '.'; status.classList.add('inv-error'); return;
       }
     }
-    var button = $('#a-save'); button.disabled = true; status.classList.remove('inv-error'); status.textContent = 'Adding item…';
-    K.post('/api/hub/kitchen/inventory', {
+    var button = $('#a-save'); button.disabled = true; status.classList.remove('inv-error'); status.textContent = tx('Adding item…', 'Agregando artículo…');
+    var upsertBody = {
       action:'upsert', name:name, unit:$('#a-unit').value.trim() || null,
       on_hand:$('#a-onhand').value === '' ? null : Number($('#a-onhand').value),
       count_quantity:$('#a-count').value === '' ? null : Number($('#a-count').value),
@@ -453,13 +606,21 @@
       par_level:$('#a-par').value === '' ? null : Number($('#a-par').value),
       unit_cost_cents:$('#a-cost').value === '' ? null : Math.round(Number($('#a-cost').value) * 100),
       vendor_id:$('#a-vendor').value || null
-    }).then(function (d) {
+    };
+    upsertBody.request_id = requestId(upsertBody);
+    postStable('/api/hub/kitchen/inventory', upsertBody).then(function (d) {
       button.disabled = false;
       if (d && d.ok) {
-        status.textContent = 'Item added.';
-        ['a-name','a-unit','a-onhand','a-count','a-weight','a-expires','a-par','a-cost'].forEach(function (id) { $('#' + id).value = ''; });
-        $('#a-vendor').value = ''; load();
-      } else { status.textContent = (d && d.error) || 'Could not add item.'; status.classList.add('inv-error'); }
+        status.textContent = tx('Item accepted; checking readback…', 'Artículo aceptado; verificando la lectura…');
+        load(function (data) {
+          var fresh = (data.items || []).find(function (item) { return String(item.id) === String(d.id) && item.name === upsertBody.name; });
+          if (!fresh) { status.textContent = tx('Save was acknowledged, but readback did not match. Form values were kept.', 'El guardado fue aceptado, pero la lectura no coincide. Se conservaron los valores del formulario.'); status.classList.add('inv-error'); return; }
+          var confirmedBody = Object.assign({}, upsertBody); delete confirmedBody.request_id; saveRequests.delete(JSON.stringify(confirmedBody));
+          status.textContent = tx('Item added and read back.', 'Artículo agregado y confirmado al volver a leer.');
+          ['a-name','a-unit','a-onhand','a-count','a-weight','a-expires','a-par','a-cost'].forEach(function (fieldId) { $('#' + fieldId).value = ''; }); $('#a-vendor').value = '';
+        });
+      } else if (d && d._unknown) { status.textContent = d.error; status.classList.add('inv-error'); }
+      else { status.textContent = (d && d.error) || tx('Could not add item.', 'No se pudo agregar el artículo.'); status.classList.add('inv-error'); }
     });
   });
 
@@ -473,5 +634,7 @@
 })();
 </script>
 <script src="/hub/kitchen/assets/inventory-production.js"></script>
+<script src="/hub/assets/inventory-story-card.js?v=20261103-1"></script>
+<script src="/hub/kitchen/assets/inventory-sales.js?v=20261103-1"></script>
 </body>
 </html>
