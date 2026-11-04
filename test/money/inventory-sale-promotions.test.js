@@ -251,3 +251,20 @@ test('no provider or public social call is made by drafting, rendering, or revie
     assert.equal(env.DB.one("SELECT COUNT(*) n FROM social_posts WHERE status='published'").n, 0);
   } finally { globalThis.fetch = NEVER_FETCH; }
 });
+
+test('reserved-stock Story records its availability check time separately from the original count', async () => {
+  const { env, media } = envFixture();
+  const countedAt = Date.now() - 60 * 60 * 1000;
+  assert.equal((await declare(env, { quantity:20, at:countedAt })).ok, true);
+  env.DB.prepare('INSERT INTO inventory_sale_reservations(order_id,menu_item_id,offer_revision,quantity,reserved_at) VALUES(?,?,?,?,?)').bind('synthetic_reserved',SKU,1,5,Date.now()).run();
+  const checkedAt = Date.now();
+  const result = await reconcileInventoryPromotion(env, { itemId:SKU, locale:'en', at:checkedAt });
+  assert.equal(result.state, 'preview_ready');
+  const post = env.DB.one('SELECT caption FROM social_posts WHERE id=?', result.post_id);
+  const promotion = env.DB.one('SELECT svg_key,snapshot_json FROM inventory_sale_promotions WHERE menu_item_id=?', SKU);
+  const svg = new TextDecoder().decode(media.get(promotion.svg_key));
+  const display = new Date(checkedAt).toLocaleString('en-US', {timeZone:'America/New_York',month:'short',day:'numeric',hour:'numeric',minute:'2-digit'});
+  assert.ok(post.caption.includes(`15 packs available as of (${display} ET)`));
+  assert.ok(svg.includes(`Availability checked: ${display} ET`));
+  assert.equal(JSON.parse(promotion.snapshot_json).source.counted_at, countedAt, 'the actual count timestamp is retained as source evidence');
+});
