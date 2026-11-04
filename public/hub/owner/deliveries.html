@@ -107,7 +107,7 @@
   // Re-offer asks the drivers again (including the ones who passed); release cancels the route
   // and hands its orders back to the unassigned list so they can be re-planned or re-batched.
   window.__reoffer = function (rid) {
-    Hub.api('/api/hub/owner/routes', { method: 'POST', body: { action: 'reoffer', route_id: rid } }).then(function (r) {
+    Hub.api('/api/hub/owner/routes', { method: 'POST', body: { action: 'reoffer', route_id: rid, driver_id:(document.getElementById('rdriver')||{}).value||null } }).then(function (r) {
       if (r && r.ok) {
         Hub.toast(r.already === 'pending' ? 'Already awaiting a driver'
           : r.unfilled ? 'No driver available — still unfilled' : 'Re-offered to a driver');
@@ -390,7 +390,7 @@
           (dv.fail_reason ? ' · ' + Owner.esc(dv.fail_reason) : '') +
           (dv.on_time === 1 ? ' · on time' : dv.on_time === 0 ? ' · late' : '') + '</div>' + fb + '</div>' +
           Owner.badge(dv.status, Owner.kindFor(dv.status)) + proof + '</div>';
-      }).join('') : '<div class="hub-empty" data-i18n>No deliveries today.</div>';
+      }).join('') : '<div class="hub-empty" data-i18n>No deliveries for this date.</div>';
       if (window.AnejoI18n) window.AnejoI18n.refresh();
     });
   }

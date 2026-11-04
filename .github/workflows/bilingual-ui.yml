@@ -12,6 +12,10 @@ on:
       - 'functions/api/hub/kitchen/**'
       - 'test/ui/*language-browser.cjs'
       - 'test/ui/reading-edition-joined-browser.cjs'
+      - 'test/ui/delivery-recovery-browser.cjs'
+      - 'functions/api/hub/driver/**'
+      - 'functions/api/hub/owner/delivery-resolution.js'
+      - 'functions/_lib/owner_delivery_resolution.js'
       - '.github/workflows/bilingual-ui.yml'
 jobs:
   populated-bilingual-browser:
@@ -35,6 +39,7 @@ jobs:
       - run: node test/ui/owner-populated-language-browser.cjs
       - run: node test/ui/catering-populated-language-browser.cjs
       - run: node test/ui/reading-edition-joined-browser.cjs
+      - run: node test/ui/delivery-recovery-browser.cjs
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -43,3 +48,4 @@ jobs:
             /tmp/anejo-bilingual-owner
             /tmp/anejo-bilingual-catering
             /tmp/anejo-bilingual-reading
+            /tmp/delivery-recovery-browser
