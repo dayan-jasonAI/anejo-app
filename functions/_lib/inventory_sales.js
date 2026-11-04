@@ -7,7 +7,7 @@ export class InventorySaleError extends Error {
   constructor(code) { super(code); this.name = 'InventorySaleError'; this.code = code; }
 }
 
-const int = (v) => Number.isSafeInteger(Number(v));
+const int = (v) => v !== null && v !== '' && v !== undefined && Number.isSafeInteger(Number(v));
 const resultChanges = (r) => Number(r?.meta?.changes || 0);
 const validImage = (v) => typeof v === 'string' && /^(?:\/?[a-zA-Z0-9_-]+\/)*[a-zA-Z0-9_-]+\.(?:png|jpe?g|webp)$/i.test(v) && !v.split('/').includes('..');
 const idSet = (xs) => [...new Set(xs)];

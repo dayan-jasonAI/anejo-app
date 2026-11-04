@@ -17,6 +17,7 @@ import { applyVolumeDiscount } from '../_lib/catering-pricing.js';
 import { loadMenu, AVAILABILITY } from '../_lib/menu.js';
 import { validateDailyOrder, DAILY_PREFIX } from '../_lib/daily_lunch.js';
 import { createOrderReceipt } from '../_lib/order-receipt.js';
+import { InventorySaleError, saleOfferSnapshot, stockReservationStatements } from '../_lib/inventory_sales.js';
 
 // "11" → "11 AM", "19" → "7 PM" — for friendly window messaging.
 function fmtHour(h) {
@@ -253,6 +254,9 @@ export const onRequestPost = async ({ request, env }) => {
 
   const items = Array.isArray(b.items) ? b.items : [];
   if (!items.length) return bad('Your cart is empty.');
+  if (items.some(it => it && Object.hasOwn(it, 'sale_offer_revision') && (!Number.isSafeInteger(it.sale_offer_revision) || it.sale_offer_revision < 1))) {
+    return bad('Invalid sale offer revision.', 400);
+  }
 
   const hasDaily = items.some(it => typeof it?.id === 'string' && it.id.startsWith(DAILY_PREFIX));
   let daily = null;
@@ -277,7 +281,7 @@ export const onRequestPost = async ({ request, env }) => {
       subtotalCents += 1000 * it.qty;
       const product=daily.products.find(p=>DAILY_PREFIX+p.product_id===it.id);
       lineItems.push({name:product.name,quantity:String(it.qty),base_price_money:{amount:1000,currency:'USD'}});
-      orderItems.push({id:it.id,name:product.name,qty:it.qty,price_cents:1000,service_date:daily.date,daily_lunch:true,corporate_lunch:!!daily.corporate,...(daily.corporate?{corporate_payment_deadline_at:daily.payment_deadline_at}:{}),description:product.description});
+      orderItems.push({id:it.id,name:product.name,qty:it.qty,price_cents:1000,service_date:daily.date,daily_lunch:true,corporate_lunch:!!daily.corporate,...(daily.corporate?{corporate_payment_deadline_at:daily.payment_deadline_at}:{}),description:product.description,...(it.sale_offer_revision == null ? {} : { sale_offer_revision: it.sale_offer_revision })});
     } else if (menu.bowls[it && it.id] != null) {
       // Customized bowl: qty units of one configuration. Re-priced + re-validated server-side.
       const qty = Math.floor(Number(it.qty));
@@ -293,6 +297,7 @@ export const onRequestPost = async ({ request, env }) => {
         id: it.id, name: lineName + (pr.notes ? ' — ' + pr.notes : ''), qty, price_cents: pr.unitCents,
         size_oz: 16, size_pct: 100, macros: pr.macros, build: pr.build, ingredients: pr.ingredients,
         removals: pr.removed, addons: pr.addons, notes: pr.notes, avocado: pr.avocado, base: pr.base,
+        ...(it.sale_offer_revision == null ? {} : { sale_offer_revision: it.sale_offer_revision }),
       });
     } else {
       const prod = menu.nonBowls[it && it.id];
@@ -310,7 +315,7 @@ export const onRequestPost = async ({ request, env }) => {
       subtotalCents += cents * qty;
       if (/^(catering_|traditional_)/.test(it.id)) cateringSubtotalCents += cents * qty;
       lineItems.push({ name: prod.name, quantity: String(qty), base_price_money: { amount: cents, currency: 'USD' } });
-      orderItems.push({ id: it.id, name: prod.name, qty, price_cents: cents });
+      orderItems.push({ id: it.id, name: prod.name, qty, price_cents: cents, ...(it.sale_offer_revision == null ? {} : { sale_offer_revision: it.sale_offer_revision }) });
     }
   }
 
@@ -619,6 +624,43 @@ export const onRequestPost = async ({ request, env }) => {
     }
   }
 
+  // The read before Square rejects known stale/expired/insufficient offers. The returned SQL is
+  // only a transaction plan: live capacity is claimed again after Square creates the link, and
+  // must commit atomically with the durable kitchen order before that link can be exposed.
+  const orderId = id('ord');
+  let stockStatements = [];
+  const inventoryMenuItems = orderItems.filter(it => !it.daily_lunch);
+  const explicitSaleOffer = inventoryMenuItems.some(it => Object.hasOwn(it, 'sale_offer_revision'));
+  // The older SQL-routing unit double has no real schema or transaction support. Keep it usable
+  // for legacy, unmarked carts only; production D1 exposes `batch`, and any production read error
+  // remains fail-closed. Explicit promotions never use this compatibility branch.
+  const legacySqlFixture = !explicitSaleOffer && typeof env.DB.batch !== 'function' && Array.isArray(env.DB.calls);
+  try {
+    if (!legacySqlFixture && inventoryMenuItems.length) {
+      const stockAt = Date.now();
+      const snapshot = await saleOfferSnapshot(env, stockAt);
+      if (!snapshot.ok) throw new InventorySaleError('sale_offer_authority_unavailable');
+      for (const item of orderItems) {
+        const suppressed = snapshot.suppressed.find(row => row.item_id === item.id);
+        if (suppressed && ['inventory_revision_changed', 'count_time_invalid', 'offer_expired', 'offer_ttl_invalid', 'zero_quantity'].includes(suppressed.reason)) {
+          throw new InventorySaleError('sale_offer_revision_changed');
+        }
+        if (!Object.hasOwn(item, 'sale_offer_revision')) continue;
+        const offer = snapshot.offers.find(row => row.item_id === item.id);
+        if (!offer || offer.revision !== item.sale_offer_revision || offer.remaining < item.qty) throw new InventorySaleError('sale_offer_revision_changed');
+      }
+      stockStatements = await stockReservationStatements(env, { orderId, items: inventoryMenuItems, at: stockAt });
+    }
+  } catch (error) {
+    if (promoClaimed) await releasePromoUse(env, promo.code);
+    const code = error instanceof InventorySaleError ? error.code : null;
+    if (['sale_offer_quantity_exceeded', 'sale_offer_revision_changed', 'sale_offer_missing', 'sale_offer_disabled', 'sale_offer_expired_or_invalid', 'sale_offer_zero_quantity', 'sale_offer_revision_conflict'].includes(code)) {
+      return json({ ok: false, error: 'stock_capacity_changed' }, 409);
+    }
+    return json({ ok: false, error: 'stock_persistence_unavailable' }, 503);
+  }
+  const stockClaimCount = stockStatements.length / 2;
+
   const { ok, status, data } = await square(env, '/v2/online-checkout/payment-links', {
     method: 'POST',
     body: {
@@ -704,6 +746,13 @@ export const onRequestPost = async ({ request, env }) => {
   }
 
   const pl = data && data.payment_link;
+  const deactivateUnexposedLink = async () => {
+    if (!pl?.id) return false;
+    try {
+      const retired = await square(env, `/v2/online-checkout/payment-links/${encodeURIComponent(pl.id)}`, { method: 'DELETE' });
+      return !!retired?.ok;
+    } catch { return false; }
+  };
   const url = pl && (pl.long_url || pl.url);
   if (!url) {
     if (promoClaimed) await releasePromoUse(env, promo.code);
@@ -751,8 +800,7 @@ export const onRequestPost = async ({ request, env }) => {
       const lat = verifiedGeo ? verifiedGeo.lat : null;
       const lng = verifiedGeo ? verifiedGeo.lng : null;
       const geocodedAt = verifiedGeo ? t : null;
-      const orderId = id('ord');
-      const storedOrder = await env.DB.prepare(
+      const orderStatement = env.DB.prepare(
         `INSERT INTO orders (id, square_order_id, payment_link_id, items, delivery_date, delivery_window,
             fulfillment_mode, subtotal_cents, fee_cents, tax_pct, total_estimate_cents, redeem_points, discount_cents,
             customer_name, customer_email, customer_phone, sms_consent,
@@ -777,7 +825,17 @@ export const onRequestPost = async ({ request, env }) => {
         lat, lng, geocodedAt, addressVerifyStatus, addressVerifyReason,
         promo ? promo.code : null, promo ? promo.points_mult : null,
         attribution.src, attribution.utm_source, attribution.utm_medium, attribution.utm_campaign, t, t
-      ).run();
+      );
+      let storedOrder;
+      if (stockStatements.length) {
+        const claimStatements = stockStatements.slice(0, stockClaimCount);
+        const reservationStatements = stockStatements.slice(stockClaimCount);
+        const result = await env.DB.batch([...claimStatements, orderStatement, ...reservationStatements]);
+        storedOrder = result?.[stockClaimCount];
+        if (!Array.isArray(result) || result.length !== stockStatements.length + 1 || result.some((row, index) => index !== stockClaimCount && row?.meta?.changes !== 1)) {
+          throw Error('Stock claim or reservation was not confirmed.');
+        }
+      } else storedOrder = await orderStatement.run();
       // The complete item list is in this same INSERT as JSON: one confirmed write
       // establishes both the order and every kitchen line, with no partial item writes.
       if (storedOrder?.success === false || storedOrder?.meta?.changes !== 1) throw Error('Order write was not confirmed.');
@@ -790,6 +848,11 @@ export const onRequestPost = async ({ request, env }) => {
       // may exist at Square, but is withheld here; no payment request was made and
       // rewards are only deducted by the paid webhook, not by creating this ticket.
       if (promoClaimed) await releasePromoUse(env, promo.code);
+      if (stockStatements.length) await deactivateUnexposedLink();
+      if (stockStatements.length && /CHECK constraint failed: accepted = 1|inventory_sale_checkout_claims\.accepted/.test(String(_?.message || ''))) {
+        return json({ ok: false, error: 'stock_capacity_changed' }, 409);
+      }
+      if (stockStatements.length) return json({ ok: false, error: 'stock_persistence_unavailable' }, 503);
       return bad(daily ? 'Could not record your lunch order. Please try again later.' : 'Could not record your order. Please try again later.', 503);
     }
   }

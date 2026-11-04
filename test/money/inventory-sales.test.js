@@ -82,6 +82,17 @@ test('declaration requires exact active D1 menu inventory revision and never rea
   assert.equal(db.one('SELECT COUNT(*) n FROM inventory_items').n >= 0, true);
 });
 
+test('competing absolute declarations with the same expected revision admit one writer', async () => {
+  const { env, at } = fixture();
+  await saveSaleOffer(env, { itemId: 'vida', quantity: 5, inventoryRevision: 4, changeId: 'race_base', at });
+  const [left, right] = await Promise.all([
+    saveSaleOffer(env, { itemId: 'vida', quantity: 2, expectedRevision: 1, inventoryRevision: 4, changeId: 'race_left', at: at + 1 }),
+    saveSaleOffer(env, { itemId: 'vida', quantity: 3, expectedRevision: 1, inventoryRevision: 4, changeId: 'race_right', at: at + 1 }),
+  ]);
+  assert.equal([left, right].filter(x => x.ok).length, 1);
+  assert.equal([left, right].filter(x => x.error === 'sale_offer_revision_changed').length, 1);
+});
+
 test('claims permanently reserve actual quantities for only the exact SKU and offer revision', async () => {
   const { env, db, at } = fixture();
   for (const [id, quantity] of [['traditional_emp-cheese', 20], ['catering_emp-cheese-10', 2], ['catering_emp-cheese-25', 3]]) {

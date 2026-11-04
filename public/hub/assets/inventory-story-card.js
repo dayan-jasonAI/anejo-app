@@ -39,12 +39,12 @@
     if (!model || typeof model !== 'object' || Array.isArray(model)) fail('model is required');
     const locale = model.locale;
     if (locale !== 'en' && locale !== 'es') fail('locale must be en or es');
-    if (!Number.isInteger(model.quantity) || model.quantity <= 0 || model.quantity > 999) fail('quantity must be an exact positive integer up to 999');
+    if (!Number.isInteger(model.quantity) || model.quantity <= 0 || model.quantity > 9999) fail('quantity must be an exact positive integer up to 9999');
     if (!Number.isInteger(model.priceCents) || model.priceCents <= 0 || model.priceCents > 100_000_000) fail('priceCents must be a positive integer');
     const id = productId(model.productId);
     const ctaUrl = `/order?product=${encodeURIComponent(id)}`;
     if (model.ctaUrl !== ctaUrl) fail('ctaUrl must be the same-origin order URL for the exact productId');
-    dimensions(model.sourceWidth, model.sourceHeight);
+    if (model.sourceWidth != null || model.sourceHeight != null) dimensions(model.sourceWidth, model.sourceHeight);
     const name = safeText(model.productName, 'productName', 159);
     const source = dataUrl(model.sourceDataUrl, 'sourceDataUrl', 'image');
     if (!source) fail('sourceDataUrl is required');
@@ -78,7 +78,7 @@
     const titleLines = wrapName(m.name);
     const titleY = 444 - (titleLines.length - 1) * 47;
     const title = titleLines.map((line, index) => `<text x="540" y="${titleY + index * 94}" class="title">${esc(line)}</text>`).join('');
-    const qtyLabel = m.locale === 'es' ? 'DISPONIBLE AHORA' : 'AVAILABLE NOW';
+    const qtyLabel = m.locale === 'es' ? 'DISPONIBLE PARA PEDIR' : 'AVAILABLE TO ORDER';
     const cta = m.locale === 'es' ? 'PIDE EN LÍNEA' : 'ORDER ONLINE';
     const safeQtyLabel = esc(qtyLabel);
     const safeCta = esc(cta);
@@ -94,7 +94,7 @@
 <defs><linearGradient id="forest" x2=".9" y2="1"><stop stop-color="#082b22"/><stop offset=".52" stop-color="#153f31"/><stop offset="1" stop-color="#071c17"/></linearGradient><linearGradient id="gold" x2="0" y2="1"><stop stop-color="#f1d28a"/><stop offset="1" stop-color="#bd9040"/></linearGradient><filter id="shadow" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="18"/></filter><style>${fontRules}.title{font-family:${titleFamily},Georgia,serif;font-size:72px;font-weight:400;letter-spacing:2px;fill:#fff2d5;text-anchor:middle}.body{font-family:${bodyFamily},Arial,sans-serif;fill:#fff2d5;text-anchor:middle;letter-spacing:3px}.gold{fill:#e3c078}.price{font-family:${titleFamily},Georgia,serif;font-size:65px;fill:#fff2d5;text-anchor:middle}.small{font-family:${bodyFamily},Arial,sans-serif;font-size:24px;fill:#f1e7d4;text-anchor:middle;letter-spacing:1px}</style></defs>
 ${imageLayer}${m.background ? '' : '<rect width="1080" height="1920" fill="#061a14" fill-opacity=".17"/>'}
 ${emblem}
-<text x="540" y="324" class="body gold" font-size="22">AÑEJO REPOSADO</text>${title}
+<text x="540" y="324" class="body gold" font-size="22">AÑEJO CATERING CO.</text>${title}
 <text x="540" y="566" class="body" font-size="27">${safeQtyLabel}</text><text x="540" y="622" class="body gold" font-size="45" font-weight="700">${m.quantity} ${esc(m.unitLabel)}</text>
 <ellipse cx="540" cy="1045" rx="404" ry="373" fill="#000" fill-opacity=".35" filter="url(#shadow)"/><rect x="98" y="650" width="884" height="750" rx="20" fill="#f7f0e5"/><image href="${esc(m.source)}" x="98" y="650" width="884" height="750" preserveAspectRatio="xMidYMid meet"/>
 <text x="540" y="1480" class="price">${esc(unit)}</text><path d="M330 1584h112M638 1584h112" stroke="#e3c078" stroke-width="2"/><a href="${esc(m.ctaUrl)}"><text x="540" y="1594" font-family="${bodyFamily},Arial,sans-serif" font-size="30" font-weight="700" letter-spacing="3" text-anchor="middle" fill="#fff2d5">${safeCta}</text></a>
