@@ -23,7 +23,7 @@ export async function inventoryRequest(env, actorId, action, body) {
   const actor = String(actorId || 'anonymous');
   const keyDigest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(`${actor}\0${requestId}`));
   const key = [...new Uint8Array(keyDigest)].map(byte => byte.toString(16).padStart(2, '0')).join('');
-  const row = await env.DB.prepare("SELECT id,action,after_json,push_status FROM inventory_changes WHERE actor_id=? AND json_extract(after_json,'$.__request.id')=? ORDER BY created_at DESC LIMIT 1").bind(actor, requestId).first();
+  const row = await env.DB.prepare("SELECT id,action,after_json,push_status,created_at FROM inventory_changes WHERE actor_id=? AND json_extract(after_json,'$.__request.id')=? ORDER BY created_at DESC LIMIT 1").bind(actor, requestId).first();
   if (!row) return { request: { id: requestId, hash, changeId: `ich_req_${key}` }, replay: null, conflict: false };
   let metadata;
   try { metadata = JSON.parse(row.after_json || 'null')?.__request; } catch { metadata = null; }
@@ -34,7 +34,7 @@ export async function inventoryRequest(env, actorId, action, body) {
   const receipt = { id: after.id, revision: after.revision ?? after.inventory_revision ?? null,
     inventory_revision: after.inventory_revision ?? null, stock_count: after.stock_count,
     on_hand: after.on_hand, active: after.active, photo_status: after.photo_status };
-  return { request: null, replay: { ...receipt, ...saved, ok: true, persisted: true, replayed: true, change_id: row.id, push_status: row.push_status }, conflict: false };
+  return { request: null, replay: { ...receipt, ...saved, ok: true, persisted: true, replayed: true, change_id: row.id, push_status: row.push_status, _original_at: row.created_at }, conflict: false };
 }
 
 export function changeInsert({ itemId, action, actorId, before, after, at, changeId = id('ich'), table = 'inventory_items', marker = 'last_change_id', request }) {

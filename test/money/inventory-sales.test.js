@@ -123,6 +123,19 @@ test('explicit offer revision fails closed when missing, stale or disabled; item
   await assert.rejects(stockReservationStatements(env, { orderId: 'disabled_promo', items: [{ id: 'vida', qty: 1, sale_offer_revision: 1 }], at }), e => e.code === 'sale_offer_disabled');
 });
 
+test('implicit checkout skips disabled, expired, and catalog-stale declarations while explicit offers stay fail-closed', async () => {
+  for (const invalid of ['disabled', 'expired', 'inventory_revision']) {
+    const { env, db, at } = fixture();
+    await saveSaleOffer(env, { itemId: 'vida', quantity: 5, inventoryRevision: 4, changeId: `implicit_${invalid}`, at });
+    if (invalid === 'disabled') await db.prepare("UPDATE inventory_sale_offers SET enabled=0 WHERE menu_item_id='vida'").run();
+    if (invalid === 'expired') await db.prepare("UPDATE inventory_sale_offers SET sale_expires_at=? WHERE menu_item_id='vida'").bind(at + 1).run();
+    if (invalid === 'inventory_revision') await db.prepare("UPDATE menu_items SET inventory_revision=inventory_revision+1 WHERE id='vida'").run();
+    if (invalid === 'expired') await new Promise(resolve => setTimeout(resolve, 5));
+    assert.deepEqual(await stockReservationStatements(env, { orderId: `implicit_${invalid}_order`, items: [{ id: 'vida', qty: 1 }], at: Date.now() }), [], invalid);
+    await assert.rejects(stockReservationStatements(env, { orderId: `explicit_${invalid}_order`, items: [{ id: 'vida', qty: 1, sale_offer_revision: 1 }], at: Date.now() }), e => e instanceof InventorySaleError && e.code !== 'sale_offer_authority_unavailable', invalid);
+  }
+});
+
 test('checkout claim rechecks capacity at batch time and CHECK failure rolls every statement back', async () => {
   const { env, db, at } = fixture();
   await save(env, 'vida', { quantity: 5, at });

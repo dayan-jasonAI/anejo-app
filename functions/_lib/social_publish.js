@@ -7,6 +7,7 @@
 // because what states they may claim FROM genuinely differs (a click may retry a failure; the
 // timer only ever takes a scheduled post). Everything after the claim lives here.
 import { now } from './hub.js';
+import {verifyInventoryStoryReview} from './inventory_sale_promotions.js';
 import { verifyCampaignPostReview } from './social_campaigns.js';
 import { publishImage, publishCarousel, publishReel, publishStory, VIDEO_ONLY } from './instagram.js';
 import { SOCIAL_AUDIT_CURRENT, verifyAuditImageReceipts } from './social_audit.js';
@@ -168,6 +169,7 @@ export async function publishSocialPost(env, request, post, opts = {}) {
     }
     return { ok: false, error };
   };
+  if(post.source==='inventory'){let stockReview;try{stockReview=await verifyInventoryStoryReview(env,post);}catch{stockReview={ok:false,error:'Inventory Story approval could not be verified.'};}if(!stockReview.ok)return rejectApproval(stockReview.error);}
   // Re-read automatic approval evidence immediately before any provider operation.
   // Manual/legacy scheduling remains separate; NULL is not fabricated approval provenance.
   let approval;

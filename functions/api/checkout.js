@@ -641,10 +641,6 @@ export const onRequestPost = async ({ request, env }) => {
       const snapshot = await saleOfferSnapshot(env, stockAt);
       if (!snapshot.ok) throw new InventorySaleError('sale_offer_authority_unavailable');
       for (const item of orderItems) {
-        const suppressed = snapshot.suppressed.find(row => row.item_id === item.id);
-        if (suppressed && ['inventory_revision_changed', 'count_time_invalid', 'offer_expired', 'offer_ttl_invalid', 'zero_quantity'].includes(suppressed.reason)) {
-          throw new InventorySaleError('sale_offer_revision_changed');
-        }
         if (!Object.hasOwn(item, 'sale_offer_revision')) continue;
         const offer = snapshot.offers.find(row => row.item_id === item.id);
         if (!offer || offer.revision !== item.sale_offer_revision || offer.remaining < item.qty) throw new InventorySaleError('sale_offer_revision_changed');

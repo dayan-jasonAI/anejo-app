@@ -17,6 +17,14 @@ import { loadMenu, orderability } from '../../../_lib/menu.js';
 import { loadOrderingSettings, onDemandConfig, windowState, remainingByBowl } from '../../../_lib/ondemand.js';
 import { changeInsert, commitChange, inventoryRequest, notifyInventory } from '../../../_lib/inventory_updates.js';
 import { reconcileInventoryProduction } from '../../../_lib/inventory_production.js';
+import { applyInventorySaleIntent } from '../../../_lib/inventory_sale_promotions.js';
+
+const own = (object, key) => Object.prototype.hasOwnProperty.call(object || {}, key);
+const numeric = (value, blank = NaN) => {
+  if (value == null || (typeof value === 'string' && value.trim() === '')) return blank;
+  if (typeof value !== 'number' && typeof value !== 'string') return NaN;
+  return Number(typeof value === 'string' ? value.trim() : value);
+};
 
 // TWO DIFFERENT KINDS OF STOCK LIVE ON THIS PAGE, and conflating them would be a mistake:
 //   · inventory_items — INGREDIENTS. Pounds of tuna, cases of avocado. Drives par levels and
@@ -139,7 +147,7 @@ export const onRequestGet = async ({ request, env }) => {
   });
 };
 
-export const onRequestPost = async ({ request, env, context }) => {
+export const onRequestPost = async ({ request, env, waitUntil, context }) => {
   if (!env.DB) return bad('Database not configured.', 500);
   const ctx = await requireRole(request, env, ['kitchen', 'owner']);
   if (ctx instanceof Response) return ctx;
@@ -153,12 +161,35 @@ export const onRequestPost = async ({ request, env, context }) => {
 
   const idempotency = await inventoryRequest(env, by, action, b);
   if (idempotency.conflict) return bad('Request ID is invalid or was already used with different details.', 409);
-  if (idempotency.replay) return json(idempotency.replay);
+  if (idempotency.replay) {
+    const replay = { ...idempotency.replay };
+    delete replay._original_at;
+    if (action === 'menu_count' && Object.hasOwn(b || {}, 'for_sale')) {
+      let sales;
+      try { sales = await applyInventorySaleIntent(env, { body: b, changeId: replay.change_id, actorId: by, at: idempotency.replay._original_at, locale: b.locale || 'es' }); }
+      catch (error) { sales = { ok: false, state: 'error', error: String(error?.message || 'Sale promotion could not be prepared.') }; }
+      replay.sales_status = sales?.ok ? sales.state || 'ready' : 'error';
+      replay.sales_result = sales;
+    }
+    return json(replay);
+  }
+  let saleIntent = null;
+  if (action === 'menu_count' && Object.hasOwn(b || {}, 'for_sale')) {
+    if (typeof b.for_sale !== 'boolean') return bad('Choose a valid sale availability.');
+    const declaredCount = numeric(b.stock_count, null);
+    if (b.for_sale && (!Number.isSafeInteger(declaredCount) || declaredCount <= 0 || declaredCount > 9999)) return bad('Set a positive whole finished-item count before declaring it for sale.');
+    if (b.sale_expires_at != null && (!Number.isSafeInteger(b.sale_expires_at) || b.sale_expires_at <= t || b.sale_expires_at > t + 48 * 60 * 60 * 1000)) return bad('Sale expiry must be a whole timestamp within the next 48 hours.');
+    if (b.sale_expected_revision != null && (!Number.isSafeInteger(b.sale_expected_revision) || b.sale_expected_revision < 1)) return bad('Refresh the sale declaration before saving.');
+    if (b.locale != null && !['en', 'es'].includes(b.locale)) return bad('Choose English or Spanish for the sale Story.');
+    saleIntent = { for_sale: b.for_sale, sale_expires_at: b.sale_expires_at ?? null,
+      sale_expected_revision: b.sale_expected_revision ?? null, locale: b.locale || 'es' };
+  }
   const makeChange = (options) => changeInsert({ ...options,
     ...(idempotency.request ? { changeId: idempotency.request.changeId, request: { ...idempotency.request, response: {} } } : {}) });
   const notifyAfterSave = async (changeId) => {
-    if (context && typeof context.waitUntil === 'function') {
-      context.waitUntil(notifyInventory(env, changeId));
+    const schedule = typeof waitUntil === 'function' ? waitUntil : context?.waitUntil;
+    if (typeof schedule === 'function') {
+      schedule.call(context, notifyInventory(env, changeId));
       return 'pending';
     }
     return notifyInventory(env, changeId);
@@ -170,8 +201,9 @@ export const onRequestPost = async ({ request, env, context }) => {
       try { await reconcileInventoryProduction(env, { actorId: by, changeId: change.changeId }); } catch { /* durable write remains successful */ }
       return push_status;
     };
-    if (context && typeof context.waitUntil === 'function') {
-      context.waitUntil(work());
+    const schedule = typeof waitUntil === 'function' ? waitUntil : context?.waitUntil;
+    if (typeof schedule === 'function') {
+      schedule.call(context, work());
       return json({ ...response, persisted: true, change_id: change.changeId, push_status: 'pending' });
     }
     const push_status = await work();
@@ -198,12 +230,11 @@ export const onRequestPost = async ({ request, env, context }) => {
   // ---- quick stock count ----
   if (action === 'count') {
     const itemId = (b && b.id || '').toString().trim();
-    const rawOnHand = b && b.on_hand;
-    const onHand = rawOnHand == null || typeof rawOnHand === 'boolean' || rawOnHand === '' ? NaN : Number(rawOnHand);
+    const onHand = numeric(b && b.on_hand);
     if (!itemId) return bad('Missing item id.');
     if (!Number.isFinite(onHand) || onHand < 0) return bad('On-hand must be a number ≥ 0.');
-    const quantity = b.count_quantity == null || b.count_quantity === '' ? undefined : Number(b.count_quantity);
-    const weight = b.total_weight_grams == null || b.total_weight_grams === '' ? undefined : Number(b.total_weight_grams);
+    const quantity = own(b, 'count_quantity') ? numeric(b.count_quantity, null) : undefined;
+    const weight = own(b, 'total_weight_grams') ? numeric(b.total_weight_grams, null) : undefined;
     const expiry = b.expires_on == null ? undefined : String(b.expires_on).trim();
     if (quantity !== undefined && (!Number.isSafeInteger(quantity) || quantity < 0)) return bad('Count quantity must be a whole number ≥ 0.');
     if (weight !== undefined && (!Number.isFinite(weight) || weight < 0)) return bad('Total weight must be a number ≥ 0 grams.');
@@ -234,29 +265,37 @@ export const onRequestPost = async ({ request, env, context }) => {
   if (action === 'menu_count') {
     const itemId = (b && b.id || '').toString().trim();
     if (!itemId) return bad('Missing item id.');
-    const row = await env.DB.prepare('SELECT id, name, stock_count, stock_counted_at, inventory_revision, last_inventory_change_id FROM menu_items WHERE id=?').bind(itemId).first();
+    const row = await env.DB.prepare('SELECT id, name, name_es, image, kind, active, availability, stock_count, stock_counted_at, inventory_revision, last_inventory_change_id FROM menu_items WHERE id=?').bind(itemId).first();
     if (!row) return bad('Item not found.', 404);
 
     const raw = b && b.stock_count;
     let next = null;
-    if (raw !== '' && raw != null) {
-    const n = Number(raw);
+    if (raw != null && !(typeof raw === 'string' && raw.trim() === '')) {
+      const n = numeric(raw);
       // Blank clears the limit; 0 means none left. Never coerce one into the other.
       if (!Number.isInteger(n) || n < 0 || n > 9999) return bad('Count must be a whole number 0–9999, or blank for no limit.');
       next = n;
     }
     if (!Number.isInteger(b.expected_revision) || Number(b.expected_revision) !== Number(row.inventory_revision || 0)) return bad('Finished-item count changed. Refresh before saving.', 409);
 
-    const change = makeChange({ itemId, action, actorId: by, before: row, after: { ...row, stock_count: next, stock_counted_at:t, inventory_revision: Number(row.inventory_revision || 0) + 1, last_inventory_change_id: null }, at: t, table: 'menu_items', marker: 'last_inventory_change_id' });
-    const committed = await commitChange(env, { sql: 'UPDATE menu_items SET stock_count=?, updated_at=?, stock_counted_at=?, inventory_revision=inventory_revision+1,last_inventory_change_id=? WHERE id=? AND inventory_revision=?', args: [next, t, t, change.changeId, itemId, Number(row.inventory_revision || 0)] }, change);
+    const availability = saleIntent?.for_sale ? 'available' : row.availability;
+    const after = { ...row, stock_count: next, stock_counted_at:t, inventory_revision: Number(row.inventory_revision || 0) + 1, last_inventory_change_id: null, availability,
+      ...(saleIntent ? { __sale_intent: saleIntent } : {}) };
+    const change = makeChange({ itemId, action, actorId: by, before: row, after, at: t, table: 'menu_items', marker: 'last_inventory_change_id' });
+    const committed = await commitChange(env, { sql: 'UPDATE menu_items SET stock_count=?, availability=COALESCE(?,availability), updated_at=?, stock_counted_at=?, inventory_revision=inventory_revision+1,last_inventory_change_id=? WHERE id=? AND inventory_revision=?', args: [next, availability === row.availability ? null : availability, t, t, change.changeId, itemId, Number(row.inventory_revision || 0)] }, change);
     if (!committed.ok) return bad('Menu count was not saved.', 409);
     await capture(env, {
       event: 'menu.stock_counted',
       distinct_id: ctx.distinct_id, role: ctx.role, team: ctx.team,
       properties: { item_id: itemId, stock_count: next, was: row.stock_count == null ? null : Number(row.stock_count) },
     });
-    const after = { ...row, stock_count: next, stock_counted_at: t, inventory_revision: Number(row.inventory_revision || 0) + 1, last_inventory_change_id: change.changeId };
-    return finish(change, { ok: true, id: itemId, stock_count: next, inventory_revision: after.inventory_revision, item: after, prepared: await preparedStock(env) });
+    const savedAfter = { ...after, last_inventory_change_id: change.changeId, availability };
+    let sales = { ok: true, state: 'not_requested' };
+    if (saleIntent) {
+      try { sales = await applyInventorySaleIntent(env, { body: b, changeId: change.changeId, actorId: by, at: t, locale: saleIntent.locale }); }
+      catch (error) { sales = { ok: false, state: 'error', error: String(error?.message || 'Sale promotion could not be prepared.') }; }
+    }
+    return finish(change, { ok: true, id: itemId, stock_count: next, inventory_revision: savedAfter.inventory_revision, item: savedAfter, sales_status: sales?.ok ? sales.state || 'ready' : 'error', sales_result: sales, prepared: await preparedStock(env) });
   }
 
   // ---- archive / restore (soft flag — never delete) ----
@@ -288,14 +327,14 @@ export const onRequestPost = async ({ request, env, context }) => {
   const itemId = (b && b.id || '').toString().trim() || null;
   const name = (b && b.name || '').toString().trim().slice(0, 80);
   const unit = (b && b.unit || '').toString().trim().slice(0, 16) || null;
-  const onHand = b && b.on_hand != null && b.on_hand !== '' ? Number(b.on_hand) : null;
-  const parLevel = b && b.par_level != null && b.par_level !== '' ? Number(b.par_level) : null;
+  const onHand = b && own(b, 'on_hand') ? numeric(b.on_hand, null) : null;
+  const parLevel = b && own(b, 'par_level') ? numeric(b.par_level, null) : null;
   const vendorId = (b && b.vendor_id || '').toString().trim() || null;
-  const countQuantity = b && b.count_quantity != null && b.count_quantity !== '' ? Number(b.count_quantity) : undefined;
-  const totalWeight = b && b.total_weight_grams != null && b.total_weight_grams !== '' ? Number(b.total_weight_grams) : undefined;
+  const countQuantity = own(b, 'count_quantity') ? numeric(b.count_quantity, null) : undefined;
+  const totalWeight = own(b, 'total_weight_grams') ? numeric(b.total_weight_grams, null) : undefined;
   const expiresOn = b && b.expires_on != null ? String(b.expires_on).trim() : undefined;
   // Canonical per-unit price (cents) for vendor-order cost estimates (Phase 4b).
-  const unitCostCents = b && b.unit_cost_cents != null && b.unit_cost_cents !== '' ? Math.max(0, Math.round(Number(b.unit_cost_cents))) : null;
+  const unitCostCents = b && own(b, 'unit_cost_cents') && b.unit_cost_cents != null && b.unit_cost_cents !== '' ? Math.max(0, Math.round(numeric(b.unit_cost_cents))) : null;
   if (!name) return bad('Item name is required.');
   if (onHand != null && (!Number.isFinite(onHand) || onHand < 0)) return bad('On-hand must be a number ≥ 0.');
   if (parLevel != null && (!Number.isFinite(parLevel) || parLevel < 0)) return bad('Par level must be a number ≥ 0.');

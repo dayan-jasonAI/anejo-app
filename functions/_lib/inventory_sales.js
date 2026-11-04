@@ -17,6 +17,21 @@ function imagePath(item) {
   return item.image.startsWith('/assets/img/') ? item.image : `/assets/img/${item.image.replace(/^\//, '')}`;
 }
 
+function offerInvalidReason(offer, item, at) {
+  return !item ? 'menu_item_missing'
+    : !item.active ? 'menu_item_inactive'
+      : !isOrderable(item) ? 'menu_item_not_orderable'
+        : !isAvailable(item) ? 'menu_item_unavailable'
+          : !imagePath(item) ? 'catalog_image_missing'
+            : !int(item.inventory_revision) || Number(item.inventory_revision) !== Number(offer.inventory_revision) ? 'inventory_revision_changed'
+              : !offer.enabled ? 'offer_disabled'
+                : !Number.isFinite(Number(offer.counted_at)) || Number(offer.counted_at) > at ? 'count_time_invalid'
+                  : !Number.isFinite(Number(offer.sale_expires_at)) || Number(offer.sale_expires_at) <= at ? 'offer_expired'
+                    : Number(offer.sale_expires_at) - Number(offer.counted_at) > MAX_SALE_TTL_MS ? 'offer_ttl_invalid'
+                      : !Number.isSafeInteger(Number(offer.quantity)) || Number(offer.quantity) <= 0 ? 'zero_quantity'
+                        : null;
+}
+
 /**
  * Read current sale offers for exact menu SKUs. `quantity` is an absolute count of unreserved
  * sellable units at declaration time; only reservations against that offer revision are removed.
@@ -39,18 +54,7 @@ export async function saleOfferSnapshot(env, at = Date.now()) {
     const offers = [], suppressed = [];
     for (const offer of offersResult.results) {
       const item = items.get(offer.menu_item_id);
-      const reason = !item ? 'menu_item_missing'
-        : !item.active ? 'menu_item_inactive'
-          : !isOrderable(item) ? 'menu_item_not_orderable'
-            : !isAvailable(item) ? 'menu_item_unavailable'
-              : !imagePath(item) ? 'catalog_image_missing'
-                : !int(item.inventory_revision) || Number(item.inventory_revision) !== Number(offer.inventory_revision) ? 'inventory_revision_changed'
-                  : !offer.enabled ? 'offer_disabled'
-                    : !Number.isFinite(Number(offer.counted_at)) || Number(offer.counted_at) > at ? 'count_time_invalid'
-                      : !Number.isFinite(Number(offer.sale_expires_at)) || Number(offer.sale_expires_at) <= at ? 'offer_expired'
-                        : Number(offer.sale_expires_at) - Number(offer.counted_at) > MAX_SALE_TTL_MS ? 'offer_ttl_invalid'
-                          : Number(offer.quantity) <= 0 ? 'zero_quantity'
-                            : null;
+      const reason = offerInvalidReason(offer, item, at);
       const quantity = Number(offer.quantity);
       const held = reserved.get(`${offer.menu_item_id}:${offer.revision}`) || 0;
       const remaining = quantity - held;
@@ -60,7 +64,7 @@ export async function saleOfferSnapshot(env, at = Date.now()) {
       }
       const image = imagePath(item);
       offers.push({
-        item_id: item.id, name: item.name, name_es: item.name_es || null,
+        item_id: item.id, kind:item.kind, name: item.name, name_es: item.name_es || null,
         image, price_cents: item.price_cents,
         quantity, reserved: held, remaining,
         revision: Number(offer.revision), counted_at: Number(offer.counted_at),
@@ -150,16 +154,29 @@ export async function stockReservationStatements(env, { orderId, items, at = Dat
     if (read?.success === false || !Array.isArray(read?.results)) throw Error('read_failed');
     offers = new Map(read.results.map(row => [row.menu_item_id, row]));
   } catch { throw new InventorySaleError('sale_offer_authority_unavailable'); }
+  if (!offers.size && [...merged.values()].every(entry => !entry.revision)) return [];
+  let menu;
+  try {
+    menu = await loadMenu(env);
+    if (menu?.source !== 'd1') throw Error('menu_read_failed');
+  } catch { throw new InventorySaleError('sale_offer_authority_unavailable'); }
+  const menuItems = new Map((menu.items || []).map(item => [item.id, item]));
   const claimed = [];
   for (const entry of merged.values()) {
     const offer = offers.get(entry.id);
     if (!offer && !entry.revision) continue;
+    if (!offer) throw new InventorySaleError('sale_offer_missing');
     const expectedRevision = entry.revision || Number(offer.revision);
     if (offer && Number(offer.revision) !== expectedRevision) throw new InventorySaleError('sale_offer_revision_changed');
-    if (!offer) throw new InventorySaleError('sale_offer_missing');
-    if (!offer.enabled) throw new InventorySaleError('sale_offer_disabled');
-    if (Number(offer.sale_expires_at) <= at || Number(offer.counted_at) > at) throw new InventorySaleError('sale_offer_expired_or_invalid');
-    if (Number(offer.quantity) <= 0) throw new InventorySaleError('sale_offer_zero_quantity');
+    const invalid = offerInvalidReason(offer, menuItems.get(entry.id), at);
+    if (invalid) {
+      if (!entry.revision) continue;
+      const code = invalid === 'offer_disabled' ? 'sale_offer_disabled'
+        : invalid === 'offer_expired' || invalid === 'count_time_invalid' || invalid === 'offer_ttl_invalid' ? 'sale_offer_expired_or_invalid'
+          : invalid === 'zero_quantity' ? 'sale_offer_zero_quantity'
+            : 'sale_offer_revision_changed';
+      throw new InventorySaleError(code);
+    }
     const reservation = await env.DB.prepare('SELECT COALESCE(SUM(quantity),0) n FROM inventory_sale_reservations WHERE menu_item_id=? AND offer_revision=?').bind(entry.id, expectedRevision).first();
     const remaining = Number(offer.quantity) - Number(reservation?.n || 0);
     if (entry.qty > remaining) throw new InventorySaleError('sale_offer_quantity_exceeded');

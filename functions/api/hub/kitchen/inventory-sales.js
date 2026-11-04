@@ -1,14 +1,14 @@
 import {requireRole} from '../../../_lib/roles.js';
 import {json,bad} from '../../../_lib/util.js';
-import {inventoryPromotionsView,reconcileInventoryPromotion,verifyInventoryStoryReview,inventorySaleDigest,inventorySaleSettings} from '../../../_lib/inventory_sale_promotions.js';
+import {inventoryPromotionsView,reconcileInventoryPromotion,verifyInventoryStoryReview,inventorySaleDigest,inventorySaleSettings,inventoryPromotionGuard} from '../../../_lib/inventory_sale_promotions.js';
 import {readBoundedJson,jpegDimensions} from '../../../_lib/marketing_render_receipt.js';
 const headers={'Cache-Control':'private, no-store'};
 export async function onRequestGet({request,env}){
  const ctx=await requireRole(request,env,['owner','kitchen']);if(ctx instanceof Response)return ctx;
  try{
   const u=new URL(request.url),itemId=u.searchParams.get('preview');
-  if(itemId){const p=await env.DB.prepare('SELECT svg_key,snapshot_hash FROM inventory_sale_promotions WHERE menu_item_id=?').bind(itemId).first();if(!p?.svg_key||p.snapshot_hash!==u.searchParams.get('snapshot'))return bad('Refresh the current Story preview.',409);const media=await env.MEDIA.get(p.svg_key);if(!media)return bad('Story preview is unavailable.',503);return new Response(media.body,{headers:{...headers,'Content-Type':'image/svg+xml','Content-Security-Policy':"sandbox; default-src 'none'; img-src data:; font-src data:; style-src 'unsafe-inline'",'X-Content-Type-Options':'nosniff'}});}
-  return json({ok:true,...await inventoryPromotionsView(env)},200,headers);
+  if(itemId){const p=await env.DB.prepare('SELECT svg_key,jpeg_key,snapshot_hash FROM inventory_sale_promotions WHERE menu_item_id=?').bind(itemId).first();const key=u.searchParams.get('jpeg')==='1'?p?.jpeg_key:p?.svg_key;if(!key||p.snapshot_hash!==u.searchParams.get('snapshot'))return bad('Refresh the current Story preview.',409);const media=await env.MEDIA.get(key);if(!media)return bad('Story preview is unavailable.',503);return new Response(media.body,{headers:{...headers,'Content-Type':u.searchParams.get('jpeg')==='1'?'image/jpeg':'image/svg+xml','Content-Security-Policy':"sandbox; default-src 'none'; img-src data:; font-src data:; style-src 'unsafe-inline'",'X-Content-Type-Options':'nosniff'}});}
+  return json({ok:true,actor_role:ctx.role,...await inventoryPromotionsView(env)},200,headers);
  }catch{return json({ok:false,error:'Inventory sales are temporarily unavailable.'},503,headers);}
 }
 export async function onRequestPost({request,env}){
@@ -31,10 +31,11 @@ export async function onRequestPost({request,env}){
    const raw=atob(b.data_url.split(',')[1]);if(raw.length>5*1024*1024)return bad('Story image exceeds the upload limit.');const bytes=Uint8Array.from(raw,c=>c.charCodeAt(0)),size=jpegDimensions(bytes);
    if(size?.width!==1080||size?.height!==1920)return bad('Story image must be 1080 × 1920.');
    const sha=await inventorySaleDigest(bytes),key=`studio/inventory/${p.post_id}/${sha}.jpg`;await env.MEDIA.put(key,bytes,{httpMetadata:{contentType:'image/jpeg'}});
+   const guard=inventoryPromotionGuard(JSON.parse(p.snapshot_json).source);
    const result=await env.DB.batch([
-    env.DB.prepare("UPDATE inventory_sale_promotions SET jpeg_key=?,jpeg_sha256=?,state='ready_for_review',reviewed_by=NULL,reviewed_at=NULL,updated_at=? WHERE menu_item_id=? AND snapshot_hash=? AND state IN('preview_ready','ready_for_review')").bind(key,sha,at,itemId,p.snapshot_hash),
+    env.DB.prepare(`UPDATE inventory_sale_promotions SET jpeg_key=?,jpeg_sha256=?,state='ready_for_review',reviewed_by=NULL,reviewed_at=NULL,updated_at=? WHERE menu_item_id=? AND snapshot_hash=? AND state IN('preview_ready','ready_for_review') AND ${guard.sql}`).bind(key,sha,at,itemId,p.snapshot_hash,...guard.args),
     env.DB.prepare("UPDATE social_posts SET media_key=?,status='draft',scheduled_at=NULL,updated_at=? WHERE id=? AND status IN('draft','scheduled','failed') AND changes()=1").bind(key,at,p.post_id),
-    env.DB.prepare('DELETE FROM social_post_media WHERE post_id=? AND EXISTS(SELECT 1 FROM inventory_sale_promotions WHERE post_id=? AND jpeg_sha256=?)').bind(p.post_id,p.post_id,sha)
+    env.DB.prepare(`INSERT INTO social_post_media(id,post_id,seq,media_key,public_token,created_at,origin) SELECT ?,?,0,?,?,?,'catalog_inventory' WHERE changes()=1 ON CONFLICT(id) DO UPDATE SET media_key=excluded.media_key WHERE social_post_media.post_id=excluded.post_id`).bind('sm_inv_'+p.post_id,p.post_id,key,crypto.randomUUID().replaceAll('-',''),at)
    ]);
    if(result[0]?.meta?.changes!==1||result[1]?.meta?.changes!==1)return bad('Inventory changed. Refresh the Story preview.',409);
    return json({ok:true,state:'ready_for_review',jpeg_sha256:sha},200,headers);

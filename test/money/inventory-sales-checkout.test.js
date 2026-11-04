@@ -101,6 +101,26 @@ test('an active SKU offer caps ordinary scheduled checkout even without client-s
   assert.deepEqual([reservation.menu_item_id, reservation.offer_revision, reservation.quantity], [SKU, 1, 2]);
 });
 
+test('ordinary checkout proceeds after an offer is disabled or expires, but explicit promotion fails closed', async () => {
+  for (const invalid of ['disabled', 'expired']) {
+    const { env, at } = await fixture({ quantity: 5 });
+    if (invalid === 'disabled') await env.DB.prepare("UPDATE inventory_sale_offers SET enabled=0 WHERE menu_item_id=?").bind(SKU).run();
+    if (invalid === 'expired') {
+      await env.DB.prepare('UPDATE inventory_sale_offers SET sale_expires_at=? WHERE menu_item_id=?').bind(at + 1, SKU).run();
+      await new Promise(resolve => setTimeout(resolve, 5));
+    }
+    const ordinary = await post(env, { qty: 2 });
+    assert.equal(ordinary.response.status, 200, invalid);
+    assert.equal(env.DB.one('SELECT COUNT(*) n FROM inventory_sale_reservations').n, 0, invalid);
+  }
+  const { env } = await fixture({ quantity: 5 });
+  await env.DB.prepare("UPDATE inventory_sale_offers SET enabled=0 WHERE menu_item_id=?").bind(SKU).run();
+  const promoted = await post(env, { qty: 1, revision: 1 });
+  assert.equal(promoted.response.status, 409);
+  assert.equal(promoted.body.error, 'stock_capacity_changed');
+  assert.equal(promoted.calls.length, 0);
+});
+
 test('a capacity race after link creation aborts the order batch and best-effort deletes the unexposed link', async () => {
   const { env } = await fixture({ quantity: 5 });
   const result = await post(env, { qty: 2, revision: 1 }, { onCreate: async () => {
