@@ -13,9 +13,9 @@ import { requireRole, currentStaff } from '../../../_lib/roles.js';
 import { id, now } from '../../../_lib/hub.js';
 import { capture } from '../../../_lib/track.js';
 import { raiseAlert } from '../../../_lib/alerts.js';
-import { loadMenu } from '../../../_lib/menu.js';
+import { loadMenu, orderability } from '../../../_lib/menu.js';
 import { loadOrderingSettings, onDemandConfig, windowState, remainingByBowl } from '../../../_lib/ondemand.js';
-import { changeInsert, commitChange, notifyInventory } from '../../../_lib/inventory_updates.js';
+import { changeInsert, commitChange, inventoryRequest, notifyInventory } from '../../../_lib/inventory_updates.js';
 import { reconcileInventoryProduction } from '../../../_lib/inventory_production.js';
 
 // TWO DIFFERENT KINDS OF STOCK LIVE ON THIS PAGE, and conflating them would be a mistake:
@@ -30,9 +30,9 @@ async function preparedStock(env) {
   try {
     const menu = await loadMenu(env);
     if (!menu || menu.source !== 'd1') return { items: [], status: 'unavailable' };
-    const countRows = await env.DB.prepare('SELECT id,stock_counted_at FROM menu_items WHERE active=1').all();
+    const countRows = await env.DB.prepare('SELECT id,stock_counted_at,inventory_revision,active FROM menu_items WHERE active=1').all();
     if(!countRows||countRows.success===false||!Array.isArray(countRows.results))throw Error('finished_count_read_failed');
-    const counted = new Map(countRows.results.map(r=>[r.id,r.stock_counted_at]));
+    const counted = new Map(countRows.results.map(r=>[r.id,r]));
     const settings = await loadOrderingSettings(env);
     const { limit } = onDemandConfig(env, settings);
     const w = windowState(env, new Date(), settings);
@@ -40,9 +40,14 @@ async function preparedStock(env) {
     const items = (menu.items || []).map((it) => ({
       id: it.id,
       name: it.name,
+      name_es: it.name_es || it.name,
+      image: it.img || it.image || null,
       kind: it.kind,
-      stock_counted_at: counted.get(it.id) || null,
+      active: !!counted.get(it.id)?.active,
+      inventory_revision: counted.get(it.id)?.inventory_revision ?? 0,
+      stock_counted_at: counted.get(it.id)?.stock_counted_at || null,
       availability: menu.availability[it.id] || 'available',
+      orderable: orderability(it).orderable,
       // What the owner (or kitchen) said we made. null = no manual count.
       stock_count: it.stock_count == null || it.stock_count === '' ? null : Math.floor(Number(it.stock_count)),
       // What is LEFT after today's orders — derived, never stored, so it cannot drift.
@@ -134,7 +139,7 @@ export const onRequestGet = async ({ request, env }) => {
   });
 };
 
-export const onRequestPost = async ({ request, env }) => {
+export const onRequestPost = async ({ request, env, context }) => {
   if (!env.DB) return bad('Database not configured.', 500);
   const ctx = await requireRole(request, env, ['kitchen', 'owner']);
   if (ctx instanceof Response) return ctx;
@@ -146,12 +151,24 @@ export const onRequestPost = async ({ request, env }) => {
   const t = now();
   const by = (staff && staff.id) || ctx.distinct_id || null;
 
+  const idempotency = await inventoryRequest(env, by, action, b);
+  if (idempotency.conflict) return bad('Request ID is invalid or was already used with different details.', 409);
+  if (idempotency.replay) return json(idempotency.replay);
+  const makeChange = (options) => changeInsert({ ...options,
+    ...(idempotency.request ? { changeId: idempotency.request.changeId, request: { ...idempotency.request, response: {} } } : {}) });
+
   const finish = async (change, response) => {
-    const push_status = await notifyInventory(env, change.changeId);
-    let production;
-    try { production = await reconcileInventoryProduction(env, { actorId: by, changeId: change.changeId }); }
-    catch (error) { production = { ok: false, error: String(error?.message || 'unavailable') }; }
-    return json({ ...response, change_id: change.changeId, push_status, production_status: production?.ok ? 'reconciled' : 'unavailable', production_error: production?.ok ? null : production?.error || 'unavailable' });
+    const work = async () => {
+      const push_status = await notifyInventory(env, change.changeId);
+      try { await reconcileInventoryProduction(env, { actorId: by, changeId: change.changeId }); } catch { /* durable write remains successful */ }
+      return push_status;
+    };
+    if (context && typeof context.waitUntil === 'function') {
+      context.waitUntil(work());
+      return json({ ...response, persisted: true, change_id: change.changeId, push_status: 'pending' });
+    }
+    const push_status = await work();
+    return json({ ...response, persisted: true, change_id: change.changeId, push_status });
   };
 
   if (action === 'review_photo') {
@@ -165,7 +182,7 @@ export const onRequestPost = async ({ request, env }) => {
     if (b.expected_revision != null && Number(b.expected_revision) !== Number(item.revision || 0)) return bad('Inventory item changed. Refresh before saving.', 409);
     const status = b.decision === 'approve' ? 'approved' : 'rejected';
     const after = { ...item, photo_status: status, photo_reviewed_by: by, photo_reviewed_at: t, revision: Number(item.revision || 0) + 1, last_change_id: null };
-    const change = changeInsert({ itemId, action: 'review_photo', actorId: by, before: item, after, at: t });
+    const change = makeChange({ itemId, action: 'review_photo', actorId: by, before: item, after, at: t });
     const committed = await commitChange(env, { sql: "UPDATE inventory_items SET photo_status=?,photo_reviewed_by=?,photo_reviewed_at=?,updated_by=?,updated_at=?,revision=revision+1,last_change_id=? WHERE id=? AND revision=? AND photo_key=? AND photo_status='pending'", args: [status,by,t,by,t,change.changeId,itemId,Number(item.revision || 0),key] }, change);
     if (!committed.ok) return bad('Photo review was not saved.', 409);
     return finish(change, { ok: true, id: itemId, photo_key: key, photo_status: status });
@@ -174,7 +191,8 @@ export const onRequestPost = async ({ request, env }) => {
   // ---- quick stock count ----
   if (action === 'count') {
     const itemId = (b && b.id || '').toString().trim();
-    const onHand = Number(b && b.on_hand);
+    const rawOnHand = b && b.on_hand;
+    const onHand = rawOnHand == null || typeof rawOnHand === 'boolean' || rawOnHand === '' ? NaN : Number(rawOnHand);
     if (!itemId) return bad('Missing item id.');
     if (!Number.isFinite(onHand) || onHand < 0) return bad('On-hand must be a number ≥ 0.');
     const quantity = b.count_quantity == null || b.count_quantity === '' ? undefined : Number(b.count_quantity);
@@ -189,7 +207,7 @@ export const onRequestPost = async ({ request, env }) => {
 
     if (b.expected_revision != null && Number(b.expected_revision) !== Number(item.revision || 0)) return bad('Inventory item changed. Refresh before saving.', 409);
     const after = { ...item, on_hand: onHand, count_quantity: quantity === undefined ? item.count_quantity : quantity, total_weight_grams: weight === undefined ? item.total_weight_grams : weight, expires_on: expiry === undefined ? item.expires_on : expiry || null, counted_at: t, updated_by: by, updated_at: t, revision: Number(item.revision || 0) + 1 };
-    const change = changeInsert({ itemId, action, actorId: by, before: item, after, at: t });
+    const change = makeChange({ itemId, action, actorId: by, before: item, after, at: t });
     const committed = await commitChange(env, { sql: 'UPDATE inventory_items SET on_hand=?,count_quantity=?,total_weight_grams=?,expires_on=?,counted_at=?,updated_by=?,updated_at=?,revision=revision+1,last_change_id=? WHERE id=? AND revision=?', args: [onHand,after.count_quantity ?? null,after.total_weight_grams ?? null,after.expires_on ?? null,t,by,t,change.changeId,itemId,Number(item.revision || 0)] }, change);
     if (!committed.ok) return bad('Inventory count was not saved.', 409);
 
@@ -201,8 +219,8 @@ export const onRequestPost = async ({ request, env }) => {
       properties: { item_id: itemId, on_hand: onHand, par_level: item.par_level },
     });
 
-    await checkLowStock(env, { ...item, on_hand: onHand });
-    return finish(change, { ok: true, id: itemId, on_hand: onHand, below_par: Number(item.par_level) > 0 && onHand < Number(item.par_level) });
+    try { await checkLowStock(env, { ...item, on_hand: onHand }); } catch { /* persisted count is still successful */ }
+    return finish(change, { ok: true, id: itemId, on_hand: onHand, revision: after.revision, below_par: Number(item.par_level) > 0 && onHand < Number(item.par_level) });
   }
 
   // ---- how many finished bowls/drinks we made today ----
@@ -220,9 +238,9 @@ export const onRequestPost = async ({ request, env }) => {
       if (!Number.isInteger(n) || n < 0 || n > 9999) return bad('Count must be a whole number 0–9999, or blank for no limit.');
       next = n;
     }
-    if (b.expected_revision != null && Number(b.expected_revision) !== Number(row.inventory_revision || 0)) return bad('Finished-item count changed. Refresh before saving.', 409);
+    if (!Number.isInteger(b.expected_revision) || Number(b.expected_revision) !== Number(row.inventory_revision || 0)) return bad('Finished-item count changed. Refresh before saving.', 409);
 
-    const change = changeInsert({ itemId, action, actorId: by, before: row, after: { ...row, stock_count: next, stock_counted_at:t, inventory_revision: Number(row.inventory_revision || 0) + 1, last_inventory_change_id: null }, at: t, table: 'menu_items', marker: 'last_inventory_change_id' });
+    const change = makeChange({ itemId, action, actorId: by, before: row, after: { ...row, stock_count: next, stock_counted_at:t, inventory_revision: Number(row.inventory_revision || 0) + 1, last_inventory_change_id: null }, at: t, table: 'menu_items', marker: 'last_inventory_change_id' });
     const committed = await commitChange(env, { sql: 'UPDATE menu_items SET stock_count=?, updated_at=?, stock_counted_at=?, inventory_revision=inventory_revision+1,last_inventory_change_id=? WHERE id=? AND inventory_revision=?', args: [next, t, t, change.changeId, itemId, Number(row.inventory_revision || 0)] }, change);
     if (!committed.ok) return bad('Menu count was not saved.', 409);
     await capture(env, {
@@ -230,7 +248,7 @@ export const onRequestPost = async ({ request, env }) => {
       distinct_id: ctx.distinct_id, role: ctx.role, team: ctx.team,
       properties: { item_id: itemId, stock_count: next, was: row.stock_count == null ? null : Number(row.stock_count) },
     });
-    return finish(change, { ok: true, id: itemId, stock_count: next, prepared: await preparedStock(env) });
+    return finish(change, { ok: true, id: itemId, stock_count: next, inventory_revision: Number(row.inventory_revision || 0) + 1, prepared: await preparedStock(env) });
   }
 
   // ---- archive / restore (soft flag — never delete) ----
@@ -241,7 +259,7 @@ export const onRequestPost = async ({ request, env }) => {
     if (!item) return bad('Item not found.', 404);
     if (b.expected_revision != null && Number(b.expected_revision) !== Number(item.revision || 0)) return bad('Inventory item changed. Refresh before saving.', 409);
     const active = action === 'archive' ? 0 : 1;
-    const change = changeInsert({ itemId, action, actorId: by, before: item, after: { ...item, active, updated_by: by, updated_at: t, revision: Number(item.revision || 0) + 1 }, at: t });
+    const change = makeChange({ itemId, action, actorId: by, before: item, after: { ...item, active, updated_by: by, updated_at: t, revision: Number(item.revision || 0) + 1 }, at: t });
     const committed = await commitChange(env, { sql: 'UPDATE inventory_items SET active=?, updated_by=?, updated_at=?, revision=revision+1,last_change_id=? WHERE id=? AND revision=?', args: [active, by, t, change.changeId, itemId, Number(item.revision || 0)] }, change);
     if (!committed.ok) return bad('Inventory item was not changed.', 409);
 
@@ -305,7 +323,7 @@ export const onRequestPost = async ({ request, env }) => {
       revision: Number(item.revision || 0) + 1,
       last_change_id: null,
     };
-    const change = changeInsert({ itemId, action, actorId: by, before, after: { ...saved, updated_by: by, updated_at: t }, at: t });
+    const change = makeChange({ itemId, action, actorId: by, before, after: { ...saved, updated_by: by, updated_at: t }, at: t });
     const committed = await commitChange(env, { sql: 'UPDATE inventory_items SET name=?, unit=?, on_hand=?, par_level=?, vendor_id=?, supplier_id=?, unit_cost_cents=?, count_quantity=?, total_weight_grams=?, expires_on=?, counted_at=?, updated_by=?, updated_at=?, revision=revision+1,last_change_id=? WHERE id=? AND revision=?', args: [saved.name, saved.unit, saved.on_hand, saved.par_level, saved.vendor_id, saved.supplier_id, saved.unit_cost_cents ?? null, saved.count_quantity ?? null, saved.total_weight_grams ?? null, saved.expires_on ?? null, saved.counted_at ?? null, by, t, change.changeId, itemId, Number(item.revision || 0)] }, change);
     if (!committed.ok) return bad('Inventory item was not saved.', 409);
     saved._change = change;
@@ -326,7 +344,7 @@ export const onRequestPost = async ({ request, env }) => {
       revision: 0,
       last_change_id: null,
     };
-    const change = changeInsert({ itemId: saved.id, action, actorId: by, before: null, after: { ...saved, active: 1, updated_by: by, created_at: t, updated_at: t }, at: t });
+    const change = makeChange({ itemId: saved.id, action, actorId: by, before: null, after: { ...saved, active: 1, updated_by: by, created_at: t, updated_at: t }, at: t });
     const committed = await commitChange(env, { sql: 'INSERT INTO inventory_items (id,name,unit,on_hand,par_level,vendor_id,supplier_id,unit_cost_cents,count_quantity,total_weight_grams,expires_on,counted_at,active,revision,last_change_id,updated_by,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,1,0,?,?,?,?)', args: [saved.id,saved.name,saved.unit,saved.on_hand,saved.par_level,saved.vendor_id,saved.supplier_id,saved.unit_cost_cents,saved.count_quantity,saved.total_weight_grams,saved.expires_on,saved.counted_at,change.changeId,by,t,t] }, change);
     if (!committed.ok) return bad('Inventory item was not created.', 409);
     saved._change = change;
@@ -340,12 +358,12 @@ export const onRequestPost = async ({ request, env }) => {
     properties: { item_id: saved.id, action: itemId ? 'edit' : 'create', par_level: saved.par_level },
   });
 
-  await checkLowStock(env, saved);
+    try { await checkLowStock(env, saved); } catch { /* persisted item is still successful */ }
   const change = saved._change;
   delete saved._change;
   const push_status = await notifyInventory(env, change.changeId);
   return json({
-    ok: true,
+    ok: true, persisted: true, revision: saved.revision,
     change_id: change.changeId,
     push_status,
     id: saved.id,
