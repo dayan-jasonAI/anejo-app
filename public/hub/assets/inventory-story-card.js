@@ -92,7 +92,8 @@
     const bodyFamily = m.bodyFont ? 'StoryJosefin' : 'Arial';
     const singular=({units:'unit',unidades:'unidad',packs:'pack',paquetes:'paquete',bowls:'bowl',tazones:'tazón'})[m.unitLabel]||m.unitLabel;
     const unit = `${currency(m.priceCents, m.locale)} / ${singular}`;
-    return `<svg xmlns="http://www.w3.org/2000/svg" width="1080" height="1920" viewBox="0 0 1080 1920" role="img" aria-label="${esc(m.name)} inventory story">
+    const storyLabel = m.locale === 'es' ? 'Historia de inventario' : 'Inventory story';
+    return `<svg xmlns="http://www.w3.org/2000/svg" width="1080" height="1920" viewBox="0 0 1080 1920" role="img" aria-label="${esc(m.name + ' · ' + storyLabel)}">
 <defs><linearGradient id="forest" x2=".9" y2="1"><stop stop-color="#082b22"/><stop offset=".52" stop-color="#153f31"/><stop offset="1" stop-color="#071c17"/></linearGradient><linearGradient id="gold" x2="0" y2="1"><stop stop-color="#f1d28a"/><stop offset="1" stop-color="#bd9040"/></linearGradient><filter id="shadow" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="18"/></filter><style>${fontRules}.title{font-family:${titleFamily},Georgia,serif;font-size:72px;font-weight:400;letter-spacing:2px;fill:#fff2d5;text-anchor:middle}.body{font-family:${bodyFamily},Arial,sans-serif;fill:#fff2d5;text-anchor:middle;letter-spacing:3px}.gold{fill:#e3c078}.price{font-family:${titleFamily},Georgia,serif;font-size:65px;fill:#fff2d5;text-anchor:middle}.small{font-family:${bodyFamily},Arial,sans-serif;font-size:24px;fill:#f1e7d4;text-anchor:middle;letter-spacing:1px}</style></defs>
 ${imageLayer}${m.background ? '' : '<rect width="1080" height="1920" fill="#061a14" fill-opacity=".17"/>'}
 ${emblem}

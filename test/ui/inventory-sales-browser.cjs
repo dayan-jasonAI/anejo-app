@@ -12,12 +12,14 @@ const assert = require('node:assert/strict');
   const { onRequestGet: salesGet, onRequestPost: salesPost } = await import('../../functions/api/hub/kitchen/inventory-sales.js');
   const { onRequestGet: meGet } = await import('../../functions/api/me.js');
   const root = path.resolve('public');
+  const productionCsp = fs.readFileSync(path.join(root, '_headers'), 'utf8').match(/Content-Security-Policy: (.+)/)[1];
   const evidence = process.env.ANEJO_INVENTORY_AUDIT_OUT || process.env.INVENTORY_SALES_BROWSER_EVIDENCE || path.resolve('../anejo-deliverables/inventory-sales-recovery-2026-11-03/browser-joined');
   fs.mkdirSync(evidence, { recursive: true });
   const bytes = new Map();
   const metadata = new Map();
   const external = [];
   const pageErrors = [];
+  const cspErrors = [];
   const requestFailures = [];
   const browserApiCalls = [];
   const media = {
@@ -50,6 +52,7 @@ const assert = require('node:assert/strict');
   let currentRole = 'owner';
 
   const server = http.createServer(async (req, res) => {
+    res.setHeader('Content-Security-Policy', productionCsp);
     try {
       const url = new URL(req.url, 'http://127.0.0.1');
       const cookie = String(req.headers.cookie || '');
@@ -101,6 +104,7 @@ const assert = require('node:assert/strict');
   await context.addInitScript(() => { try { localStorage.setItem('anejo:lang', 'en'); localStorage.setItem('anejo_hub_role', 'owner'); } catch { /* local app origin has storage */ } });
   const page = await context.newPage();
   page.on('pageerror', error => pageErrors.push(error.message));
+  page.on('console', message => { if (/Content Security Policy|violates.*directive/i.test(message.text())) cspErrors.push(message.text()); });
   page.on('requestfailed', request => requestFailures.push({ url: request.url(), error: request.failure()?.errorText }));
   await page.route('**/*', route => {
     if (route.request().url().startsWith(base)) return route.continue();
@@ -158,6 +162,11 @@ const assert = require('node:assert/strict');
     await page.getByText('Aprobada para programar', { exact: true }).waitFor({ timeout: 12000 });
     assert.equal(env.DB.one("SELECT state FROM inventory_sale_promotions WHERE menu_item_id='vida'").state, 'reviewed');
     assert.equal(env.DB.one("SELECT reviewed_by FROM inventory_sale_promotions WHERE menu_item_id='vida'").reviewed_by, 'stf_owner');
+    await page.evaluate(() => window.AnejoLang.set('en'));
+    await page.getByText('Approved for scheduling', {exact:true}).waitFor();
+    assert.equal(await page.locator('#onhand-synthetic_dirty').inputValue(), '29');
+    await page.evaluate(() => window.AnejoLang.set('es'));
+    await page.getByText('Aprobada para programar', {exact:true}).waitFor();
 
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true, '375px Story and sale controls do not overflow');
     await page.locator('#inventory-sales-promotions').screenshot({ path: path.join(evidence, 'owner-reviewed-story.png') });
@@ -179,13 +188,14 @@ const assert = require('node:assert/strict');
     assert.equal(denied.status, 403);
     assert.equal(env.DB.one("SELECT state FROM inventory_sale_promotions WHERE menu_item_id='vida'").state, 'reviewed');
     assert.deepEqual(pageErrors, []);
+    assert.deepEqual(cspErrors, [], 'production security policy permits the exact Story composition and preview');
     assert.deepEqual(external, []);
     fs.writeFileSync(path.join(evidence, 'validation.json'), JSON.stringify({
       status: 'passed', scope: 'Actual local inventory HTML and browser assets + API handlers + migrated SQLite + local catalog artwork/font reads + isolated media byte store',
       scenarios: ['saved finished quantity 20 with for-sale intent', 'original VIDA catalog photo in SVG and generated JPEG', 'JPEG media-store readback loaded in browser before owner approval', 'kitchen role blocked from owner-only approval', 'unrelated dirty ingredient edit persisted across language change and finished-count readback'],
       menu_item: 'vida', catalog_image: 'bowl_vida.jpg', count: itemRevision.stock_count, inventory_revision: itemRevision.inventory_revision,
       offer_revision: offer.revision, promotion_state: env.DB.one("SELECT state FROM inventory_sale_promotions WHERE menu_item_id='vida'").state,
-      jpeg_bytes: jpeg.length, page_errors: pageErrors, external_requests: external,
+      production_csp: productionCsp, csp_errors: cspErrors, jpeg_bytes: jpeg.length, page_errors: pageErrors, external_requests: external,
       api_calls: browserApiCalls.filter(call => call.path.includes('inventory')),
       live_production_writes: 0, provider_calls: 0,
     }, null, 2));

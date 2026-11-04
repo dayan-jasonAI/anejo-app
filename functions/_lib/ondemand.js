@@ -8,6 +8,7 @@
 //   ONDEMAND_CLOSE_MIN   (ET minute past close hour, default 30 → 7:30 PM)
 
 import { loadMenu } from './menu.js';
+import { saleOfferSnapshot } from './inventory_sales.js';
 
 // Only bowls are capped (drinks + add-ons are unlimited).
 //
@@ -131,6 +132,20 @@ export async function remainingByBowl(env, dateStr, limit, menu) {
       if (remaining[it && it.id] != null) {
         remaining[it.id] = Math.max(0, remaining[it.id] - (Number(it.qty) || 0));
       }
+    }
+  }
+  // A fresh sale declaration is an absolute UNRESERVED quantity. Legacy orders created before
+  // that declaration are not reservations against it and must not be subtracted a second time.
+  // Invalid/expired/withdrawn offers keep the long-standing order-count behavior; only currently
+  // eligible offers and explicit fully-reserved offers replace the legacy remainder.
+  const sales = await saleOfferSnapshot(env);
+  if (sales && sales.ok) {
+    for (const offer of sales.offers || []) {
+      const quantity = Number(offer.remaining);
+      if (Number.isSafeInteger(quantity) && quantity >= 0) remaining[offer.item_id] = quantity;
+    }
+    for (const suppressed of sales.suppressed || []) {
+      if (suppressed.reason === 'zero_remaining' && typeof suppressed.item_id === 'string') remaining[suppressed.item_id] = 0;
     }
   }
   return remaining;

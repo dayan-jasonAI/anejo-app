@@ -46,6 +46,8 @@ test('English and Spanish labels are selected deterministically', () => {
   assert.match(en, /\$24\.50 \/ per tray/);
   assert.match(es, /DISPONIBLE PARA PEDIR/);
   assert.match(es, /PIDE EN LÍNEA/);
+  assert.match(es, /aria-label="Añejo Reposado · Historia de inventario"/);
+  assert.doesNotMatch(es, /inventory story/);
   assert.match(es, /\$24\.50 \/ por bandeja/);
 });
 
