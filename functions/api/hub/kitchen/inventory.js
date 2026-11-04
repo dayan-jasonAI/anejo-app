@@ -156,6 +156,13 @@ export const onRequestPost = async ({ request, env, context }) => {
   if (idempotency.replay) return json(idempotency.replay);
   const makeChange = (options) => changeInsert({ ...options,
     ...(idempotency.request ? { changeId: idempotency.request.changeId, request: { ...idempotency.request, response: {} } } : {}) });
+  const notifyAfterSave = async (changeId) => {
+    if (context && typeof context.waitUntil === 'function') {
+      context.waitUntil(notifyInventory(env, changeId));
+      return 'pending';
+    }
+    return notifyInventory(env, changeId);
+  };
 
   const finish = async (change, response) => {
     const work = async () => {
@@ -185,7 +192,7 @@ export const onRequestPost = async ({ request, env, context }) => {
     const change = makeChange({ itemId, action: 'review_photo', actorId: by, before: item, after, at: t });
     const committed = await commitChange(env, { sql: "UPDATE inventory_items SET photo_status=?,photo_reviewed_by=?,photo_reviewed_at=?,updated_by=?,updated_at=?,revision=revision+1,last_change_id=? WHERE id=? AND revision=? AND photo_key=? AND photo_status='pending'", args: [status,by,t,by,t,change.changeId,itemId,Number(item.revision || 0),key] }, change);
     if (!committed.ok) return bad('Photo review was not saved.', 409);
-    return finish(change, { ok: true, id: itemId, photo_key: key, photo_status: status });
+    return finish(change, { ok: true, id: itemId, photo_key: key, photo_status: status, revision: after.revision, item: after });
   }
 
   // ---- quick stock count ----
@@ -220,7 +227,7 @@ export const onRequestPost = async ({ request, env, context }) => {
     });
 
     try { await checkLowStock(env, { ...item, on_hand: onHand }); } catch { /* persisted count is still successful */ }
-    return finish(change, { ok: true, id: itemId, on_hand: onHand, revision: after.revision, below_par: Number(item.par_level) > 0 && onHand < Number(item.par_level) });
+    return finish(change, { ok: true, id: itemId, on_hand: onHand, revision: after.revision, item: after, below_par: Number(item.par_level) > 0 && onHand < Number(item.par_level) });
   }
 
   // ---- how many finished bowls/drinks we made today ----
@@ -248,7 +255,8 @@ export const onRequestPost = async ({ request, env, context }) => {
       distinct_id: ctx.distinct_id, role: ctx.role, team: ctx.team,
       properties: { item_id: itemId, stock_count: next, was: row.stock_count == null ? null : Number(row.stock_count) },
     });
-    return finish(change, { ok: true, id: itemId, stock_count: next, inventory_revision: Number(row.inventory_revision || 0) + 1, prepared: await preparedStock(env) });
+    const after = { ...row, stock_count: next, stock_counted_at: t, inventory_revision: Number(row.inventory_revision || 0) + 1, last_inventory_change_id: change.changeId };
+    return finish(change, { ok: true, id: itemId, stock_count: next, inventory_revision: after.inventory_revision, item: after, prepared: await preparedStock(env) });
   }
 
   // ---- archive / restore (soft flag — never delete) ----
@@ -270,7 +278,8 @@ export const onRequestPost = async ({ request, env, context }) => {
       team: ctx.team,
       properties: { item_id: itemId, action },
     });
-    return finish(change, { ok: true, id: itemId, active: action !== 'archive' });
+    const after = { ...item, active, revision: Number(item.revision || 0) + 1, last_change_id: change.changeId };
+    return finish(change, { ok: true, id: itemId, active: action !== 'archive', revision: after.revision, item: after });
   }
 
   // ---- upsert (create or edit) ----
@@ -361,7 +370,7 @@ export const onRequestPost = async ({ request, env, context }) => {
     try { await checkLowStock(env, saved); } catch { /* persisted item is still successful */ }
   const change = saved._change;
   delete saved._change;
-  const push_status = await notifyInventory(env, change.changeId);
+  const push_status = await notifyAfterSave(change.changeId);
   return json({
     ok: true, persisted: true, revision: saved.revision,
     change_id: change.changeId,
