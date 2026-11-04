@@ -191,7 +191,7 @@ export async function stockReservationStatements(env, { orderId, items, at = Dat
   const claims = [], reservations = [];
   for (const item of claimed) {
     const aliases=stockSaleAliases(item.id);
-    const noPending="NOT EXISTS(SELECT 1 FROM inventory_sale_jobs j,json_each(CASE WHEN j.source_type='order' THEN j.snapshot_json ELSE COALESCE(json_extract(j.snapshot_json,'$.lines'),'[]') END) l WHERE j.state IN ('pending','error') AND (CASE WHEN j.source_type='order' THEN json_extract(l.value,'$.id') WHEN json_extract(l.value,'$.pricing_mode')='catalog' THEN json_extract(l.value,'$.product_id') END) IN ("+aliases.map(()=>'?').join(',')+"))";
+    const noPending="NOT EXISTS(SELECT 1 FROM inventory_sale_jobs j,json_each(CASE WHEN j.source_type='order' THEN j.snapshot_json ELSE COALESCE(json_extract(j.snapshot_json,'$.lines'),'[]') END) l WHERE j.state IN ('pending','error') AND (CASE WHEN j.source_type='order' THEN CASE WHEN json_extract(l.value,'$.addon')=1 AND json_extract(l.value,'$.id') LIKE 'addon_%' THEN substr(json_extract(l.value,'$.id'),7) ELSE json_extract(l.value,'$.id') END WHEN json_extract(l.value,'$.pricing_mode')='catalog' THEN json_extract(l.value,'$.product_id') END) IN ("+aliases.map(()=>'?').join(',')+"))";
     claims.push(env.DB.prepare(`INSERT INTO inventory_sale_checkout_claims(order_id,menu_item_id,offer_revision,quantity,accepted,claimed_at)
       SELECT ?,?,?,?,CASE WHEN EXISTS(
         SELECT 1 FROM inventory_sale_offers o JOIN menu_items m ON m.id=o.menu_item_id

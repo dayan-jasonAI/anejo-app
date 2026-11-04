@@ -464,7 +464,7 @@
     var div = document.createElement('div');
     div.className = 'oi-row';
     div.innerHTML =
-      '<input class="i-catalog" type="search" list="o-catalog-options" placeholder="Search catalog / Buscar catálogo" autocomplete="off" aria-label="Catalog item / Artículo del catálogo">' +
+      '<input class="i-catalog" type="search" list="o-catalog-options" placeholder="Search catalog" autocomplete="off" aria-label="Catalog item">' +
       '<input class="i-sku" type="hidden" value="">' +
       '<input class="i-name" placeholder="Item" value="' + esc(item.name || '') + '">' +
       '<input class="i-qty" type="number" min="1" step="1" placeholder="Qty" value="' + (item.qty != null ? esc(item.qty) : '1') + '">' +
@@ -476,6 +476,7 @@
     catalogInput.addEventListener('input', function () {
       var selected = orderCatalogByLabel.get(catalogInput.value.trim());
       div.querySelector('.i-sku').value = selected ? selected.id : '';
+      div.querySelector('.i-name').readOnly = !!selected;
       if (selected) {
         div.querySelector('.i-name').value = selected.name;
         div.querySelector('.i-price').value = (Number(selected.price_cents) / 100).toFixed(2);

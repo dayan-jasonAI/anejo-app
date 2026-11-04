@@ -27,11 +27,13 @@ export async function processInventoryDeductionJob(env,{sourceType='order',sourc
   if(!env?.DB||!['order','quote'].includes(sourceType)||!sourceId)throw Error('Inventory sale source is required.');
   const job=await env.DB.prepare('SELECT * FROM inventory_sale_jobs WHERE source_type=? AND source_id=?').bind(sourceType,sourceId).first();
   if(!job||job.state==='done')return {ok:true,state:job?.state||'not_queued',movements:[]};
-  const source=await sourceRecord(env,job);if(!source)return {ok:false,state:'source_changed',movements:[]};
+  const source=await sourceRecord(env,job);if(!source){await env.DB.prepare("UPDATE inventory_sale_jobs SET state='review',error='Paid source changed; review stock before adjustment',updated_at=? WHERE source_type=? AND source_id=? AND snapshot_json IS ?").bind(Date.now(),sourceType,sourceId,job.snapshot_json).run();return {ok:true,state:'review',movements:[],reviews:1};}
+  if(!Array.isArray(source.lines)||!source.lines.length)throw Error('Paid sale lines are unavailable for inventory reconciliation.');
   const snapshotHash=await hash(job.snapshot_json),totals=new Map(),movements=[];let reviews=0;
   for(const [index,line] of source.lines.entries()) {
     if(!line||line.id==='meta'||line.meta||line.qty===0||['delivery','fee','tax','discount'].includes(line.type||line.kind))continue;
-    const saleId=sourceType==='quote'?(line.pricing_mode==='catalog'?line.product_id:null):line.id;
+    let saleId=sourceType==='quote'?(line.pricing_mode==='catalog'?line.product_id:null):line.id;
+    if(sourceType==='order'&&line.addon===true&&typeof saleId==='string'&&saleId.startsWith('addon_'))saleId=saleId.slice(6);
     if(!saleId||!count(line.qty)||line.qty<1){reviews++;await exception(env,job,'line_'+index,'Exact catalog item and selling quantity required / Faltan producto y cantidad exactos',{name:line.name||null,qty:line.qty??null},snapshotHash);continue;}
     totals.set(saleId,(totals.get(saleId)||0)+line.qty);
   }
@@ -86,6 +88,6 @@ export async function processInventoryDeductionJob(env,{sourceType='order',sourc
 export async function processPaidInventory(env,{limit=20}={}) {
   const jobs=await env.DB.prepare("SELECT source_type,source_id FROM inventory_sale_jobs WHERE state IN ('pending','error') ORDER BY created_at LIMIT ?").bind(Math.max(1,Math.min(50,Math.floor(limit)||20))).all();
   if(jobs?.success===false||!Array.isArray(jobs?.results))throw Error('Paid inventory queue is unavailable.');
-  const results=[];for(const job of jobs.results){try{results.push(await processInventoryDeductionJob(env,{sourceType:job.source_type,sourceId:job.source_id}));}catch(error){await env.DB.prepare("UPDATE inventory_sale_jobs SET state='error',attempts=attempts+1,error=?,updated_at=? WHERE source_type=? AND source_id=?").bind(String(error.message).slice(0,300),Date.now(),job.source_type,job.source_id).run();results.push({ok:false,state:'error'});}}
+  const results=[];for(const job of jobs.results){try{results.push(await processInventoryDeductionJob(env,{sourceType:job.source_type,sourceId:job.source_id}));}catch(error){await env.DB.prepare("UPDATE inventory_sale_jobs SET state='error',attempts=attempts+1,error=?,updated_at=? WHERE source_type=? AND source_id=?").bind(String(error.message).slice(0,300),Date.now(),job.source_type,job.source_id).run();await raiseAlert(env,{alert_type:'low_stock',severity:'critical',onceEver:true,dedupe_key:'inventory_sale_sync_failed:'+job.source_type+':'+job.source_id,title:'Paid-sale stock sync pending / Inventario pendiente de sincronizar',body:'The paid sale is saved; its stock movement needs recovery. / La venta pagada está guardada; falta recuperar su movimiento de inventario.',ref_type:job.source_type==='order'?'order':'catering_quote',ref_id:job.source_id,source:'inventory_sale',url:'/hub/kitchen/inventory.html'});results.push({ok:false,state:'error'});}}
   return {ok:results.every(r=>r.ok),processed:results.length,results};
 }

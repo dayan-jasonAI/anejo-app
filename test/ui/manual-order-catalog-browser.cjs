@@ -1,5 +1,5 @@
 /* Local-only browser check for the real manual-order form and EN/ES draft retention. */
-/* global process, Buffer, URL, localStorage, window */
+/* global process, Buffer, URL, localStorage, window, document, innerWidth, console */
 const { chromium } = require('playwright');
 const fs = require('node:fs');
 const path = require('node:path');

@@ -45,3 +45,9 @@ WHEN NEW.deposit_status='paid' AND (NEW.balance_status='paid' OR COALESCE(NEW.ba
  VALUES('quote',NEW.id,COALESCE(NEW.quote_json,'{}'),COALESCE(NEW.balance_paid_at,NEW.deposit_paid_at,NEW.updated_at),'quote_paid',NEW.updated_at,NEW.updated_at)
  ON CONFLICT(source_type,source_id) DO UPDATE SET snapshot_json=excluded.snapshot_json,effective_at=excluded.effective_at,time_basis=excluded.time_basis,state='pending',error=NULL,updated_at=excluded.updated_at;
 END;
+
+CREATE TRIGGER inventory_sale_quote_insert AFTER INSERT ON catering_quotes
+WHEN NEW.deposit_status='paid' AND (NEW.balance_status='paid' OR COALESCE(NEW.balance_cents,0)=0) BEGIN
+ INSERT OR IGNORE INTO inventory_sale_jobs(source_type,source_id,snapshot_json,effective_at,time_basis,created_at,updated_at)
+ VALUES('quote',NEW.id,COALESCE(NEW.quote_json,'{}'),COALESCE(NEW.balance_paid_at,NEW.deposit_paid_at,NEW.created_at),'quote_paid',NEW.created_at,NEW.updated_at);
+END;

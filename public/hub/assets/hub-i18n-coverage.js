@@ -2,6 +2,12 @@
 (function () {
   "use strict";
   var dictionary = {
+    'Search catalog': 'Buscar en el catálogo',
+    'Catalog item': 'Artículo del catálogo',
+    'Paid sale': 'Venta pagada',
+    'Recorded balance': 'Saldo registrado',
+    'Sold': 'Vendido',
+    'uncounted': 'sin conteo',
     'Inventory story': 'Historia de inventario',
     "Catalog artwork exceeds the image limit.": "La imagen del catálogo supera el límite permitido.",
     "Catalog artwork is unavailable.": "La imagen del catálogo no está disponible.",

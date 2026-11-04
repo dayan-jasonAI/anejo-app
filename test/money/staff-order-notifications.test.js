@@ -29,11 +29,23 @@ function fixture() {
       amount_cents INTEGER,share_cents INTEGER,occurred_at INTEGER,payout_status TEXT);`);
   DB.sqlite.exec(readFileSync(new URL('../../migrations/0085_catering_quotes_deposits.sql', import.meta.url), 'utf8'));
   DB.sqlite.exec(readFileSync(new URL('../../migrations/0099_catering_balance_checkout.sql', import.meta.url), 'utf8'));
+  // The payment webhook now runs the same durable paid-inventory reconciliation used by
+  // production. Keep this synthetic fixture on the relevant schema so the alert tests exercise
+  // the real transition without turning a missing migration table into a false 503.
+  DB.sqlite.exec(readFileSync(new URL('../../migrations/0043_menu_items.sql', import.meta.url), 'utf8'));
+  DB.sqlite.exec(`ALTER TABLE menu_items ADD COLUMN stock_count INTEGER;
+    ALTER TABLE menu_items ADD COLUMN stock_counted_at INTEGER;
+    ALTER TABLE menu_items ADD COLUMN inventory_revision INTEGER NOT NULL DEFAULT 0;
+    ALTER TABLE menu_items ADD COLUMN last_inventory_change_id TEXT;
+    CREATE TABLE inventory_changes (id TEXT PRIMARY KEY,item_id TEXT,action TEXT,actor_id TEXT,before_json TEXT,after_json TEXT,created_at INTEGER,push_status TEXT DEFAULT 'pending');`);
+  for (const migration of ['0170_inventory_sales.sql', '0171_inventory_sale_promotions.sql', '0172_inventory_sale_deductions.sql']) {
+    DB.sqlite.exec(readFileSync(new URL(`../../migrations/${migration}`, import.meta.url), 'utf8'));
+  }
   return DB;
 }
 const seed = (DB, status = 'pending') => DB.sqlite.prepare(
-  'INSERT INTO orders (id,square_order_id,status) VALUES (?,?,?)'
-).run('ord_synthetic', 'square_synthetic', status);
+  'INSERT INTO orders (id,square_order_id,status,items,created_at,updated_at) VALUES (?,?,?,?,?,?)'
+).run('ord_synthetic', 'square_synthetic', status, '[]', Date.now(), Date.now());
 const paidAlerts = (DB) => DB.sqlite.prepare("SELECT * FROM alerts WHERE alert_type='new_paid_order'").all();
 const payment = (DB, status, env = {}) => square({ env: { DB, ...env }, request: new Request('https://example.test/api/webhooks/square', {
   method: 'POST', body: JSON.stringify({ type: 'payment.updated', data: { object: {
@@ -133,9 +145,10 @@ test('manual pending order is explicitly unpaid; manual paid order announces the
   assert.equal((await manual(DB, 'pending')).status, 200);
   assert.equal((await manual(DB, 'paid')).status, 200);
   const alerts = DB.sqlite.prepare('SELECT * FROM alerts ORDER BY created_at').all();
-  assert.deepEqual(alerts.map((a) => a.alert_type), ['new_order', 'new_paid_order']);
+  assert.deepEqual(alerts.map((a) => a.alert_type), ['new_order', 'low_stock', 'new_paid_order']);
   assert.match(alerts[0].body, /do not prepare yet.*no preparar todavía/);
-  assert.match(alerts[1].body, /payment recorded by the owner.*pago registrado/);
+  assert.match(alerts[1].title, /Paid-sale inventory review/);
+  assert.match(alerts[2].body, /payment recorded by the owner.*pago registrado/);
 });
 
 test('non-owner cannot create a manual order or generate its owner alert', async () => {
