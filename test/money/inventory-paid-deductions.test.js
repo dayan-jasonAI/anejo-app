@@ -1,3 +1,4 @@
+import { normalizeQuoteLines } from '../../functions/_lib/catering_quote_lines.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { ownerEnv } from '../helpers/sqlite-d1.js';
@@ -143,7 +144,10 @@ test('no fuzzy custom-name deduction; null baselines stay null; shortages clamp 
 
 test('fully paid catering quote queues and deducts exact catalog lines only', async () => {
   const env = fixture(); const at = Date.now(); setStock(env, HAM, 20, { countedAt: at - 5000 });
-  const quoteJson = JSON.stringify({ lines: [{ pricing_mode: 'catalog', product_id: HAM, qty: 4 }] });
+  const normalized=normalizeQuoteLines([{ name:'Ham croqueta',pricing_mode:'catalog',product_id:HAM,qty:4,unit_cents:150,cents:600 }]);
+  assert.equal(normalized.ok,true);
+  assert.equal(normalized.lines[0].qty,'4','the real quote normalizer stores quantities as text');
+  const quoteJson = JSON.stringify({ lines:normalized.lines,delivery_fee_cents:400 });
   env.DB.prepare(`INSERT INTO catering_quotes(id,guests,total_cents,deposit_pct,deposit_cents,balance_cents,deposit_status,balance_status,terms_version,terms_json,quote_json,created_at,updated_at)
     VALUES('quote-ham-paid',1,1000,0.25,250,750,'unpaid','due','v1','{}',?,?,?)`).bind(quoteJson, at - 4000, at - 4000).run();
   env.DB.prepare("UPDATE catering_quotes SET deposit_status='paid',balance_status='paid',deposit_paid_at=?,balance_paid_at=?,updated_at=? WHERE id='quote-ham-paid'").bind(at - 1000, at, at).run();
@@ -178,4 +182,14 @@ test('refund metadata or cancellation does not automatically restock paid food',
   assert.equal(env.DB.one('SELECT stock_count FROM menu_items WHERE id=?', HAM).stock_count, 10);
   assert.equal(env.DB.one("SELECT COUNT(*) n FROM inventory_sale_deductions WHERE source_id='refund-ham-sale'").n, 1);
   assert.equal(env.DB.one("SELECT COUNT(*) n FROM inventory_sale_jobs WHERE source_id='refund-ham-sale'").n, 1);
+});
+
+test('documented meal-plan bowl ids map to their exact canonical catalog recipe', async () => {
+  const env=fixture(),at=Date.now();setStock(env,'vida',20,{countedAt:at-1000});
+  order(env,{id:'synthetic_plan_day',lines:[{id:'bowl_VIDA',name:'VIDA',qty:2}],createdAt:at});
+  markPaid(env,'synthetic_plan_day',{at});
+  const result=await processInventoryDeductionJob(env,{sourceType:'order',sourceId:'synthetic_plan_day'});
+  assert.equal(result.state,'done');
+  assert.equal(env.DB.one("SELECT stock_count FROM menu_items WHERE id='vida'").stock_count,18);
+  assert.equal(env.DB.one("SELECT stock_item_id FROM inventory_sale_deductions WHERE source_id='synthetic_plan_day'").stock_item_id,'vida');
 });

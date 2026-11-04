@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { ownerEnv, OWNER_COOKIE } from '../helpers/sqlite-d1.js';
+import { ownerEnv } from '../helpers/sqlite-d1.js';
 import { onRequestPost as squareWebhook } from '../../functions/api/webhooks/square.js';
 import { onRequestPost as socialTick } from '../../functions/api/hub/admin/social-tick.js';
 

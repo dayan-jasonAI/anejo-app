@@ -1,5 +1,7 @@
 -- Finished stock is a balance. Counts are baselines; paid sales are once-only movements.
 ALTER TABLE menu_items ADD COLUMN stock_count_basis TEXT NOT NULL DEFAULT 'physical' CHECK(stock_count_basis IN ('physical','unreserved'));
+-- Preserve the meaning of declarations made before this basis column existed.
+UPDATE menu_items SET stock_count_basis='unreserved' WHERE EXISTS (SELECT 1 FROM inventory_sale_offers o WHERE o.menu_item_id=menu_items.id AND o.enabled=1 AND o.inventory_revision=menu_items.inventory_revision AND o.counted_at=menu_items.stock_counted_at);
 ALTER TABLE orders ADD COLUMN inventory_paid_at INTEGER;
 ALTER TABLE orders ADD COLUMN inventory_paid_basis TEXT;
 CREATE TABLE inventory_sale_jobs (

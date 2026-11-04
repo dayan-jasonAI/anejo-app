@@ -1,8 +1,9 @@
 // Paid finished-food movements only. Raw ingredients/packaging stay in approved batch production.
+import { reconcileInventoryProduction } from './inventory_production.js';
 import { changeInsert, notifyInventory } from './inventory_updates.js';
 import { reconcileInventoryPromotion } from './inventory_sale_promotions.js';
 import { raiseAlert } from './alerts.js';
-import { packMapping } from './inventory_units.js';
+import { packMapping, normalizedSaleId } from './inventory_units.js';
 const PAID = ['paid','prep','ready','fulfilled'];
 const parse = (text, fallback) => { try { return JSON.parse(text); } catch { return fallback; } };
 const hash = async text => [...new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(text)))].map(v=>v.toString(16).padStart(2,'0')).join('');
@@ -29,16 +30,18 @@ export async function processInventoryDeductionJob(env,{sourceType='order',sourc
   if(!job||job.state==='done')return {ok:true,state:job?.state||'not_queued',movements:[]};
   const source=await sourceRecord(env,job);if(!source){await env.DB.prepare("UPDATE inventory_sale_jobs SET state='review',error='Paid source changed; review stock before adjustment',updated_at=? WHERE source_type=? AND source_id=? AND snapshot_json IS ?").bind(Date.now(),sourceType,sourceId,job.snapshot_json).run();return {ok:true,state:'review',movements:[],reviews:1};}
   if(!Array.isArray(source.lines)||!source.lines.length)throw Error('Paid sale lines are unavailable for inventory reconciliation.');
-  const snapshotHash=await hash(job.snapshot_json),totals=new Map(),movements=[];let reviews=0;
+  const snapshotHash=await hash(job.snapshot_json),totals=new Map(),movements=[],touchedStocks=new Set();let reviews=0;
   for(const [index,line] of source.lines.entries()) {
     if(!line||line.id==='meta'||line.meta||line.qty===0||['delivery','fee','tax','discount'].includes(line.type||line.kind))continue;
     let saleId=sourceType==='quote'?(line.pricing_mode==='catalog'?line.product_id:null):line.id;
-    if(sourceType==='order'&&line.addon===true&&typeof saleId==='string'&&saleId.startsWith('addon_'))saleId=saleId.slice(6);
+    if(sourceType==='order')saleId=normalizedSaleId(saleId,line);
     const quantity=lineQuantity(line.qty);
     if(!saleId||quantity==null){reviews++;await exception(env,job,'line_'+index,'Exact catalog item and selling quantity required / Faltan producto y cantidad exactos',{name:line.name||null,qty:line.qty??null},snapshotHash);continue;}
     totals.set(saleId,(totals.get(saleId)||0)+quantity);
   }
   for(const [saleId,total] of totals) {
+    const tracked=await env.DB.prepare('SELECT DISTINCT stock_item_id FROM inventory_sale_deductions WHERE source_type=? AND source_id=? AND sale_item_id=?').bind(sourceType,sourceId,saleId).all();
+    for(const row of tracked?.results||[])touchedStocks.add(row.stock_item_id);
     let settled=false;
     for(let retry=0;retry<3&&!settled;retry++) {
       const existing=await env.DB.prepare('SELECT COALESCE(SUM(sale_qty),0) AS qty FROM inventory_sale_deductions WHERE source_type=? AND source_id=? AND sale_item_id=?').bind(sourceType,sourceId,saleId).first();
@@ -52,6 +55,7 @@ export async function processInventoryDeductionJob(env,{sourceType='order',sourc
       if(prior){stock=await env.DB.prepare('SELECT * FROM menu_items WHERE id=?').bind(prior.stock_item_id).first();factor=prior.unit_factor;}
       else if(sale.stock_count==null){const mapped=packMapping(saleId);if(mapped){const canonical=await env.DB.prepare('SELECT * FROM menu_items WHERE id=?').bind(mapped.id).first();if(canonical?.stock_count!=null){stock=canonical;factor=mapped.factor;}}}
       if(!stock)throw Error('Saved stock mapping is unavailable.');
+      touchedStocks.add(stock.id);
       const requested=qty*factor;if(!Number.isSafeInteger(requested)||requested<1)throw Error('Inventory selling quantity is invalid.');
       const held=await env.DB.prepare('SELECT MIN(reserved_at) AS reserved_at FROM inventory_sale_reservations WHERE order_id=? AND menu_item_id=?').bind(sourceId,stock.id).first();
       const countedAt=Number(stock.stock_counted_at)||0,effectiveAt=Number(job.effective_at)||Number(source.row.created_at),knownTime=['square_capture','owner_paid','quote_paid','owner_confirmed'].includes(job.time_basis);
@@ -82,8 +86,12 @@ export async function processInventoryDeductionJob(env,{sourceType='order',sourc
     }
     if(!settled)throw Error('Inventory changed while applying the paid sale. Retry is required.');
   }
-  await env.DB.prepare('UPDATE inventory_sale_jobs SET state=?,attempts=attempts+1,error=NULL,updated_at=? WHERE source_type=? AND source_id=? AND snapshot_json IS ?').bind(reviews?'review':'done',Date.now(),sourceType,sourceId,job.snapshot_json).run();
-  for(const stockId of new Set(movements.map(m=>m.stock_item_id))){try{const promo=await env.DB.prepare('SELECT locale FROM inventory_sale_promotions WHERE menu_item_id=?').bind(stockId).first();if(promo)await reconcileInventoryPromotion(env,{itemId:stockId,locale:promo.locale});}catch{/* The durable stock movement is retained; pending/stale promotions fail closed. */}}
+  const outstanding=await env.DB.prepare('SELECT COUNT(*) AS n FROM inventory_sale_exceptions WHERE source_type=? AND source_id=? AND snapshot_hash=? AND resolved_at IS NULL').bind(sourceType,sourceId,snapshotHash).first();
+  reviews=Math.max(reviews,Number(outstanding?.n||0));
+  const finished=await env.DB.prepare('UPDATE inventory_sale_jobs SET state=?,attempts=attempts+1,error=NULL,updated_at=? WHERE source_type=? AND source_id=? AND snapshot_json IS ?').bind(reviews?'review':'done',Date.now(),sourceType,sourceId,job.snapshot_json).run();
+  if(changes(finished)!==1)return {ok:true,state:'pending_retry',movements,reviews};
+  for(const stockId of touchedStocks){try{const promo=await env.DB.prepare('SELECT locale FROM inventory_sale_promotions WHERE menu_item_id=?').bind(stockId).first();if(promo)await reconcileInventoryPromotion(env,{itemId:stockId,locale:promo.locale});}catch{/* The durable stock movement is retained; pending/stale promotions fail closed. */}}
+  if(movements.length){try{await reconcileInventoryProduction(env,{actorId,changeId:movements[movements.length-1].id});}catch{/* Count stays saved; the existing operations tick can recompute suggestions. */}}
   return {ok:true,state:reviews?'review':'done',movements,reviews};
 }
 export async function processPaidInventory(env,{limit=20}={}) {
