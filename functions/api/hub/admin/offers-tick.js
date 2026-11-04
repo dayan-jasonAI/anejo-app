@@ -6,7 +6,7 @@
 // Auth: owner session OR X-Cron-Key (constant-time).
 import { json, bad } from '../../../_lib/util.js';
 import { requireRole } from '../../../_lib/roles.js';
-import { now } from '../../../_lib/hub.js';
+import { now, today } from '../../../_lib/hub.js';
 import { declineAndReoffer, OFFER_TIMEOUT_MS } from '../../../_lib/dispatch.js';
 import { runAutoDispatch } from '../../../_lib/autodispatch.js';
 import { runApproachingSweep } from '../../../_lib/stop_progress.js';
@@ -32,8 +32,8 @@ export const onRequestPost = async ({ request, env }) => {
   let routes = [];
   try {
     const res = await env.DB.prepare(
-      "SELECT id, driver_id FROM routes WHERE offer_status='pending' AND offered_at IS NOT NULL AND offered_at < ? LIMIT 50"
-    ).bind(cutoff).all();
+      "SELECT id, driver_id FROM routes WHERE status='assigned' AND dispatch_mode='automatic' AND route_date=? AND offer_status='pending' AND offered_at IS NOT NULL AND offered_at < ? LIMIT 50"
+    ).bind(today(),cutoff).all();
     routes = (res && res.results) || [];
   } catch (e) {
     return json({ ok: false, reason: (e && e.message) || 'query_failed' });

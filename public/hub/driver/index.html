@@ -22,7 +22,7 @@
   </div>
 </div>
 
-<div class="hub-wrap">
+<div class="hub-wrap"><p class="row-sub"><span data-i18n>Signed in as</span>: <span id="driver-identity" translate="no">—</span></p>
   <div class="hub-section">
     <div class="card stat" id="clock-card">
       <div class="stat-num" id="clock-status" data-i18n>Loading…</div>
@@ -33,7 +33,7 @@
   </div>
 
   <div class="hub-section">
-    <h2 class="row-title" data-i18n>Today's route</h2>
+    <h2 class="row-title" data-i18n>Your assigned route</h2><div id="driver-offers"></div><p id="driver-assignment-status" role="status" class="row-sub" hidden></p>
     <div id="route-summary" class="card"><p class="row-sub" data-i18n>Loading…</p></div>
     <div id="route-stops" class="list" style="margin-top:10px"></div>
   </div>
@@ -145,8 +145,13 @@
   });
 
   function renderRoute(data) {
+    var warning=document.getElementById('driver-assignment-status');
+    if(!data||!Object.prototype.hasOwnProperty.call(data,'route')){warning.hidden=false;warning.textContent=window.AnejoI18n.text('Could not refresh assignments. Check your connection; the previous view is retained.');return;}
+    warning.hidden=true;
     var sum = document.getElementById('route-summary');
     var list = document.getElementById('route-stops');
+    var offers=document.getElementById('driver-offers');
+    offers.innerHTML=(data&&data.offers||[]).map(function(o){return '<a class="card accent" style="display:block;margin-bottom:12px;text-decoration:none" href="/hub/driver/route.html?route_id='+encodeURIComponent(o.id)+'"><strong data-i18n>Assignment awaiting your response</strong><p><span translate="no">'+Hub.esc(o.route_date)+'</span> · '+o.stop_count+' <span data-i18n>stops</span></p><span data-i18n>Open to accept or decline</span></a>';}).join('');
     if (!data || !data.route) {
       sum.innerHTML = '<p class="row-sub" data-i18n>No route assigned for today.</p>';
       list.innerHTML = '';
@@ -155,10 +160,10 @@
     }
     var r = data.route;
     sum.innerHTML =
-      '<div class="row"><div class="row-main"><div class="row-title">' + (r.stop_count || (data.stops || []).length) +
+      '<div class="row-sub" translate="no">'+Hub.esc(r.route_date)+'</div><div class="row"><div class="row-main"><div class="row-title">' + (r.stop_count || (data.stops || []).length) +
       ' stops · ' + Hub.esc(r.status) + '</div><div class="row-sub">' +
       (r.ai_optimized ? 'AI-optimized · ' : '') + (r.total_miles_est ? r.total_miles_est + ' mi est' : '') +
-      '</div></div><a class="btn ghost" href="/hub/driver/route.html" data-i18n>Open</a></div>';
+      '</div></div><a class="btn ghost" href="/hub/driver/route.html?route_id='+encodeURIComponent(r.id)+'" data-i18n>Open</a></div>';
     var stops = (data.stops || []).slice(0, 6);
     list.innerHTML = stops.map(function (s) {
       var badge = s.status === 'done' ? '<span class="badge ok">done</span>'
@@ -170,6 +175,10 @@
     if (window.AnejoI18n) window.AnejoI18n.refresh();
   }
 
+  var assignmentBusy=false;
+  function loadDriverAssignments(){if(assignmentBusy||document.hidden)return;assignmentBusy=true;return Hub.api('/api/hub/driver/route').then(renderRoute).finally(function(){assignmentBusy=false;});}
+  document.addEventListener('visibilitychange',loadDriverAssignments);window.addEventListener('focus',loadDriverAssignments);
+  var assignmentTimer=setInterval(loadDriverAssignments,20000);window.addEventListener('pageshow',function(){clearInterval(assignmentTimer);assignmentTimer=setInterval(loadDriverAssignments,20000);loadDriverAssignments();});window.addEventListener('pagehide',function(){clearInterval(assignmentTimer);});
   // Upcoming scheduled shifts (owner-assigned). Hidden when none / endpoint absent.
   function loadSchedule() {
     Hub.api('/api/hub/driver/schedule').then(function (d) {
@@ -191,12 +200,13 @@
 
   Driver.guard().then(function (me) {
     if (!me) return;
+    document.getElementById('driver-identity').textContent=(me.staff&&me.staff.name)||me.name||me.email||'—';
     // Probe clock state without creating a shift (returns already_open if one exists).
     Hub.api('/api/hub/driver/clock-in', { method: 'POST', body: { probe: true } }).then(function (r) {
       if (r && r.ok && r.already_open) { openShift = r.shift; }
       renderClock();
     });
-    Hub.api('/api/hub/driver/route').then(renderRoute);
+    loadDriverAssignments();
     loadSchedule();
   });
 })();

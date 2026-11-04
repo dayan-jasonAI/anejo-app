@@ -78,7 +78,7 @@ export const onRequestGet = async ({ request, env }) => {
   if (ctx.role === 'driver') {
     try {
       const row = await env.DB.prepare(
-        "SELECT id, route_date, stop_count FROM routes WHERE driver_id = ? AND offer_status = 'pending' ORDER BY offered_at DESC LIMIT 1"
+        "SELECT id, route_date, stop_count FROM routes WHERE driver_id = ? AND status='assigned' AND offer_status = 'pending' ORDER BY offered_at DESC LIMIT 1"
       ).bind(ctx.distinct_id).first();
       if (row) offer = { route_id: row.id, stops: row.stop_count, date: row.route_date };
     } catch { offer = null; }

@@ -26,7 +26,8 @@
 <script src="/assets/js/i18n.js"></script>
 <script src="/hub/assets/hub.js"></script>
 <script src="/hub/owner/assets/owner.js"></script>
-<script src="/hub/owner/assets/readiness.js"></script>
+<script src="/hub/owner/assets/readiness.js?v=20261103-resolution"></script>
+<script src="/hub/owner/assets/delivery-resolution.js?v=20261103-1"></script>
 <script>
 (function () {
   Hub.boot();
@@ -59,6 +60,9 @@
     return parts.join(' · ');
   }
 
+  function confirmationHistory(ro){if(!ro.owner_confirmation)return '';var p;try{p=JSON.parse(ro.owner_confirmation);}catch(e){return '';}
+    return '<details style="margin-top:8px"><summary>'+OwnerReadiness.label('Owner confirmation','Confirmación del propietario')+'</summary><p class="row-sub">'+OwnerReadiness.label('Recorded: ','Registrada: ')+Owner.esc(new Date(p.recorded_at).toLocaleString(window.AnejoLang.get()==='es'?'es-US':'en-US'))+'</p><p translate="no">'+Owner.esc(p.reason||'')+'</p><p class="row-sub">'+(p.occurred_at?Owner.esc(new Date(p.occurred_at).toLocaleString()):OwnerReadiness.label('Exact delivery time not recorded','Hora exacta de entrega sin registrar'))+'</p></details>';
+  }
   // ---- Smart route planner: group + optimize the day's orders, preview pay/miles/ETA ----
   var planData = null;
   function planRoutes() {
@@ -103,7 +107,7 @@
   // Re-offer asks the drivers again (including the ones who passed); release cancels the route
   // and hands its orders back to the unassigned list so they can be re-planned or re-batched.
   window.__reoffer = function (rid) {
-    Hub.api('/api/hub/owner/routes', { method: 'POST', body: { action: 'reoffer', route_id: rid } }).then(function (r) {
+    Hub.api('/api/hub/owner/routes', { method: 'POST', body: { action: 'reoffer', route_id: rid, driver_id:(document.getElementById('rdriver')||{}).value||null } }).then(function (r) {
       if (r && r.ok) {
         Hub.toast(r.already === 'pending' ? 'Already awaiting a driver'
           : r.unfilled ? 'No driver available — still unfilled' : 'Re-offered to a driver');
@@ -253,7 +257,7 @@
         return '<label class="row" data-order-id="' + Owner.esc(o.id) + '" style="cursor:pointer' + (ready ? ';background:#fff8e9' : '') + (linkedOrder === o.id ? ';outline:2px solid var(--gold)' : '') + '"><input type="checkbox" class="rorder" value="' + Owner.esc(o.id) + '" style="margin-right:10px"' + (selectedOrders.indexOf(o.id) >= 0 ? ' checked' : '') + '>' +
           '<div class="row-main"><div class="row-title" translate="no">' + Owner.esc(o.customer_name || o.id) + '</div>' +
           '<div class="row-sub" translate="no">' + Owner.esc(items || '—') + ' · ' + (o.delivery_window === 'lunch' ? OwnerReadiness.label('Lunch', 'Almuerzo') : o.delivery_window === 'dinner' ? OwnerReadiness.label('Dinner', 'Cena') : Owner.esc(o.delivery_window || '')) + '</div>' + addr + '</div>' +
-          od + (ready ? '<span translate="no" class="badge ok">' + OwnerReadiness.label('Ready for delivery', 'Listo para entregar') + '</span>' : Owner.badge(o.status, Owner.kindFor(o.status))) + '</label>';
+          od + (ready ? '<span translate="no" class="badge ok">' + OwnerReadiness.label('Ready for delivery', 'Listo para entregar') + '</span>' : Owner.badge(o.status, Owner.kindFor(o.status))) + DeliveryResolution.menu('order',o.id) + '</label>';
       }).join('') : '<p class="row-sub" data-i18n>No unassigned orders for this date.</p>');
       if (linkedRoute && (d.routes || []).some(function (ro) { return ro.id === linkedRoute; })) OwnerReadiness.setLabel(notice, 'The linked order has an existing route, highlighted below. Review its driver offer before taking action.', 'El pedido tiene una ruta existente, resaltada abajo. Revisa la oferta al conductor antes de actuar.');
       else if (linkedOrder && !unassigned.some(function (o) { return o.id === linkedOrder; })) OwnerReadiness.setLabel(notice, 'The linked order is not in this date’s unassigned list. It may already have a route or a different delivery date. Review existing routes below.', 'El pedido del enlace no está en la lista sin asignar de esta fecha. Puede tener ruta o una fecha distinta. Revisa las rutas existentes abajo.');
@@ -261,7 +265,8 @@
       ords.querySelectorAll('.rorder').forEach(function (cb) { cb.addEventListener('change', updateAssignBtn); });
       updateAssignBtn();
 
-      rlist.innerHTML = (d.routes || []).length ? d.routes.map(function (ro) {
+      var visibleRoutes=(d.routes||[]).filter(function(ro){return document.getElementById('show-route-history').checked||!['completed','canceled'].includes(ro.status);});
+      rlist.innerHTML = visibleRoutes.length ? visibleRoutes.map(function (ro) {
         var offer = ro.offer_status === 'pending' ? ' <span class="badge warn" data-i18n>awaiting driver</span>'
           : ro.offer_status === 'unfilled' ? ' <span class="badge crit" data-i18n>unfilled — reassign</span>'
           : ro.offer_status === 'declined' ? ' <span class="badge warn" data-i18n>declined</span>' : '';
@@ -276,9 +281,9 @@
             '</div>'
           : '';
         return '<div class="row" data-route-id="' + rid + '"' + (linkedRoute === ro.id ? ' style="outline:2px solid var(--gold)"' : '') + '><div class="row-main"><div class="row-title"><span translate="no">' + Owner.esc(ro.driver_name || 'Unassigned') + '</span>' +
-          (ro.ai_optimized ? ' ⚡' : '') + offer + '</div><div class="row-sub">' + routeMeta(ro) + '</div>' + actions + '</div>' +
-          Owner.badge(ro.status, Owner.kindFor(ro.status)) + '</div>';
-      }).join('') : '<div class="hub-empty" data-i18n>No routes yet.</div>';
+          (ro.ai_optimized ? ' ⚡' : '') + offer + '</div><div class="row-sub">' + routeMeta(ro) + '</div>' + confirmationHistory(ro) + actions + '</div>' +
+          Owner.badge(ro.status, Owner.kindFor(ro.status)) + (!['completed','canceled'].includes(ro.status)?DeliveryResolution.menu('route',ro.id):'') + '</div>';
+      }).join('') : '<div class="hub-empty" data-i18n>No active routes for this date.</div>';
       if (window.AnejoI18n) window.AnejoI18n.refresh();
     });
   }
@@ -324,10 +329,12 @@
       '</div>' +
       autoDispatchHtml() +
       '</div>' +
-      '<div id="roll"></div><div class="hub-section"><h2 data-i18n>Routes today</h2><div id="routes" class="list"><div class="hub-loading">…</div></div></div>' +
-      '<div class="hub-section"><h2 data-i18n>Deliveries</h2><div id="drops" class="list"><div class="hub-loading">…</div></div></div>';
+      '<label style="display:flex;gap:10px;align-items:center;min-height:44px;margin:12px 0"><input type="checkbox" id="show-route-history">'+OwnerReadiness.label('Show completed and canceled routes','Mostrar rutas completadas y canceladas')+'</label><div id="roll"></div><div class="hub-section"><h2 data-i18n>Routes for the selected date</h2><div id="routes" class="list"><div class="hub-loading">…</div></div></div>' +
+      '<div class="hub-section"><h2 data-i18n>Deliveries for the selected date</h2><div id="drops" class="list"><div class="hub-loading">…</div></div></div>';
 
-    document.getElementById('rdate').addEventListener('change', loadAssign);
+    document.getElementById('rdate').addEventListener('change',function(){loadAssign();loadToday();});
+    document.getElementById('show-route-history').addEventListener('change',function(){loadAssign();loadToday();});
+    document.addEventListener('anejo:delivery-resolved',function(){loadAssign();loadToday();});
     document.getElementById('assignment-refresh').addEventListener('click', loadAssign);
     OwnerReadiness.mount('ready-panel');
     document.getElementById('rassign').addEventListener('click', doAssign);
@@ -339,7 +346,7 @@
   }
 
   function loadToday() {
-    Owner.get('/api/hub/owner/deliveries/today').then(function (d) {
+    Owner.get('/api/hub/owner/deliveries/today?date='+encodeURIComponent(document.getElementById('rdate').value||localToday())).then(function (d) {
       if (!d || !d.ok) { Owner.fail(); return; }
       var r = d.rollup;
       document.getElementById('roll').innerHTML = '<div class="card-grid">' + [
@@ -352,7 +359,8 @@
 
       var etClock = function (ms) { try { return new Date(Number(ms)).toLocaleTimeString((typeof window !== 'undefined' && window.AnejoLang && window.AnejoLang.get() === 'es' ? 'es-US' : 'en-US'), { timeZone: 'America/New_York', hour: 'numeric', minute: '2-digit' }); } catch (e) { return ''; } };
       var routesEl = document.getElementById('routes');
-      routesEl.innerHTML = d.routes.length ? d.routes.map(function (ro) {
+      var visible=d.routes.filter(function(ro){return document.getElementById('show-route-history').checked||!['completed','canceled'].includes(ro.status);});
+      routesEl.innerHTML = visible.length ? visible.map(function (ro) {
         var p = ro.progress, live = '', counts = '';
         if (p && p.active) {
           var verb = p.active.status === 'arriving' ? 'arriving at' : 'en route to';
@@ -366,8 +374,8 @@
           (ro.ai_optimized ? ' ⚡' : '') + '</div>' + live + counts +
           '<div class="row-sub">' + pay + Owner.esc((ro.stops_completed || 0) + '/' + (ro.stop_count || 0) + ' stops') +
           (ro.total_miles_est != null ? ' · ' + ro.total_miles_est + ' mi' : '') + fin + '</div></div>' +
-          Owner.badge(ro.status, Owner.kindFor(ro.status)) + '</div>';
-      }).join('') : '<div class="hub-empty" data-i18n>No routes today.</div>';
+          Owner.badge(ro.status, Owner.kindFor(ro.status)) + (!['completed','canceled'].includes(ro.status)?DeliveryResolution.menu('route',ro.id):'') + '</div>';
+      }).join('') : '<div class="hub-empty" data-i18n>No active routes for this date.</div>';
 
       var stars = function (n) { n = Number(n) || 0; var s = ''; for (var i = 0; i < 5; i++) s += i < n ? '★' : '☆'; return s; };
       var dropsEl = document.getElementById('drops');
@@ -378,11 +386,11 @@
         var fb = dv.feedback_rating ? '<div class="row-sub" style="color:var(--gold-700,#8a7a2e)">' + stars(dv.feedback_rating) +
           (dv.feedback_comment ? ' “' + Owner.esc(String(dv.feedback_comment).slice(0, 80)) + '”' : '') + '</div>' : '';
         return '<div class="row"><div class="row-main"><div class="row-title">' + Owner.esc(dv.customer_name || dv.order_id || 'Delivery') + '</div>' +
-          '<div class="row-sub">' + (dv.completed_at ? Owner.clock(dv.completed_at) : 'pending') +
+          '<div class="row-sub">' + (dv.completed_at ? Owner.clock(dv.completed_at) : dv.status==='completed'?OwnerReadiness.label('Completed · exact time not recorded','Completada · hora exacta sin registrar'):'pending') +
           (dv.fail_reason ? ' · ' + Owner.esc(dv.fail_reason) : '') +
           (dv.on_time === 1 ? ' · on time' : dv.on_time === 0 ? ' · late' : '') + '</div>' + fb + '</div>' +
           Owner.badge(dv.status, Owner.kindFor(dv.status)) + proof + '</div>';
-      }).join('') : '<div class="hub-empty" data-i18n>No deliveries today.</div>';
+      }).join('') : '<div class="hub-empty" data-i18n>No deliveries for this date.</div>';
       if (window.AnejoI18n) window.AnejoI18n.refresh();
     });
   }

@@ -1,3 +1,4 @@
+import {findDriverRoute} from '../../../_lib/driver_routes.js';
 // POST /api/hub/driver/stop — per-stop driver actions during an active route.
 //   { stop_id, action:'nav_start' } → driver tapped Navigate to this stop:
 //       marks the stop en_route, advances the route's current_seq, computes the live ETA,
@@ -8,15 +9,11 @@
 import { json, bad } from '../../../_lib/util.js';
 import { requireRole, currentStaff } from '../../../_lib/roles.js';
 import { capture } from '../../../_lib/track.js';
-import { now, today } from '../../../_lib/hub.js';
+import { now } from '../../../_lib/hub.js';
 import { etaSeconds, clockET, kitchenOrigin } from '../../../_lib/geo.js';
 import { notifyOnTheWay, notifyArrivingSoon } from '../../../_lib/notify.js';
 
-async function activeRoute(env, driverId) {
-  return env.DB.prepare(
-    "SELECT * FROM routes WHERE driver_id=? AND route_date=? AND status IN ('assigned','started') ORDER BY CASE status WHEN 'started' THEN 0 ELSE 1 END, created_at DESC LIMIT 1"
-  ).bind(driverId, today()).first();
-}
+
 
 // Where the driver currently is, and whether we actually KNOW that vs. are guessing.
 // `confident` is only true for a real GPS fix on THIS route logged in the last 5 minutes.
@@ -53,8 +50,9 @@ export const onRequestPost = async ({ request, env, waitUntil }) => {
   if (!stopId) return bad('Missing stop_id.');
   if (!['nav_start', 'arriving'].includes(action)) return bad('action must be nav_start or arriving.');
 
-  const route = await activeRoute(env, staff.id);
+  const route = await findDriverRoute(env,staff.id,b.route_id||null);
   if (!route) return bad('No active route.', 404);
+  if(route.offer_status&&route.offer_status!=='accepted')return bad('Accept this assignment before updating its stops.',409);
 
   const stop = await env.DB.prepare(
     'SELECT rs.*, o.* , rs.id AS stop_id FROM route_stops rs JOIN orders o ON o.id=rs.order_id WHERE rs.id=? AND rs.route_id=?'

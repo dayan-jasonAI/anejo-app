@@ -35,7 +35,7 @@ export function departMsFor(routeDate, orders) {
 // desired stop order (optimizer may reorder). driverId null → auto-offer to next available driver.
 // Returns a summary { ok, id, stop_count, optimized, eta_complete_at, total_minutes, miles,
 // pay_cents, pay_breakdown, offer_status, offer_sent, offered_to }.
-export async function assignRoute(env, { orders, orderIds, routeDate, driverId = null, driver = null, aiOptimized = false, auto = false, ctx = null } = {}) {
+export async function assignRoute(env, { orders, orderIds, routeDate, driverId = null, driver = null, aiOptimized = false, auto = false, ctx = null, waitUntil = null } = {}) {
   if (!env || !env.DB) return { ok: false, error: 'Service unavailable.' };
   orderIds = (orderIds && orderIds.length ? orderIds : (orders || []).map((o) => o.id)).map(String);
   if (!orderIds.length) return { ok: false, error: 'No orders to route.' };
@@ -102,9 +102,9 @@ export async function assignRoute(env, { orders, orderIds, routeDate, driverId =
   const milesEst = pay.miles;
 
   await env.DB.prepare(
-    'INSERT INTO routes (id, driver_id, route_date, stop_count, ai_optimized, status, depart_at, eta_complete_at, total_minutes, total_meters, total_miles_est, pay_cents, created_at, updated_at) ' +
-    "VALUES (?,?,?,?,?,'assigned',?,?,?,?,?,?,?,?)"
-  ).bind(routeId, driverId, routeDate, orderIds.length, bit(aiOptimized || optimized), departAt, etaCompleteAt, totalMinutes, totalMeters, milesEst, pay.total_cents, t, t).run();
+    'INSERT INTO routes (id, driver_id, route_date, stop_count, ai_optimized, status, depart_at, eta_complete_at, total_minutes, total_meters, total_miles_est, pay_cents, created_at, updated_at, dispatch_mode, offer_status) ' +
+    "VALUES (?,?,?,?,?,'assigned',?,?,?,?,?,?,?,?,?,'unoffered')"
+  ).bind(routeId, driverId, routeDate, orderIds.length, bit(aiOptimized || optimized), departAt, etaCompleteAt, totalMinutes, totalMeters, milesEst, pay.total_cents, t, t, driverId&&!auto?'manual':'automatic').run();
 
   const stmt = env.DB.prepare(
     "INSERT INTO route_stops (id, route_id, order_id, seq, label, address, geo, eta_at, status, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,'pending',?,?)"
@@ -123,12 +123,12 @@ export async function assignRoute(env, { orders, orderIds, routeDate, driverId =
   // Offer it. Manual → the chosen driver; auto → the dispatcher picks the next available driver
   // (and marks 'unfilled' + alerts the owner if none accept). Never fails the assignment.
   let offer = { ok: false };
-  const routeForOffer = { id: routeId, stop_count: orderIds.length, route_date: routeDate, pay_cents: pay.total_cents, eta_complete_at: etaCompleteAt, total_miles_est: milesEst };
+  const routeForOffer = { id: routeId, stop_count: orderIds.length, route_date: routeDate, pay_cents: pay.total_cents, eta_complete_at: etaCompleteAt, total_miles_est: milesEst,dispatch_mode:driverId&&!auto?'manual':'automatic' };
   try {
     if (driverId) {
       let drv = driver;
       if (!drv) drv = await env.DB.prepare("SELECT id, name, phone FROM staff WHERE id=? AND role='driver' AND active=1").bind(driverId).first().catch(() => null);
-      if (drv) offer = await sendOffer(env, routeForOffer, drv);
+      if (drv) offer = await sendOffer(env, routeForOffer, drv, {waitUntil});
       else offer = await offerToNext(env, routeId);
     } else {
       offer = await offerToNext(env, routeId);
@@ -142,5 +142,6 @@ export async function assignRoute(env, { orders, orderIds, routeDate, driverId =
     offer_status: offer && offer.unfilled ? 'unfilled' : 'pending',
     offer_sent: !!(offer && (offer.ok || offer.offered_to)),
     offered_to: (offer && offer.offered_to) || driverId || null,
+    in_app:offer.in_app||null,
   };
 }

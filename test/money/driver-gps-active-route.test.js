@@ -23,7 +23,7 @@ function driverEnv(routeRow, extra = {}) {
   const updates = [];
   const DB = makeD1([
     [/FROM staff WHERE id=\?/, () => ({ id: 'stf_1', role: 'driver', active: 1, name: 'Driver One' })],
-    [/SELECT \* FROM routes WHERE driver_id=\? AND route_date=\?/, () => routeRow],
+    [/SELECT \* FROM routes WHERE driver_id=\? AND status IN/, () => routeRow],
     [/UPDATE routes SET driver_lat=\?, driver_lng=\?, driver_loc_at=\?/, ({ args }) => { updates.push(args); return 1; }],
     [/FROM route_stops rs JOIN orders/, () => null],
   ]);
@@ -71,12 +71,9 @@ test('no active route (null from the lookup) records no position, but still answ
   })();
 });
 
-test('the query excludes completed/canceled and a pending offer — not "status=\'started\'"', () => {
-  // Isolate the actual SQL literal (not the surrounding comments, which describe the old
-  // behavior in prose) so this pins the query text itself, not incidental wording nearby.
-  const sqlStart = SRC.indexOf('SELECT * FROM routes WHERE driver_id');
-  const sql = SRC.slice(sqlStart, SRC.indexOf(';', sqlStart));
-  assert.doesNotMatch(sql, /status='started'/, 'the old status-gated query must be gone');
-  assert.match(sql, /status NOT IN \('completed','canceled'\)/);
-  assert.match(sql, /offer_status/, 'a route still on a pending offer must not be tracked yet');
+test('shared active-route lookup excludes closed routes and location blocks unaccepted offers', () => {
+  const shared=readFileSync(new URL('../../functions/_lib/driver_routes.js',import.meta.url),'utf8');
+  assert.match(shared,/WHERE driver_id=\? AND status IN \('assigned','started'\)/);
+  assert.match(SRC,/findDriverRoute\(env,staff.id,b.route_id\|\|null\)/);
+  assert.match(SRC,/route.offer_status!=='accepted'/);
 });

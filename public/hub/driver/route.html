@@ -214,13 +214,15 @@
   })();
 
   function loadAll() {
-    return Promise.all([
-      Hub.api('/api/hub/driver/route'),
-      Hub.api('/api/hub/driver/pickup').catch(function () { return { all_picked: true, stops: [] }; })
-    ]).then(function (res) { routeData = res[0]; pickupData = res[1]; render(); });
+    var selected=new URLSearchParams(location.search).get('route_id');
+    return Hub.api('/api/hub/driver/route'+(selected?'?route_id='+encodeURIComponent(selected):'')).then(function(d){
+      if(!d||!Object.prototype.hasOwnProperty.call(d,'route'))throw new Error('route unavailable');
+      routeData=d;
+      if(!d||!d.route||d.route.offer_status==='pending'){pickupData=null;render();return;}
+      return Hub.api('/api/hub/driver/pickup?route_id='+encodeURIComponent(d.route.id)).then(function(p){pickupData=p;render();}).catch(function(){pickupData={all_picked:false,stops:[]};render();});
+    });
   }
 
-  // Pay / miles / finish-time summary for a route (what the driver earns + scope of the job).
   function routePayLine(r) {
     if (!r) return '';
     var clk = function (ms) { try { return new Date(Number(ms)).toLocaleTimeString((typeof window !== 'undefined' && window.AnejoLang && window.AnejoLang.get() === 'es' ? 'es-US' : 'en-US'), { timeZone: 'America/New_York', hour: 'numeric', minute: '2-digit' }); } catch (e) { return ''; } };
@@ -254,7 +256,7 @@
       head.innerHTML = '<div class="card cur-card"><div class="cur-name" data-i18n>New delivery order</div>' +
         '<div class="stop-addr">' + (r.stop_count || 0) + ' <span data-i18n>stop(s) on</span> ' + Hub.esc(r.route_date || '') + '</div>' +
         routePayLine(r) +
-        '<p class="small" data-i18n>Accept to start, or deny to pass it to another driver.</p>' +
+        '<p class="small" data-i18n>Accept to start. Decline if you cannot take this assignment.</p>' +
         '<div class="cur-actions">' +
         '<button class="btn gold" id="offer-accept" type="button" data-i18n>✅ Accept order</button>' +
         '<button class="btn ghost" id="offer-decline" type="button" data-i18n>Deny</button>' +
@@ -262,15 +264,15 @@
       pickSection.hidden = true; delivSection.hidden = true; setTracking(false);
       document.getElementById('offer-accept').addEventListener('click', function () {
         var b = this; b.disabled = true;
-        Hub.api('/api/hub/driver/route', { method: 'POST', body: { action: 'accept' } }).then(function (resp) {
+        Hub.api('/api/hub/driver/route', { method: 'POST', body: { action: 'accept', route_id:routeData.route.id } }).then(function (resp) {
           if (resp && resp.ok) { Hub.toast('Order accepted'); loadAll(); } else { b.disabled = false; Hub.toast((resp && resp.error) || 'Error'); }
         });
       });
       document.getElementById('offer-decline').addEventListener('click', function () {
         if (!window.confirm('Deny this delivery order? It will be offered to another driver.')) return;
         var b = this; b.disabled = true;
-        Hub.api('/api/hub/driver/route', { method: 'POST', body: { action: 'decline' } }).then(function (resp) {
-          if (resp && resp.ok) { Hub.toast('Order denied — passing to another driver'); loadAll(); } else { b.disabled = false; Hub.toast((resp && resp.error) || 'Error'); }
+        Hub.api('/api/hub/driver/route', { method: 'POST', body: { action: 'decline', route_id:routeData.route.id } }).then(function (resp) {
+          if (resp && resp.ok) { Hub.toast('Assignment declined'); loadAll(); } else { b.disabled = false; Hub.toast((resp && resp.error) || 'Error'); }
         });
       });
       refresh();
@@ -326,7 +328,7 @@
     // stop — and turns off the instant the route is done/canceled or every stop is handled.
     // An app that keeps pinging after the shift ends is a different product.
     var stillOpen = r.status !== 'completed' && r.status !== 'canceled' && !allHandled;
-    setTracking(stillOpen);
+    setTracking(stillOpen&&(!routeData.today||r.route_date<=routeData.today));
     refresh();
   }
 
@@ -372,7 +374,7 @@
     if (!confirmed.length && !missing.length) return;
     if (missing.length && !window.confirm(missing.length + ' bowl(s) are not checked — they will be flagged missing to the kitchen. Continue?')) return;
     askPin('Your PIN to confirm pickup', function (pin, h) {
-      Hub.api('/api/hub/driver/pickup', { method: 'POST', body: { stop_id: stopId, pin: pin, confirmed: confirmed, missing: missing } })
+      Hub.api('/api/hub/driver/pickup', { method: 'POST', body: { route_id:routeData.route.id, stop_id: stopId, pin: pin, confirmed: confirmed, missing: missing } })
         .then(function (resp) {
           if (resp && resp.ok) { h.done(); Hub.toast(resp.complete ? 'Confirmed ✓' : 'Saved — missing bowls flagged'); loadAll(); }
           else { h.fail(resp && resp.error); }
@@ -384,7 +386,7 @@
   document.getElementById('start-deliveries').addEventListener('click', function () {
     var go = function () { delivSection.scrollIntoView({ behavior: 'smooth' }); loadAll(); };
     if (routeData.route.status === 'assigned') {
-      Hub.api('/api/hub/driver/route', { method: 'POST', body: { action: 'start' } }).then(function (resp) {
+      Hub.api('/api/hub/driver/route', { method: 'POST', body: { action: 'start', route_id:routeData.route.id } }).then(function (resp) {
         if (resp && resp.ok) { Hub.toast('Deliveries started'); go(); } else Hub.toast((resp && resp.error) || 'Error');
       });
     } else go();
@@ -434,15 +436,15 @@
   }
 
   function navStart(stop) {
-    Hub.api('/api/hub/driver/stop', { method: 'POST', body: { stop_id: stop.stop_id, action: 'nav_start' } }).then(function (resp) {
+    Hub.api('/api/hub/driver/stop', { method: 'POST', body: { route_id:routeData.route.id, stop_id: stop.stop_id, action: 'nav_start' } }).then(function (resp) {
       if (resp && resp.ok) Hub.toast(stop.on_the_way_at ? 'Navigation opened' : 'Customer notified — on the way');
       if (stop.directions_url) window.open(stop.directions_url, '_blank', 'noopener');
       loadAll();
     });
   }
   function arriving(stop) {
-    Hub.api('/api/hub/driver/stop', { method: 'POST', body: { stop_id: stop.stop_id, action: 'arriving' } }).then(function (resp) {
-      Hub.toast(resp && resp.ok ? 'Arriving-soon sent' : (resp && resp.error) || 'Error'); loadAll();
+    Hub.api('/api/hub/driver/stop', { method: 'POST', body: { route_id:routeData.route.id, stop_id: stop.stop_id, action: 'arriving' } }).then(function (resp) {
+      Hub.toast(resp && resp.ok ? 'Arrival update saved' : (resp && resp.error) || 'Error'); loadAll();
     });
   }
 
@@ -488,7 +490,7 @@
       } });
     }).then(function (resp) {
       btn.disabled = false;
-      if (resp && resp.ok) { Hub.toast('Delivered — customer notified'); closeSheet(); loadAll().then(scrollToCurrent); }
+      if (resp && resp.ok) { Hub.toast('Delivery saved'); closeSheet(); loadAll().then(scrollToCurrent); }
       else Hub.toast((resp && resp.error) || 'Error');
     });
   });
@@ -511,7 +513,7 @@
   function wireHead() {
     var cb = document.getElementById('complete-route');
     if (cb) cb.addEventListener('click', function () {
-      Hub.api('/api/hub/driver/route', { method: 'POST', body: { action: 'complete' } }).then(function (resp) {
+      Hub.api('/api/hub/driver/route', { method: 'POST', body: { action: 'complete', route_id:routeData.route.id } }).then(function (resp) {
         if (resp && resp.ok) { Hub.toast('Route completed'); loadAll(); } else Hub.toast((resp && resp.error) || 'Error');
       });
     });
@@ -531,7 +533,7 @@
   function pingOnce() {
     if (!navigator.geolocation) return;
     navigator.geolocation.getCurrentPosition(function (pos) {
-      Hub.api('/api/hub/driver/location', { method: 'POST', body: { lat: pos.coords.latitude, lng: pos.coords.longitude, acc: pos.coords.accuracy } })
+      Hub.api('/api/hub/driver/location', { method: 'POST', body: { route_id:routeData&&routeData.route&&routeData.route.id, lat: pos.coords.latitude, lng: pos.coords.longitude, acc: pos.coords.accuracy } })
         .then(function (resp) { if (resp && resp.arriving_sent) loadAll(); }).catch(function () {});
     }, function () {}, { enableHighAccuracy: true, maximumAge: 20000, timeout: 8000 });
   }

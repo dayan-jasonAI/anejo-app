@@ -62,6 +62,7 @@
     startPolling();
     W.addEventListener('focus', visible);
     D.addEventListener('visibilitychange', visible);
+    D.addEventListener('anejo:delivery-resolved',visible);
     D.addEventListener('anejo:langchange', render);
     W.addEventListener('pagehide', function () { W.clearInterval(timer); });
     W.addEventListener('pageshow', function () { startPolling(); visible(); });

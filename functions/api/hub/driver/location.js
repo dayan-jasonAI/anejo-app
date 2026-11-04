@@ -1,3 +1,4 @@
+import {findDriverRoute} from '../../../_lib/driver_routes.js';
 // POST /api/hub/driver/location — the driver app posts its GPS fix while a route is active.
 // Body: { lat, lng, acc? }. Stores the position on the route, recomputes the ETA to the current
 // en-route stop, and AUTO-FIRES the "arriving soon" text once when the ETA drops under the
@@ -18,12 +19,7 @@ import { APPROACHING_MIN } from '../../../_lib/stop_progress.js';
 // the kitchen — a driver 3 minutes from the customer got quoted a ~35-minute kitchen drive.
 // 'completed'/'canceled' are excluded because tracking someone once the job is over is a
 // different product; a 'pending' offer is excluded because the driver hasn't taken the job yet.
-async function activeRoute(env, driverId) {
-  return env.DB.prepare(
-    "SELECT * FROM routes WHERE driver_id=? AND route_date=? AND status NOT IN ('completed','canceled') " +
-    "AND COALESCE(offer_status,'accepted')<>'pending' ORDER BY created_at DESC LIMIT 1"
-  ).bind(driverId, today()).first();
-}
+
 
 export const onRequestPost = async ({ request, env }) => {
   if (!env.DB) return bad('Database not configured.', 500);
@@ -37,8 +33,8 @@ export const onRequestPost = async ({ request, env }) => {
   const lat = Number(b && b.lat), lng = Number(b && b.lng);
   if (!Number.isFinite(lat) || !Number.isFinite(lng)) return bad('Missing lat/lng.');
 
-  const route = await activeRoute(env, staff.id);
-  if (!route) return json({ ok: true, route: null });   // nothing in progress; just accept
+  const route = await findDriverRoute(env,staff.id,b.route_id||null);
+  if (!route || (route.offer_status && route.offer_status!=='accepted') || (route.route_date>today()&&route.status!=='started')) return json({ ok: true, route: null });   // nothing in progress; just accept
 
   const ts = now();
   await env.DB.prepare('UPDATE routes SET driver_lat=?, driver_lng=?, driver_loc_at=?, updated_at=? WHERE id=?')
