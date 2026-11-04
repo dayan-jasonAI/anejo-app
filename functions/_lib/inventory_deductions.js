@@ -33,7 +33,7 @@ export async function processInventoryDeductionJob(env,{sourceType='order',sourc
   const snapshotHash=await hash(job.snapshot_json),totals=new Map(),movements=[],touchedStocks=new Set();let reviews=0;
   for(const [index,line] of source.lines.entries()) {
     if(!line||line.id==='meta'||line.meta||line.qty===0||['delivery','fee','tax','discount'].includes(line.type||line.kind))continue;
-    let saleId=sourceType==='quote'?(line.pricing_mode==='catalog'?line.product_id:null):line.id;
+    let saleId=sourceType==='quote'?((line.pricing_mode==='catalog'||line.quantity_basis==='catalog_units')?line.product_id:null):line.id;
     if(sourceType==='order')saleId=normalizedSaleId(saleId,line);
     const quantity=lineQuantity(line.qty);
     if(!saleId||quantity==null){reviews++;await exception(env,job,'line_'+index,'Exact catalog item and selling quantity required / Faltan producto y cantidad exactos',{name:line.name||null,qty:line.qty??null},snapshotHash);continue;}

@@ -319,9 +319,9 @@ export const onRequestPost = async ({ request, env }) => {
             if(capturedInventoryAt)await env.DB.prepare("UPDATE inventory_sale_jobs SET effective_at=?,time_basis='square_capture' WHERE source_type='order' AND source_id=? AND state IN ('pending','error')").bind(capturedInventoryAt,stockOrder.id).run();
             await processInventoryDeductionJob(env,{sourceType:'order',sourceId:stockOrder.id});
           }
-          const stockQuote=await env.DB.prepare("SELECT q.id FROM catering_quotes q LEFT JOIN catering_balance_checkouts b ON b.quote_id=q.id WHERE q.deposit_status='paid' AND (q.balance_status='paid' OR q.balance_cents=0) AND (q.square_order_id=? OR b.square_order_id=?) LIMIT 1").bind(pay.order_id,pay.order_id).first();
+          const stockQuote=await env.DB.prepare("SELECT q.id,CASE WHEN b.square_order_id=? OR q.balance_cents=0 THEN 1 ELSE 0 END AS final_capture FROM catering_quotes q LEFT JOIN catering_balance_checkouts b ON b.quote_id=q.id WHERE q.deposit_status='paid' AND (q.balance_status='paid' OR q.balance_cents=0) AND (q.square_order_id=? OR b.square_order_id=?) LIMIT 1").bind(pay.order_id,pay.order_id,pay.order_id).first();
           if(stockQuote){
-            if(capturedInventoryAt)await env.DB.prepare("UPDATE inventory_sale_jobs SET effective_at=?,time_basis='square_capture' WHERE source_type='quote' AND source_id=? AND state IN ('pending','error')").bind(capturedInventoryAt,stockQuote.id).run();
+            if(capturedInventoryAt&&stockQuote.final_capture)await env.DB.prepare("UPDATE inventory_sale_jobs SET effective_at=?,time_basis='square_capture' WHERE source_type='quote' AND source_id=? AND state IN ('pending','error')").bind(capturedInventoryAt,stockQuote.id).run();
             await processInventoryDeductionJob(env,{sourceType:'quote',sourceId:stockQuote.id});
           }
         }catch{return new Response('Paid inventory reconciliation temporarily unavailable',{status:503});}

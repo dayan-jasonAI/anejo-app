@@ -104,7 +104,7 @@
       frame.srcdoc=mail.html;
     });
   }
-  function catalogLine(item,quantity){return {name:item.name_en||item.name_es,qty:String(quantity),price:(item.unit_cents*quantity/100).toFixed(2),metadata:{product_id:item.id,name_es:item.name_es,image:item.image,detail:item.detail,unit_label:item.unit_label,unit_cents:item.unit_cents,catalog_unit_cents:item.unit_cents,pricing_mode:'catalog',owner_override:false}};}
+  function catalogLine(item,quantity){return {name:item.name_en||item.name_es,qty:String(quantity),price:(item.unit_cents*quantity/100).toFixed(2),metadata:{product_id:item.id,name_es:item.name_es,image:item.image,detail:item.detail,unit_label:item.unit_label,unit_cents:item.unit_cents,catalog_unit_cents:item.unit_cents,quantity_basis:'catalog_units',pricing_mode:'catalog',owner_override:false}};}
   async function loadCatalog(){
     var seq=++catalogSequence,host=document.getElementById('q-catalog-results');host.textContent='Loading published dishes…';
     try{var result=await Owner.get('/api/hub/owner/catering-quote-catalog');if(seq!==catalogSequence)return;if(!result?.ok)throw Error(result?.error||'Catalog unavailable');catalogItems=(result.items||[]).filter(function(i){return i.available&&Number.isSafeInteger(i.unit_cents)&&i.unit_cents>0;});document.getElementById('q-catalog-search').oninput=renderCatalog;renderCatalog();}catch(error){host.textContent='Menu unavailable. Retry by reloading this page, or use an explicitly priced custom line. '+error.message;}

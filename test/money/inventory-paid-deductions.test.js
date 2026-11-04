@@ -193,3 +193,14 @@ test('documented meal-plan bowl ids map to their exact canonical catalog recipe'
   assert.equal(env.DB.one("SELECT stock_count FROM menu_items WHERE id='vida'").stock_count,18);
   assert.equal(env.DB.one("SELECT stock_item_id FROM inventory_sale_deductions WHERE source_id='synthetic_plan_day'").stock_item_id,'vida');
 });
+
+ test('negotiated catalog quote prices retain explicit stock units', async () => {
+  const env=fixture(),at=Date.now();setStock(env,HAM,20,{countedAt:at-5000});
+  const normalized=normalizeQuoteLines([{name:'Ham croqueta',pricing_mode:'custom',quantity_basis:'catalog_units',product_id:HAM,qty:6,cents:700}]);
+  assert.equal(normalized.ok,true);
+  const q=JSON.stringify({lines:normalized.lines});
+  env.DB.prepare(`INSERT INTO catering_quotes(id,guests,total_cents,deposit_pct,deposit_cents,balance_cents,deposit_status,balance_status,terms_version,terms_json,quote_json,created_at,updated_at)
+    VALUES('negotiated-stock',1,700,1,700,0,'paid','paid','v1','{}',?,?,?)`).bind(q,at,at).run();
+  const result=await processInventoryDeductionJob(env,{sourceType:'quote',sourceId:'negotiated-stock'});
+  assert.equal(result.state,'done');assert.equal(env.DB.one('SELECT stock_count FROM menu_items WHERE id=?',HAM).stock_count,14);
+ });

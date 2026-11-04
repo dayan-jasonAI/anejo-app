@@ -53,6 +53,30 @@ test('both languages survive, so the Spanish quote is not the English one with p
   assert.equal(r.lines[0].detail_es, 'Para 30 invitados');
 });
 
+test('catalog unit identity survives a custom price, while legacy lines do not gain inferred units', () => {
+  const custom = normalizeQuoteLines([{
+    name:'Croqueta platter', name_es:'Bandeja de croquetas', product_id:'croqueta_platter',
+    qty:'2', cents:7000, unit_cents:4500, unit_label:'tray of 30', pricing_mode:'custom',
+    owner_override:true, quantity_basis:'catalog_units', image:'croquetas.jpg',
+  }]);
+  assert.equal(custom.ok, true);
+  assert.deepEqual({
+    product_id:custom.lines[0].product_id, quantity_basis:custom.lines[0].quantity_basis,
+    pricing_mode:custom.lines[0].pricing_mode, unit_cents:custom.lines[0].unit_cents,
+    name_es:custom.lines[0].name_es, image:custom.lines[0].image, cents:custom.lines[0].cents,
+  }, { product_id:'croqueta_platter', quantity_basis:'catalog_units', pricing_mode:'custom', unit_cents:4500,
+    name_es:'Bandeja de croquetas', image:'croquetas.jpg', cents:7000 });
+  const legacy = normalizeQuoteLines([{ name:'Old quoted platter', qty:'2 trays', cents:7000, pricing_mode:'catalog', product_id:'croqueta_platter' }]);
+  assert.equal(legacy.ok, true);
+  assert.equal(legacy.lines[0].quantity_basis, undefined, 'catalog pricing mode alone is not unit provenance');
+});
+
+test('owner menu picker marks selected catalog units before the owner may override price', () => {
+  const html = readFileSync(new URL('../../public/hub/owner/catering.html', import.meta.url), 'utf8');
+  assert.match(html, /quantity_basis:'catalog_units',pricing_mode:'catalog'/);
+  assert.match(html, /Object\.assign\(\{\}, metadata, \{ name: name, qty: qty \|\| undefined/);
+});
+
 test('whitespace is tidied and nothing runaway reaches the email', () => {
   const r = normalizeQuoteLines([{ name: '  Lechón   asado \n', qty: ' 30 ', cents: 9500 }]);
   assert.equal(r.lines[0].name, 'Lechón asado');

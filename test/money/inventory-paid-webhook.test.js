@@ -73,6 +73,39 @@ test('Square authorization does not release or deduct food before capture', asyn
   assert.equal(env.DB.one("SELECT COUNT(*) n FROM inventory_sale_deductions WHERE source_id='webhook-ham-approved'").n, 0);
 });
 
+test('a replayed deposit capture cannot backdate the fully paid quote stock job', async (t) => {
+  failOnExternalFetch(t);
+  const env = ownerEnv();
+  const countedAt = at - 500;
+  stock(env, 20);
+  env.DB.prepare('UPDATE menu_items SET stock_counted_at=? WHERE id=?').bind(countedAt, HAM).run();
+  const lines = JSON.stringify({ lines: [{ pricing_mode: 'catalog', product_id: HAM, name: 'Ham croqueta', qty: '2', unit_cents: 150, cents: 300 }] });
+  env.DB.prepare(`INSERT INTO catering_quotes(id,guests,total_cents,deposit_pct,deposit_cents,balance_cents,
+    deposit_status,balance_status,terms_version,terms_json,quote_json,square_order_id,deposit_paid_at,balance_paid_at,created_at,updated_at)
+    VALUES('quote-deposit-replay',1,1000,.25,250,750,'paid','paid','test','{}',?,'sq_deposit_replay',?,?,?,?)`)
+    .bind(lines, at - 1_000, at - 100, at - 2_000, at - 100).run();
+  env.DB.prepare(`INSERT INTO catering_balance_checkouts(quote_id,amount_cents,square_order_id,paid_at,created_at)
+    VALUES('quote-deposit-replay',750,'sq_final_balance',?,?)`).bind(at - 100, at - 100).run();
+  const jobBefore = env.DB.one("SELECT effective_at,time_basis FROM inventory_sale_jobs WHERE source_type='quote' AND source_id='quote-deposit-replay'");
+  assert.equal(jobBefore.effective_at, at - 100);
+  assert.equal(jobBefore.time_basis, 'quote_paid');
+
+  const response = await squareWebhook({ env: { ...env, SQUARE_ENV: 'sandbox' }, request: new Request('https://example.test/api/webhooks/square', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ type: 'payment.updated', data: { object: { payment: {
+      id: 'payment-deposit-replay', order_id: 'sq_deposit_replay', status: 'COMPLETED',
+      updated_at: new Date(at - 1_000).toISOString(), amount_money: { amount: 250, currency: 'USD' },
+    } } } }),
+  }) });
+  assert.equal(response.status, 200, await response.clone().text());
+  const jobAfter = env.DB.one("SELECT effective_at,time_basis,state FROM inventory_sale_jobs WHERE source_type='quote' AND source_id='quote-deposit-replay'");
+  assert.equal(jobAfter.effective_at, at - 100, 'the actual balance payment remains the stock movement time');
+  assert.equal(jobAfter.time_basis, 'quote_paid');
+  assert.equal(jobAfter.state, 'done');
+  assert.equal(env.DB.one('SELECT stock_count FROM menu_items WHERE id=?', HAM).stock_count, 18,
+    'the sale after the absolute count is deducted; the older deposit replay does not cover it');
+});
+
 test('social tick drains paid inventory while Instagram is unconfigured and makes no provider call', async (t) => {
   failOnExternalFetch(t);
   const env = ownerEnv({ CRON_KEY: 'synthetic-cron-key' }); stock(env, 20);
