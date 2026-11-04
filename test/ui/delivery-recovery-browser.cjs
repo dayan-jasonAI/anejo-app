@@ -138,6 +138,10 @@ async function main(){
  assert.equal(await page.locator('#rdate').inputValue(),serviceDate,'selected date is preserved after refresh');
  assert.equal(env.DB.one('SELECT status FROM orders WHERE id=?',orderId).status,'fulfilled');assert.equal(env.DB.one('SELECT status FROM routes WHERE id=?',routeId).status,'completed');
  const audit=env.DB.one("SELECT actor_id,actor_role,properties FROM activity_log WHERE event='delivery.owner_confirmed'");assert.equal(audit.actor_id,'stf_owner');assert.equal(audit.actor_role,'owner');const props=JSON.parse(audit.properties);assert.equal(props.occurred_at,null);assert.equal(props.on_time,true);assert.equal(props.reason,'Synthetic owner verified at handoff');
+ await page.evaluate(()=>window.AnejoLang.set('es'));
+ assert.match(await page.locator('#drops').innerText(),/A tiempo/);
+ assert.doesNotMatch(await page.locator('#drops').innerText(),/on time|exact time not recorded/);
+ await page.evaluate(()=>window.AnejoLang.set('en'));
  await page.locator('#show-route-history').check();await waitFor(page,'#rexisting [data-route-id="'+routeId+'"] details summary');
  await page.locator('#rexisting [data-route-id="'+routeId+'"] details summary').click();
  assert.match(await page.locator('#rexisting [data-route-id="'+routeId+'"]').innerText(),/Synthetic owner verified at handoff/);
