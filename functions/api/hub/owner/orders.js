@@ -1,3 +1,4 @@
+import { processInventoryDeductionJob } from '../../../_lib/inventory_deductions.js';
 // /api/hub/owner/orders — manual order entry (phone / in-person sales).
 //   POST { customer_name, customer_email?, phone?, items:[{id?,name,qty,price_cents?}],
 //          delivery_date, delivery_window:'lunch'|'dinner', subtotal_cents?, fee_cents?,
@@ -187,6 +188,12 @@ export const onRequestPost = async ({ request, env }) => {
 
   // The stored payment state controls the label: an unpaid phone order is not a paid sale.
   // These fixed bilingual details also remain in the owner's feed if a phone is offline.
+  let inventory = { ok:true, state:'pending_payment' };
+  if(status==='paid'){
+    try{ inventory=await processInventoryDeductionJob(env,{sourceType:'order',sourceId:orderId,actorId:ctx.distinct_id}); }
+    catch{ inventory={ok:false,state:'pending_retry'}; }
+  }
+
   await raiseAlert(env, {
     alert_type: status === 'paid' ? 'new_paid_order' : 'new_order', severity: 'info',
     title: status === 'paid' ? 'New paid order / Nuevo pedido pagado' : 'New order / Nuevo pedido',
@@ -210,7 +217,7 @@ export const onRequestPost = async ({ request, env }) => {
   });
 
   return json({
-    ok: true,
+    ok: true, inventory,
     order: {
       id: orderId,
       square_order_id: null,

@@ -1,3 +1,4 @@
+import { processPaidInventory } from '../../../_lib/inventory_deductions.js';
 // POST /api/hub/admin/social-tick — publish social posts whose scheduled time has arrived.
 // Auth: owner session OR the X-Cron-Key header, same as every other tick.
 //
@@ -43,10 +44,12 @@ export const onRequestPost = async ({ request, env }) => {
 };
 
 async function runTick(request, env) {
+  let paid_inventory;
+  try{paid_inventory=await processPaidInventory(env,{limit:20});}catch{paid_inventory={ok:false,error:'paid_inventory_queue_unavailable'};}
 
   // Not configured is not an error — it is the normal state before the Meta token exists. Say so
   // and stop, rather than marking every due post as failed once a minute.
-  if (!igConfigured(env)) return json({ ok: true, skipped: 'instagram_not_configured', published: [], missed: [] });
+  if (!igConfigured(env)) return json({ ok: true, skipped: 'instagram_not_configured', paid_inventory, published: [], missed: [] });
 
   const t = now();
   const published = [], missed = [], failed = [];
@@ -107,5 +110,5 @@ async function runTick(request, env) {
     published.push({ id: p.id, permalink: res.permalink || null });
   }
 
-  return json({ ok: true, at: t, checked: due.length, published, failed, missed });
+  return json({ ok: true, at: t, checked: due.length, paid_inventory, published, failed, missed });
 };

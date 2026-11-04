@@ -2,6 +2,7 @@
 // Verifies the HMAC-SHA256 signature, syncs subscription status, and — on each paid
 // subscription invoice — writes the trainer's 10% rev-share ledger row (idempotent).
 // Set SQUARE_WEBHOOK_KEY (Pages secret) + register this URL in the Square dashboard.
+import { processInventoryDeductionJob } from '../../_lib/inventory_deductions.js';
 import { square } from '../../_lib/square.js';
 import { now, ctEq } from '../../_lib/util.js';
 import { materializeSubscriptionPrep } from '../../_lib/suborders.js';
@@ -160,6 +161,12 @@ export const onRequestPost = async ({ request, env }) => {
 
         }
 
+        const parsedCapture = typeof pay.updated_at==='string' ? Date.parse(pay.updated_at) : NaN;
+        const capturedInventoryAt = Number.isFinite(parsedCapture) && parsedCapture>0 && parsedCapture<=Date.now() ? parsedCapture : null;
+        if(capturedInventoryAt){
+          try { await env.DB.prepare("UPDATE orders SET inventory_paid_at=COALESCE(inventory_paid_at,?),inventory_paid_basis=COALESCE(inventory_paid_basis,'square_capture') WHERE square_order_id=?").bind(capturedInventoryAt,pay.order_id).run(); }
+          catch { return new Response('Inventory payment timing temporarily unavailable',{status:503}); }
+        }
         const tipCents = (pay.tip_money && Number(pay.tip_money.amount)) || 0;
         // Cancelling an order in the HUB does NOT kill the Square payment link, so a customer can
         // still pay one the owner already cancelled. Guarding only on 'pending' meant that money
@@ -306,6 +313,19 @@ export const onRequestPost = async ({ request, env }) => {
           if(booking)await ensureCateringCustomerAccount(env,booking.id);
         }catch{return new Response('Customer account linkage temporarily unavailable',{status:503});}
 
+        try {
+          const stockOrder=await env.DB.prepare("SELECT id FROM orders WHERE square_order_id=? AND status IN ('paid','prep','ready','fulfilled') LIMIT 1").bind(pay.order_id).first();
+          if(stockOrder){
+            if(capturedInventoryAt)await env.DB.prepare("UPDATE inventory_sale_jobs SET effective_at=?,time_basis='square_capture' WHERE source_type='order' AND source_id=? AND state IN ('pending','error')").bind(capturedInventoryAt,stockOrder.id).run();
+            await processInventoryDeductionJob(env,{sourceType:'order',sourceId:stockOrder.id});
+          }
+          const stockQuote=await env.DB.prepare("SELECT q.id FROM catering_quotes q LEFT JOIN catering_balance_checkouts b ON b.quote_id=q.id WHERE q.deposit_status='paid' AND (q.balance_status='paid' OR q.balance_cents=0) AND (q.square_order_id=? OR b.square_order_id=?) LIMIT 1").bind(pay.order_id,pay.order_id).first();
+          if(stockQuote){
+            if(capturedInventoryAt)await env.DB.prepare("UPDATE inventory_sale_jobs SET effective_at=?,time_basis='square_capture' WHERE source_type='quote' AND source_id=? AND state IN ('pending','error')").bind(capturedInventoryAt,stockQuote.id).run();
+            await processInventoryDeductionJob(env,{sourceType:'quote',sourceId:stockQuote.id});
+          }
+        }catch{return new Response('Paid inventory reconciliation temporarily unavailable',{status:503});}
+
         // CONTRACT INVOICE: a paid Square payment link on a B2B contract invoice → mark it paid
         // automatically, same idempotent pattern as the catering deposit above (guarded on
         // status != 'paid'/'void', so a webhook retry is a no-op — see markContractInvoicePaidBySquareOrder).
@@ -347,6 +367,7 @@ export const onRequestPost = async ({ request, env }) => {
   } catch (e) {
     // Log but still 200 — a 500 makes Square retry indefinitely. Surface via logs.
     console.log('webhook handler error:', e && e.message);
+    if((type==='payment.created'||type==='payment.updated')&&obj.payment?.status==='COMPLETED')return new Response('Payment processing temporarily unavailable',{status:503});
   }
 
   return ok();

@@ -249,13 +249,14 @@
     return labels[status] || 'Photo status unavailable';
   }
   function historySummary(change) {
-    var action = String(change.action || change.type || 'Inventory updated').replace(/[_-]+/g, ' ');
+    var action = change.action === 'paid_sale' ? tx('Paid sale', 'Venta pagada') : String(change.action || change.type || 'Inventory updated').replace(/[_-]+/g, ' ');
     var detail = change.summary || change.description || '';
     if (!detail) {
       var after = change.after;
       if (!after && change.after_json) { try { after = JSON.parse(change.after_json); } catch (_) { after = null; } }
       if (after && typeof after === 'object') {
         var parts = [];
+        if(after.sale_source_id){parts.push(tx('Order ', 'Pedido ') + after.sale_source_id);parts.push(tx('Sold ', 'Vendido ') + after.requested_qty);parts.push(tx('Recorded balance ', 'Saldo registrado ') + (after.stock_count==null ? tx('uncounted','sin conteo') : after.stock_count));}
         if (after.on_hand != null) parts.push('on hand ' + after.on_hand);
         if (after.count_quantity != null) parts.push('count ' + after.count_quantity);
         if (after.total_weight_grams != null) parts.push('weight ' + after.total_weight_grams + ' g');

@@ -1,0 +1,8 @@
+import { candidates } from './catering-estimate.js';
+import { cateringProducts } from '../../public/assets/js/catering-products-catalog.js';
+import { CAJITA_FLAVORS } from './cajita-food-options.js';
+const mappings=new Map();
+for(const product of cateringProducts){const flavors=product.flavorKey?(CAJITA_FLAVORS[product.flavorKey]||[]).map(f=>f[0]):[null];for(const flavor of flavors){const options=candidates({id:product.id,flavor}),single=options.find(([sku,n])=>n===1&&sku.startsWith('traditional_'));if(single)for(const [sku,n] of options)if(Number.isSafeInteger(n)&&n>1)mappings.set(sku,{id:single[0],factor:n});}}
+export const packMapping=id=>mappings.get(id)||null;
+export function stockSaleAliases(id){const ids=[id];for(const [sku,mapping] of mappings)if(mapping.id===id)ids.push(sku);return ids;}
+export async function pendingSaleItems(env){const r=await env.DB.prepare("SELECT source_type,snapshot_json FROM inventory_sale_jobs WHERE state IN ('pending','error')").all();if(r?.success===false||!Array.isArray(r?.results))throw Error('Paid inventory queue is unavailable.');const ids=new Set();for(const job of r.results){let parsed;try{parsed=JSON.parse(job.snapshot_json);}catch{continue;}const lines=job.source_type==='order'?parsed:parsed?.lines;for(const line of Array.isArray(lines)?lines:[]){const id=job.source_type==='order'?line.id:line.pricing_mode==='catalog'?line.product_id:null;if(typeof id!=='string')continue;ids.add(id);const mapped=packMapping(id);if(mapped)ids.add(mapped.id);}}return ids;}
