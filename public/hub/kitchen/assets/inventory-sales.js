@@ -6,10 +6,10 @@
   var API = '/api/hub/kitchen/inventory-sales';
   var page = document.getElementById('prepared');
   var sales = null, authority = 'loading', prepared = [], actorRole = null, section = null;
-  var controls = new Map(), drafts = new Map(), promotions = [], offers = [], websiteEnabled = null;
+  var controls = new Map(), drafts = new Map(), reviewDrafts = new Map(), websiteDraft = null, websiteMessage = '', promotions = [], offers = [], websiteEnabled = null;
   var processing = false, refreshQueued = false, renderQueue = Promise.resolve();
   var Hub = window.Hub, Kitchen = window.Kitchen;
-  var esc = Hub && Hub.esc ? Hub.esc : function (value) { return String(value == null ? '' : value).replace(/[&<>"']/g, function (c) { return ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' })[c]; });
+  var esc = Hub && Hub.esc ? Hub.esc : function (value) { return String(value == null ? '' : value).replace(/[&<>"']/g, function (c) { return ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' })[c]; }); };
   function enEs(en, es) { return window.AnejoLang && window.AnejoLang.get() === 'es' ? es : en; }
   function txNode(en, es, tag) { return '<' + (tag || 'span') + ' data-ivs-en="' + esc(en) + '" data-ivs-es="' + esc(es) + '" translate="no">' + esc(enEs(en, es)) + '</' + (tag || 'span') + '>'; }
   function localize(root) {
@@ -64,9 +64,9 @@
     var locale = draft ? draft.locale : ((promotion(id) && promotion(id).locale) || 'es');
     var controlsHtml = '<div class="ivs-sale-controls" data-ivs-sale="' + esc(id) + '">' +
       '<label class="ivs-toggle"><input type="checkbox" data-ivs-enabled' + (checked ? ' checked' : '') + (!sales ? ' disabled' : '') + '><span>' + txNode('Available for sale', 'Disponible para la venta') + '</span></label>' +
-      '<label class="ivs-choice"><span>' + txNode('Sale window', 'Vigencia de venta') + '</span><select data-ivs-hours' + (!sales ? ' disabled' : '') + '><option value="4"' + (hours === 4 ? ' selected' : '') + '>4 ' + txNode('hours', 'horas') + '</option><option value="12"' + (hours === 12 ? ' selected' : '') + '>12 ' + txNode('hours', 'horas') + '</option><option value="24"' + (hours === 24 ? ' selected' : '') + '>24 ' + txNode('hours', 'horas') + '</option><option value="48"' + (hours === 48 ? ' selected' : '') + '>48 ' + txNode('hours', 'horas') + '</option></select></label>' +
+      '<label class="ivs-choice"><span>' + txNode('Sale window', 'Vigencia de venta') + '</span><select data-ivs-hours' + (!sales ? ' disabled' : '') + '>' + [4,12,24,48].map(function (n) { return '<option value="' + n + '" data-ivs-en="' + n + ' hours" data-ivs-es="' + n + ' horas"' + (hours === n ? ' selected' : '') + '>' + n + ' ' + esc(enEs('hours','horas')) + '</option>'; }).join('') + '</select></label>' +
       '<label class="ivs-choice"><span>' + txNode('Story language', 'Idioma de Story') + '</span><select data-ivs-locale><option value="en"' + (locale === 'en' ? ' selected' : '') + '>EN</option><option value="es"' + (locale === 'es' ? ' selected' : '') + '>ES</option></select></label>' +
-      '<span class="ivs-declaration" data-ivs-declaration>' + (!sales ? enEs('Availability status unavailable', 'Estado de disponibilidad no disponible') : decl ? (decl.enabled ? enEs('Sale declaration active', 'Declaración de venta activa') : enEs('Sale declaration paused', 'Declaración de venta pausada')) : enEs('Count only · no sale declaration', 'Solo conteo · sin declaración de venta')) + '</span>' +
+      '<span class="ivs-declaration" data-ivs-declaration>' + (!sales ? enEs('Availability status unavailable', 'Estado de disponibilidad no disponible') : decl ? (decl.enabled && decl.sale_expires_at <= Date.now() ? enEs('Sale window ended', 'Vigencia de venta terminada') : decl.enabled ? enEs('Sale declaration active', 'Declaración de venta activa') : enEs('Sale declaration paused', 'Declaración de venta pausada')) : enEs('Count only · no sale declaration', 'Solo conteo · sin declaración de venta')) + '</span><span class="ivs-declaration" data-ivs-sale-note></span>' +
       '</div>';
     var host = existing || document.createElement('div');
     host.innerHTML = controlsHtml;
@@ -90,6 +90,29 @@
       state.checkbox.addEventListener('change', capture); state.hours.addEventListener('change', capture); state.locale.addEventListener('change', capture);
     });
   }
+  function syncControls() {
+    controls.forEach(function (control, id) {
+      var card = row(id); if (!card) return;
+      var decl = declaration(id), draft = drafts.get(id);
+      control.decl = decl;
+      control.checkbox.disabled = false;
+      control.hours.disabled = authority !== 'available';
+      control.checkbox.indeterminate = authority !== 'available';
+      if (authority !== 'available') {
+        control.checkbox.checked = draft ? !!draft.enabled : false;
+        var unknown = card.querySelector('[data-ivs-declaration]');
+        if (unknown) unknown.textContent = enEs('Availability status unavailable','Estado de disponibilidad no disponible');
+        return;
+      }
+      if (!draft) {
+        control.checkbox.checked = !!(decl && decl.enabled);
+        control.hours.value = String(decl && decl.sale_expires_at > Date.now() ? Math.max(4, Math.min(48, Math.ceil((decl.sale_expires_at - Date.now()) / 3600000))) : 24);
+        var promo = promotion(id); if (promo && promo.locale) control.locale.value = promo.locale;
+      }
+      var state = card.querySelector('[data-ivs-declaration]');
+      if (state) state.textContent = authority !== 'available' ? enEs('Availability status unavailable','Estado de disponibilidad no disponible') : decl ? (decl.enabled && decl.sale_expires_at <= Date.now() ? enEs('Sale window ended','Vigencia de venta terminada') : decl.enabled ? enEs('Sale declaration active','Declaración de venta activa') : enEs('Sale declaration paused','Declaración de venta pausada')) : enEs('Count only · no sale declaration','Solo conteo · sin declaración de venta');
+    });
+  }
   function stateLabel(state) {
     var map = { pending:['Preparing Story…','Preparando Story…'], preview_ready:['Preparing exact preview…','Preparando la vista previa exacta…'], ready_for_review:['Ready for owner review','Lista para revisión del propietario'], reviewed:['Approved for scheduling','Aprobada para programar'], published:['Published','Publicada'], withdrawn:['Unavailable · Story withdrawn','No disponible · Story retirada'], error:['Story preparation failed','Falló la preparación del Story'] };
     return enEs.apply(null, map[state] || ['No Story prepared','No hay un Story preparado']);
@@ -97,19 +120,20 @@
   function promoCard(promo, item) {
     var id = String(promo.menu_item_id), offerData = offer(id), menu = findPrepared(id) || item || {}, qty = offerData ? offerData.remaining : (menu.stock_count == null ? null : menu.stock_count);
     var image = (offerData && offerData.image) || menu.image || '';
+    var displayName = promo.locale === 'es' ? (menu.name_es || offerData && offerData.name_es || menu.name || id) : (menu.name || offerData && offerData.name || id);
     var label = qty == null ? enEs('No count set', 'Sin conteo') : String(qty);
-    var url = '/order?product=' + encodeURIComponent(id) + (offerData ? '&offer=' + encodeURIComponent(offerData.revision) : '');
+    var url = '/order?product=' + encodeURIComponent(id) + (offerData ? '&offer_revision=' + encodeURIComponent(offerData.revision) : '');
     var previewReady = ['ready_for_review','reviewed'].includes(promo.state) && !!promo.jpeg_sha256;
     var previewUrl = previewReady ? href(id, promo.snapshot_hash, true) : '';
     var owner = actorRole === 'owner';
     var card = '<article class="ivs-promo" data-ivs-promo="' + esc(id) + '"><div class="ivs-promo-head">' + (image ? '<img class="ivs-photo" src="' + esc(image) + '" alt="' + esc(enEs('Catalog photo for ', 'Foto del catálogo para ') + (menu.name || promo.name || id)) + '" loading="lazy">' : '<div class="ivs-photo ivs-photo-empty" role="img" aria-label="' + esc(enEs('Catalog photo unavailable', 'Foto del catálogo no disponible')) + '"></div>') +
-      '<div class="ivs-promo-main"><strong>' + esc(menu.name || promo.name || id) + '</strong><span>' + esc(enEs('Current quantity: ', 'Cantidad actual: ') + label) + '</span><span class="ivs-state">' + esc(stateLabel(promo.state)) + '</span><span>' + esc(enEs('Website: ', 'Sitio web: ') + (websiteEnabled == null ? enEs('unknown', 'desconocido') : websiteEnabled ? enEs('active', 'activo') : enEs('paused', 'en pausa'))) + '</span></div></div>' +
+      '<div class="ivs-promo-main"><strong>' + esc(displayName) + '</strong><span>' + esc(enEs('Current quantity: ', 'Cantidad actual: ') + label) + '</span><span class="ivs-state">' + esc(stateLabel(promo.state)) + '</span><span>' + esc(enEs('Website: ', 'Sitio web: ') + (websiteEnabled == null ? enEs('unknown', 'desconocido') : websiteEnabled ? enEs('active', 'activo') : enEs('paused', 'en pausa'))) + '</span></div></div>' +
       (previewReady ? '<img class="ivs-story-preview" src="' + esc(previewUrl) + '" alt="' + esc(enEs('Exact rendered Story preview', 'Vista previa exacta del Story renderizado')) + '"><a class="ivs-link" href="' + esc(previewUrl) + '" download="anejo-inventory-story-' + esc(id) + '.jpg">' + txNode('Download exact JPEG', 'Descargar JPEG exacto') + '</a>' : '') +
       '<p class="ivs-order-link"><a href="' + esc(url) + '" target="_blank" rel="noopener">' + esc(url) + '</a><small>' + esc(enEs('Customers choose delivery at checkout.', 'El cliente elige la entrega al finalizar la compra.')) + '</small></p>' +
       (promo.error ? '<p class="ivs-error" role="status">' + esc(promo.error) + '</p>' : '') +
       '<div class="ivs-actions">' + (['preview_ready','ready_for_review'].includes(promo.state) && !promo.jpeg_sha256 ? '<button type="button" class="ivs-button" data-ivs-render="' + esc(id) + '">' + txNode('Render exact JPEG', 'Renderizar JPEG exacto') + '</button>' : '') +
-      (['error','preview_ready'].includes(promo.state) && promo.state === 'error' ? '<button type="button" class="ivs-button" data-ivs-retry="' + esc(id) + '">' + txNode('Retry Story preparation', 'Reintentar preparación del Story') + '</button>' : '') +
-      (owner && previewReady && promo.state === 'ready_for_review' ? '<label class="ivs-review"><input type="checkbox" data-ivs-review="' + esc(id) + '"><span>' + txNode('I reviewed this Story', 'Revisé este Story') + '</span></label><button type="button" class="ivs-button" data-ivs-approve="' + esc(id) + '" disabled>' + txNode('Approve Story', 'Aprobar Story') + '</button>' : '') +
+      (promo.state === 'error' || !promo.snapshot_hash ? '<button type="button" class="ivs-button" data-ivs-retry="' + esc(id) + '">' + txNode('Retry Story preparation', 'Reintentar preparación del Story') + '</button>' : '') +
+      (owner && previewReady && promo.state === 'ready_for_review' ? '<label class="ivs-review"><input type="checkbox" data-ivs-review="' + esc(id) + '" disabled' + (reviewDrafts.get(id) ? ' checked' : '') + '><span>' + txNode('I reviewed this Story', 'Revisé este Story') + '</span></label><button type="button" class="ivs-button" data-ivs-approve="' + esc(id) + '" disabled>' + txNode('Approve Story', 'Aprobar Story') + '</button>' : '') +
       '</div>' + (owner && promo.state === 'reviewed' ? '<p class="ivs-confirmed">' + esc(enEs('Reviewed. Schedule or publish from ', 'Revisada. Programa o publica desde ')) + '<a href="/hub/owner/social.html">' + esc('/hub/owner/social.html') + '</a>.</p>' : '') + '</article>';
     return card;
   }
@@ -117,19 +141,22 @@
     var mount = section.querySelector('.ivs-website');
     if (websiteEnabled == null) { mount.innerHTML = '<p class="ivs-unavailable">' + esc(enEs('Website availability could not be verified.', 'No se pudo verificar la disponibilidad del sitio web.')) + '</p>'; return; }
     var isOwner = actorRole === 'owner';
-    var enabled = !!websiteEnabled;
+    var enabled = websiteDraft ? websiteDraft.enabled : !!websiteEnabled;
+    var reviewed = websiteDraft && websiteDraft.reviewed;
+    var exampleOffers = offers.map(function (o) { var name = window.AnejoLang && window.AnejoLang.get() === 'es' ? (o.name_es || o.name) : o.name; var order = '/order?product=' + encodeURIComponent(o.item_id) + '&offer_revision=' + encodeURIComponent(o.revision); return '<div class="ivs-site-preview-row"><img src="' + esc(o.image || '') + '" alt=""><span>' + esc(name || o.item_id) + ' · ' + esc(o.remaining) + '</span><a href="' + esc(order) + '" target="_blank" rel="noopener">' + esc(order) + '</a></div>'; }).join('');
     mount.innerHTML = '<details class="ivs-website-card"><summary>' + txNode('Website stock alerts: ' + (enabled ? 'active' : 'paused'), 'Alertas de existencias del sitio web: ' + (enabled ? 'activas' : 'en pausa')) + '</summary>' +
-      (isOwner ? '<div class="ivs-website-body"><p>' + esc(enEs('Preview: current listed quantities appear on order pages. Customers choose delivery using the existing checkout options.', 'Vista previa: las cantidades publicadas aparecen en las páginas de pedido. El cliente elige la entrega con las opciones existentes.')) + '</p><label class="ivs-toggle"><input type="checkbox" data-ivs-website-value' + (enabled ? ' checked' : '') + '><span>' + txNode('Enable website stock alerts', 'Activar alertas de existencias del sitio web') + '</span></label><label class="ivs-review"><input type="checkbox" data-ivs-website-reviewed><span>' + txNode('I reviewed this website card', 'Revisé esta tarjeta del sitio web') + '</span></label><button class="ivs-button" type="button" data-ivs-website-save disabled>' + txNode('Review and save setting', 'Revisar y guardar configuración') + '</button><span class="ivs-website-status" role="status" aria-live="polite"></span></div>' : '<p class="ivs-website-body">' + esc(enEs('Only the owner can change this setting.', 'Solo el propietario puede cambiar esta configuración.')) + '</p>') + '</details>';
+      (isOwner ? '<div class="ivs-website-body"><p>' + esc(enEs('Preview: current listed quantities appear on order pages. Customers choose delivery using the existing checkout options.', 'Vista previa: las cantidades publicadas aparecen en las páginas de pedido. El cliente elige la entrega con las opciones existentes.')) + '</p><div class="ivs-site-preview">' + (exampleOffers || '<span>' + esc(enEs('No active sale quantities to preview.', 'No hay cantidades de venta activas para mostrar.')) + '</span>') + '</div><label class="ivs-toggle"><input type="checkbox" data-ivs-website-value' + (enabled ? ' checked' : '') + '><span>' + txNode('Enable website stock alerts', 'Activar alertas de existencias del sitio web') + '</span></label><label class="ivs-review"><input type="checkbox" data-ivs-website-reviewed' + (reviewed ? ' checked' : '') + '><span>' + txNode('I reviewed this website card', 'Revisé esta tarjeta del sitio web') + '</span></label><button class="ivs-button" type="button" data-ivs-website-save' + (reviewed ? '' : ' disabled') + '>' + txNode('Review and save setting', 'Revisar y guardar configuración') + '</button><span class="ivs-website-status" role="status" aria-live="polite">' + esc(websiteMessage) + '</span></div>' : '<p class="ivs-website-body">' + esc(enEs('Only the owner can change this setting.', 'Solo el propietario puede cambiar esta configuración.')) + '</p>') + '</details>';
     if (isOwner) {
       var review = mount.querySelector('[data-ivs-website-reviewed]'), save = mount.querySelector('[data-ivs-website-save]');
-      review.addEventListener('change', function () { save.disabled = !review.checked; });
+      review.addEventListener('change', function () { websiteDraft = { enabled:mount.querySelector('[data-ivs-website-value]').checked, reviewed:review.checked }; save.disabled = !review.checked; });
+      mount.querySelector('[data-ivs-website-value]').addEventListener('change', function (event) { websiteDraft = { enabled:event.target.checked, reviewed:review.checked }; });
       save.addEventListener('click', function () {
         if (!review.checked) return;
         var value = mount.querySelector('[data-ivs-website-value]').checked, status = mount.querySelector('.ivs-website-status');
         save.disabled = true; status.textContent = enEs('Saving reviewed setting…', 'Guardando configuración revisada…');
         post({ op:'website_setting', enabled:value, reviewed:true }).then(function (result) {
-          if (result && result.ok && result.settings) { websiteEnabled = !!result.settings.website_enabled; status.textContent = enEs('Setting saved.', 'Configuración guardada.'); websiteCard(); }
-          else { status.textContent = (result && result.error) || enEs('Could not save setting.', 'No se pudo guardar la configuración.'); status.classList.add('ivs-error'); save.disabled = false; }
+          if (result && result.ok && result.settings) { websiteEnabled = !!result.settings.website_enabled; websiteDraft = null; websiteMessage = enEs('Setting saved and read back.', 'Configuración guardada y confirmada al volver a leer.'); websiteCard(); }
+          else { websiteMessage = (result && result.error) || enEs('Could not save setting.', 'No se pudo guardar la configuración.'); status.textContent = websiteMessage; status.classList.add('ivs-error'); save.disabled = false; }
         });
       });
     }
@@ -144,19 +171,25 @@
       var offerData = offer(id); return promoCard(p, offerData);
     }).join('') : '<p class="ivs-empty">' + esc(enEs('No sale Stories are available yet.', 'Aún no hay Stories de venta disponibles.')) + '</p>';
     localize(section);
+    Array.prototype.forEach.call(host.querySelectorAll('.ivs-story-preview'), function (image) {
+      var card = image.closest('[data-ivs-promo]'), checkbox = card && card.querySelector('[data-ivs-review]'), approve = card && card.querySelector('[data-ivs-approve]');
+      image.addEventListener('load', function () { if (checkbox) checkbox.disabled = false; if (approve) approve.disabled = !checkbox || !checkbox.checked; });
+      image.addEventListener('error', function () { if (checkbox) checkbox.disabled = true; if (approve) approve.disabled = true; setCardStatus(card, enEs('Exact JPEG preview could not be loaded; review is unavailable.', 'No se pudo cargar la vista JPEG exacta; la revisión no está disponible.'), true); });
+      if (image.complete && image.naturalWidth > 0 && checkbox) { checkbox.disabled = false; if (approve) approve.disabled = !checkbox.checked; }
+    });
     wirePromotionActions();
   }
   function wirePromotionActions() {
     Array.prototype.forEach.call(section.querySelectorAll('[data-ivs-review]'), function (input) {
-      input.addEventListener('change', function () { var button = section.querySelector('[data-ivs-approve="' + CSS.escape(input.getAttribute('data-ivs-review')) + '"]'); if (button) button.disabled = !input.checked; });
+      input.addEventListener('change', function () { var id = input.getAttribute('data-ivs-review'), button = section.querySelector('[data-ivs-approve="' + CSS.escape(id) + '"]'); if (input.checked) reviewDrafts.set(id, true); else reviewDrafts.delete(id); if (button) button.disabled = !input.checked; });
     });
     Array.prototype.forEach.call(section.querySelectorAll('[data-ivs-approve]'), function (button) {
       button.addEventListener('click', function () {
         var id = button.getAttribute('data-ivs-approve'), promo = promotion(id), review = section.querySelector('[data-ivs-review="' + CSS.escape(id) + '"]');
-        if (!review || !review.checked || !promo || !promo.jpeg_sha256) return;
+        if (!review || review.disabled || !review.checked || !promo || !promo.jpeg_sha256) return;
         button.disabled = true; var card = button.closest('[data-ivs-promo]'); setCardStatus(card, enEs('Approving reviewed Story…', 'Aprobando Story revisado…'));
         post({ op:'approve', item_id:id, snapshot_hash:promo.snapshot_hash, jpeg_sha256:promo.jpeg_sha256, reviewed:true }).then(function (result) {
-          if (result && result.ok) refresh(); else { button.disabled = false; setCardStatus(card, (result && result.error) || enEs('Could not approve Story.', 'No se pudo aprobar el Story.'), true); }
+          if (result && result.ok) { reviewDrafts.delete(id); refresh(); } else { button.disabled = false; setCardStatus(card, (result && result.error) || enEs('Could not approve Story.', 'No se pudo aprobar el Story.'), true); }
         });
       });
     });
@@ -214,11 +247,11 @@
     ensureSection();
     return get(API).then(function (data) {
       if (!data || data.ok !== true || data._networkError || data._status || !Array.isArray(data.declarations) || !Array.isArray(data.offers) || !Array.isArray(data.promotions) || !data.settings) {
-        sales = null; authority = 'unavailable'; actorRole = data && data.actor_role || actorRole;
-        decoratePrepared(); renderPromotions(); live((data && data.error) || enEs('Sale availability could not be verified. Count-only saves remain available.', 'No se pudo verificar la disponibilidad de venta. Los conteos normales siguen disponibles.'), true); return data;
+        sales = null; authority = 'unavailable'; actorRole = data && data.actor_role || actorRole; offers = []; promotions = []; websiteEnabled = null;
+        decoratePrepared(); syncControls(); renderPromotions(); live((data && data.error) || enEs('Sale availability could not be verified. Count-only saves remain available.', 'No se pudo verificar la disponibilidad de venta. Los conteos normales siguen disponibles.'), true); return data;
       }
       sales = data; authority = 'available'; actorRole = data.actor_role || actorRole; promotions = data.promotions; offers = data.offers; websiteEnabled = !!data.settings.website_enabled;
-      decoratePrepared(); renderPromotions(); live(''); tryRenderReady(); return data;
+      decoratePrepared(); syncControls(); renderPromotions(); live(''); tryRenderReady(); return data;
     });
   }
   function prepareSave(body, item) {
@@ -235,21 +268,23 @@
     }
     // An unchecked row with no existing declaration is a normal count only.
     if (!enabled && !decl) return { stock_count:quantity };
-    var saleExpected = decl ? Number(decl.revision) : null;
+    var savedDraft = drafts.get(id);
+    var saleExpected = savedDraft ? savedDraft.revision : (decl ? Number(decl.revision) : null);
     var ttl = Math.max(4, Math.min(48, Number(control.hours.value) || 24));
     var forSale = enabled && quantity != null && quantity > 0;
     return { stock_count:quantity, for_sale:forSale, sale_expected_revision:saleExpected, sale_expires_at:Date.now() + ttl * 60 * 60 * 1000, locale:control.locale.value === 'en' ? 'en' : 'es' };
   }
   function onFinishedSaved(event) {
     var detail = event && event.detail; if (!detail || !detail.body || detail.body.action !== 'menu_count') return;
-    var body = detail.body, id = String(body.id), promoResult = detail.response && detail.response.sales_result;
-    if (body.for_sale !== undefined) {
-      var draft = drafts.get(id); if (draft) drafts.delete(id);
-      var control = controls.get(id); if (control) { var rowItem = findPrepared(id); control.decl = declaration(id); }
-      if (promoResult && promoResult.error) live(promoResult.error, true);
-    }
+    var body = detail.body, id = String(body.id);
     // The stock count has already been persisted and read back by the parent page. Story work is a separate queue.
-    refresh();
+    refresh().then(function (data) {
+      if (body.for_sale === undefined) return;
+      if (!data || data.ok !== true || !Array.isArray(data.declarations)) { live(enEs('Sale availability readback is unavailable. Your selection remains.', 'No se pudo verificar la disponibilidad guardada. Se conserva tu selección.'), true); return; }
+      var decl = declaration(id), saved = body.for_sale ? !!(decl && decl.enabled) : !decl || !decl.enabled;
+      if (saved) drafts.delete(id);
+      else live(enEs('Count saved, but sale availability did not match readback. Your selection remains.', 'El conteo se guardó, pero la venta no coincide con la lectura. Se conserva tu selección.'), true);
+    });
   }
   function onRendered(event) {
     prepared = event && event.detail && Array.isArray(event.detail.prepared) ? event.detail.prepared : prepared;

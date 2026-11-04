@@ -76,8 +76,9 @@
   function buildSvg(model) {
     const m = prepare(model);
     const titleLines = wrapName(m.name);
-    const titleY = 444 - (titleLines.length - 1) * 47;
-    const title = titleLines.map((line, index) => `<text x="540" y="${titleY + index * 94}" class="title">${esc(line)}</text>`).join('');
+    const titleSize=Math.min(titleLines.length===1?72:titleLines.length===2?58:45,Math.floor(840/(Math.max(...titleLines.map(x=>x.length))*.72)));
+    const titleY=titleLines.length===1?474:titleLines.length===2?436:419, titleStep=titleLines.length===2?66:52;
+    const title = titleLines.map((line, index) => `<text x="540" y="${titleY + index * titleStep}" class="title" style="font-size:${titleSize}px">${esc(line)}</text>`).join('');
     const qtyLabel = m.locale === 'es' ? 'DISPONIBLE PARA PEDIR' : 'AVAILABLE TO ORDER';
     const cta = m.locale === 'es' ? 'PIDE EN LÍNEA' : 'ORDER ONLINE';
     const safeQtyLabel = esc(qtyLabel);
@@ -89,15 +90,16 @@
     const fontRules = `${m.titleFont ? `@font-face{font-family:StoryCormorant;src:url('${m.titleFont}') format('truetype');}` : ''}${m.bodyFont ? `@font-face{font-family:StoryJosefin;src:url('${m.bodyFont}') format('truetype');}` : ''}`;
     const titleFamily = m.titleFont ? 'StoryCormorant' : 'Georgia';
     const bodyFamily = m.bodyFont ? 'StoryJosefin' : 'Arial';
-    const unit = `${currency(m.priceCents, m.locale)} / ${m.unitLabel}`;
+    const singular=({units:'unit',unidades:'unidad',packs:'pack',paquetes:'paquete',bowls:'bowl',tazones:'tazón'})[m.unitLabel]||m.unitLabel;
+    const unit = `${currency(m.priceCents, m.locale)} / ${singular}`;
     return `<svg xmlns="http://www.w3.org/2000/svg" width="1080" height="1920" viewBox="0 0 1080 1920" role="img" aria-label="${esc(m.name)} inventory story">
 <defs><linearGradient id="forest" x2=".9" y2="1"><stop stop-color="#082b22"/><stop offset=".52" stop-color="#153f31"/><stop offset="1" stop-color="#071c17"/></linearGradient><linearGradient id="gold" x2="0" y2="1"><stop stop-color="#f1d28a"/><stop offset="1" stop-color="#bd9040"/></linearGradient><filter id="shadow" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="18"/></filter><style>${fontRules}.title{font-family:${titleFamily},Georgia,serif;font-size:72px;font-weight:400;letter-spacing:2px;fill:#fff2d5;text-anchor:middle}.body{font-family:${bodyFamily},Arial,sans-serif;fill:#fff2d5;text-anchor:middle;letter-spacing:3px}.gold{fill:#e3c078}.price{font-family:${titleFamily},Georgia,serif;font-size:65px;fill:#fff2d5;text-anchor:middle}.small{font-family:${bodyFamily},Arial,sans-serif;font-size:24px;fill:#f1e7d4;text-anchor:middle;letter-spacing:1px}</style></defs>
 ${imageLayer}${m.background ? '' : '<rect width="1080" height="1920" fill="#061a14" fill-opacity=".17"/>'}
 ${emblem}
-<text x="540" y="324" class="body gold" font-size="22">AÑEJO CATERING CO.</text>${title}
+<text x="540" y="365" class="body gold" font-size="22">AÑEJO CATERING CO.</text>${title}
 <text x="540" y="566" class="body" font-size="27">${safeQtyLabel}</text><text x="540" y="622" class="body gold" font-size="45" font-weight="700">${m.quantity} ${esc(m.unitLabel)}</text>
 <ellipse cx="540" cy="1045" rx="404" ry="373" fill="#000" fill-opacity=".35" filter="url(#shadow)"/><rect x="98" y="650" width="884" height="750" rx="20" fill="#f7f0e5"/><image href="${esc(m.source)}" x="98" y="650" width="884" height="750" preserveAspectRatio="xMidYMid meet"/>
-<text x="540" y="1480" class="price">${esc(unit)}</text><path d="M330 1584h112M638 1584h112" stroke="#e3c078" stroke-width="2"/><a href="${esc(m.ctaUrl)}"><text x="540" y="1594" font-family="${bodyFamily},Arial,sans-serif" font-size="30" font-weight="700" letter-spacing="3" text-anchor="middle" fill="#fff2d5">${safeCta}</text></a>
+<text x="540" y="1480" class="price">${esc(unit)}</text><path d="M180 1584h150M750 1584h150" stroke="#e3c078" stroke-width="2"/><a href="${esc(m.ctaUrl)}"><text x="540" y="1594" font-family="${bodyFamily},Arial,sans-serif" font-size="30" font-weight="700" letter-spacing="3" text-anchor="middle" fill="#fff2d5">${safeCta}</text></a>
 <text x="540" y="1680" class="small">anejocateringco.com/order</text><text x="540" y="1722" class="small">${esc(m.checkedAt)}</text></svg>`;
   }
   function rasterize(svg) {

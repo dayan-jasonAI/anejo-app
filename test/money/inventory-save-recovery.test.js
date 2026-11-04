@@ -16,14 +16,54 @@ function fixture() {
   return env;
 }
 
-test('blank, null and boolean ingredient on-hand values reject without mutation', async () => {
+test('blank, whitespace, null and non-numeric-shape ingredient on-hand values reject without mutation', async () => {
   const env = fixture();
-  for (const on_hand of [null, '', false, true]) {
+  for (const on_hand of [null, '', '   ', false, true, {}, []]) {
     const response = await post(env, { action: 'count', id: 'synthetic_beans', on_hand });
     assert.equal(response.status, 400);
   }
   assert.equal(env.DB.one("SELECT on_hand,revision FROM inventory_items WHERE id='synthetic_beans'").on_hand, 5);
   assert.equal(env.DB.one('SELECT COUNT(*) n FROM inventory_changes').n, 0);
+});
+
+test('ingredient quantity and weight preserve when omitted and clear on explicit blank/null', async () => {
+  const env = fixture();
+  env.DB.exec("UPDATE inventory_items SET count_quantity=12,total_weight_grams=450 WHERE id='synthetic_beans'");
+  let response = await post(env, { action: 'count', id: 'synthetic_beans', on_hand: 4 });
+  assert.equal(response.status, 200);
+  let row = env.DB.one("SELECT count_quantity,total_weight_grams FROM inventory_items WHERE id='synthetic_beans'");
+  assert.equal(row.count_quantity, 12);
+  assert.equal(row.total_weight_grams, 450);
+
+  for (const bad of [{ count_quantity: true }, { count_quantity: {} }, { total_weight_grams: false }, { total_weight_grams: [] }]) {
+    response = await post(env, { action: 'count', id: 'synthetic_beans', on_hand: 4, ...bad });
+    assert.equal(response.status, 400);
+  }
+  response = await post(env, { action: 'count', id: 'synthetic_beans', on_hand: 4, count_quantity: null, total_weight_grams: '  ' });
+  assert.equal(response.status, 200);
+  row = env.DB.one("SELECT count_quantity,total_weight_grams FROM inventory_items WHERE id='synthetic_beans'");
+  assert.equal(row.count_quantity, null);
+  assert.equal(row.total_weight_grams, null);
+});
+
+test('upsert optional measurements preserve when omitted and clear when explicitly blank', async () => {
+  const env = fixture();
+  env.DB.exec("UPDATE inventory_items SET count_quantity=8,total_weight_grams=900 WHERE id='synthetic_beans'");
+  let response = await post(env, { action: 'upsert', id: 'synthetic_beans', name: 'Synthetic beans' });
+  assert.equal(response.status, 200);
+  let row = env.DB.one("SELECT count_quantity,total_weight_grams,on_hand FROM inventory_items WHERE id='synthetic_beans'");
+  assert.equal(row.count_quantity, 8);
+  assert.equal(row.total_weight_grams, 900);
+  assert.equal(row.on_hand, 5);
+  response = await post(env, { action: 'upsert', id: 'synthetic_beans', name: 'Synthetic beans', count_quantity: ' ', total_weight_grams: null });
+  assert.equal(response.status, 200);
+  row = env.DB.one("SELECT count_quantity,total_weight_grams,on_hand FROM inventory_items WHERE id='synthetic_beans'");
+  assert.equal(row.count_quantity, null);
+  assert.equal(row.total_weight_grams, null);
+  assert.equal(row.on_hand, 5);
+  for (const bad of [{ count_quantity: true }, { count_quantity: [] }, { total_weight_grams: false }, { total_weight_grams: {} }]) {
+    assert.equal((await post(env, { action: 'upsert', id: 'synthetic_beans', name: 'Synthetic beans', ...bad })).status, 400);
+  }
 });
 
 test('finished count requires exact revision and prepared read exposes promotion fields', async () => {
@@ -95,6 +135,7 @@ test('sale intent validates before count commit; story asset failure does not un
     { for_sale: 'true', stock_count: 5 },
     { for_sale: true, stock_count: 0 },
     { for_sale: true, stock_count: '' },
+    { for_sale: true, stock_count: true },
     { for_sale: true, stock_count: 5, sale_expires_at: Date.now() + 49 * 60 * 60 * 1000 },
     { for_sale: true, stock_count: 5, sale_expected_revision: 0 },
     { for_sale: true, stock_count: 5, locale: 'fr' },
@@ -115,6 +156,20 @@ test('sale intent validates before count commit; story asset failure does not un
   assert.equal(env.DB.one("SELECT enabled FROM inventory_sale_offers WHERE menu_item_id='vida'").enabled, 1);
   assert.equal(env.DB.one("SELECT state FROM inventory_sale_promotions WHERE menu_item_id='vida'").state, 'error');
   assert.equal(JSON.parse(env.DB.one('SELECT after_json FROM inventory_changes WHERE id=?', saved.change_id).after_json).__sale_intent.locale, 'en');
+});
+
+test('finished count rejects boolean values, treats whitespace as uncounted, and keeps zero explicit', async () => {
+  const env = fixture();
+  for (const stock_count of [true, false, {}, []]) {
+    assert.equal((await post(env, { action: 'menu_count', id: 'vida', stock_count, expected_revision: 0 })).status, 400);
+  }
+  assert.equal(env.DB.one("SELECT stock_count FROM menu_items WHERE id='vida'").stock_count, null);
+  let response = await post(env, { action: 'menu_count', id: 'vida', stock_count: 0, expected_revision: 0 });
+  assert.equal(response.status, 200);
+  assert.equal(env.DB.one("SELECT stock_count FROM menu_items WHERE id='vida'").stock_count, 0);
+  response = await post(env, { action: 'menu_count', id: 'vida', stock_count: '   ', expected_revision: 1 });
+  assert.equal(response.status, 200);
+  assert.equal(env.DB.one("SELECT stock_count FROM menu_items WHERE id='vida'").stock_count, null);
 });
 
 test('false sale intent withdraws only the batch offer and replay reuses original sale timestamp', async () => {

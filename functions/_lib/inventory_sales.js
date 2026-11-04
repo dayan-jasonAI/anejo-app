@@ -7,7 +7,7 @@ export class InventorySaleError extends Error {
   constructor(code) { super(code); this.name = 'InventorySaleError'; this.code = code; }
 }
 
-const int = (v) => v !== null && v !== '' && v !== undefined && Number.isSafeInteger(Number(v));
+const int = (v) => (typeof v==='number'||typeof v==='string'&&v.trim()!=='') && Number.isSafeInteger(Number(v));
 const resultChanges = (r) => Number(r?.meta?.changes || 0);
 const validImage = (v) => typeof v === 'string' && /^(?:\/?[a-zA-Z0-9_-]+\/)*[a-zA-Z0-9_-]+\.(?:png|jpe?g|webp)$/i.test(v) && !v.split('/').includes('..');
 const idSet = (xs) => [...new Set(xs)];
@@ -43,7 +43,7 @@ export async function saleOfferSnapshot(env, at = Date.now()) {
     const menu = await loadMenu(env);
     if (menu?.source !== 'd1') return { ok: false, error: 'sale_offer_authority_unavailable', read_at: at, offers: [], suppressed: [] };
     const offersResult = await env.DB.prepare('SELECT * FROM inventory_sale_offers ORDER BY menu_item_id').all();
-    const reservationsResult = await env.DB.prepare('SELECT menu_item_id,offer_revision,quantity FROM inventory_sale_reservations').all();
+    const reservationsResult = await env.DB.prepare('SELECT r.menu_item_id,r.offer_revision,SUM(r.quantity) AS quantity FROM inventory_sale_reservations r JOIN inventory_sale_offers o ON o.menu_item_id=r.menu_item_id AND o.revision=r.offer_revision GROUP BY r.menu_item_id,r.offer_revision').all();
     if (offersResult?.success === false || reservationsResult?.success === false || !Array.isArray(offersResult?.results) || !Array.isArray(reservationsResult?.results)) throw new Error('read_failed');
     const items = new Map((menu.items || []).map((item) => [item.id, item]));
     const reserved = new Map();

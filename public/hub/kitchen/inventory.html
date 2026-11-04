@@ -389,8 +389,8 @@
   function countReadback(body, data) {
     var fresh = Array.isArray(data && data.items) && data.items.find(function (item) { return String(item.id) === String(body.id); });
     return !!fresh && Number(fresh.on_hand) === Number(body.on_hand) &&
-      (body.count_quantity == null || Number(fresh.count_quantity) === Number(body.count_quantity)) &&
-      (body.total_weight_grams == null || Number(fresh.total_weight_grams) === Number(body.total_weight_grams)) &&
+      (!Object.prototype.hasOwnProperty.call(body,'count_quantity') || (body.count_quantity == null ? fresh.count_quantity == null : Number(fresh.count_quantity) === Number(body.count_quantity))) &&
+      (!Object.prototype.hasOwnProperty.call(body,'total_weight_grams') || (body.total_weight_grams == null ? fresh.total_weight_grams == null : Number(fresh.total_weight_grams) === Number(body.total_weight_grams))) &&
       (body.expires_on == null || String(fresh.expires_on || '') === String(body.expires_on));
   }
   function rowSaved(card, body, verify) {

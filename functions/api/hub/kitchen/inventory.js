@@ -236,8 +236,8 @@ export const onRequestPost = async ({ request, env, waitUntil, context }) => {
     const quantity = own(b, 'count_quantity') ? numeric(b.count_quantity, null) : undefined;
     const weight = own(b, 'total_weight_grams') ? numeric(b.total_weight_grams, null) : undefined;
     const expiry = b.expires_on == null ? undefined : String(b.expires_on).trim();
-    if (quantity !== undefined && (!Number.isSafeInteger(quantity) || quantity < 0)) return bad('Count quantity must be a whole number ≥ 0.');
-    if (weight !== undefined && (!Number.isFinite(weight) || weight < 0)) return bad('Total weight must be a number ≥ 0 grams.');
+    if (quantity != null && (!Number.isSafeInteger(quantity) || quantity < 0)) return bad('Count quantity must be a whole number ≥ 0.');
+    if (weight != null && (!Number.isFinite(weight) || weight < 0)) return bad('Total weight must be a number ≥ 0 grams.');
     if (expiry !== undefined && expiry !== '' && (!/^\d{4}-\d{2}-\d{2}$/.test(expiry) || new Date(`${expiry}T00:00:00Z`).toISOString().slice(0,10) !== expiry)) return bad('Expiration date must be a valid YYYY-MM-DD date.');
 
     const item = await env.DB.prepare('SELECT * FROM inventory_items WHERE id=?').bind(itemId).first();
@@ -338,8 +338,9 @@ export const onRequestPost = async ({ request, env, waitUntil, context }) => {
   if (!name) return bad('Item name is required.');
   if (onHand != null && (!Number.isFinite(onHand) || onHand < 0)) return bad('On-hand must be a number ≥ 0.');
   if (parLevel != null && (!Number.isFinite(parLevel) || parLevel < 0)) return bad('Par level must be a number ≥ 0.');
-  if (countQuantity !== undefined && (!Number.isSafeInteger(countQuantity) || countQuantity < 0)) return bad('Count quantity must be a whole number ≥ 0.');
-  if (totalWeight !== undefined && (!Number.isFinite(totalWeight) || totalWeight < 0)) return bad('Total weight must be a number ≥ 0 grams.');
+  if (countQuantity != null && (!Number.isSafeInteger(countQuantity) || countQuantity < 0)) return bad('Count quantity must be a whole number ≥ 0.');
+  if (totalWeight != null && (!Number.isFinite(totalWeight) || totalWeight < 0)) return bad('Total weight must be a number ≥ 0 grams.');
+  if (unitCostCents != null && !Number.isSafeInteger(unitCostCents)) return bad('Unit cost must be a valid amount in cents.');
   if (expiresOn !== undefined && expiresOn !== '' && (!/^\d{4}-\d{2}-\d{2}$/.test(expiresOn) || new Date(`${expiresOn}T00:00:00Z`).toISOString().slice(0,10) !== expiresOn)) return bad('Expiration date must be a valid YYYY-MM-DD date.');
 
   let supplierId = null;

@@ -41,10 +41,10 @@ test('buildSvg is deterministic, embeds provided assets, and uses the requested 
 test('English and Spanish labels are selected deterministically', () => {
   const en = buildSvg(model());
   const es = buildSvg(model({ locale: 'es' }));
-  assert.match(en, /AVAILABLE NOW/);
+  assert.match(en, /AVAILABLE TO ORDER/);
   assert.match(en, /ORDER ONLINE/);
   assert.match(en, /\$24\.50 \/ per tray/);
-  assert.match(es, /DISPONIBLE AHORA/);
+  assert.match(es, /DISPONIBLE PARA PEDIR/);
   assert.match(es, /PIDE EN LÍNEA/);
   assert.match(es, /\$24\.50 \/ por bandeja/);
 });

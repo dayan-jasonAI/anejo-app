@@ -28,7 +28,7 @@ export async function onRequestPost({request,env}){
   if(b.op==='render'){
    if(p.state!=='preview_ready'&&p.state!=='ready_for_review')return bad('Refresh the current Story preview.',409);
    if(typeof b.data_url!=='string'||!/^data:image\/jpeg;base64,[A-Za-z0-9+/]+=*$/.test(b.data_url))return bad('Upload the rendered JPEG Story.');
-   const raw=atob(b.data_url.split(',')[1]);if(raw.length>5*1024*1024)return bad('Story image exceeds the upload limit.');const bytes=Uint8Array.from(raw,c=>c.charCodeAt(0)),size=jpegDimensions(bytes);
+   const raw=atob(b.data_url.split(',')[1]);if(raw.length>5*1024*1024)return bad('Story image exceeds the upload limit.');const bytes=Uint8Array.from(raw,c=>c.charCodeAt(0));let size;try{size=jpegDimensions(bytes);}catch{return bad('Upload a valid 1080 × 1920 JPEG Story.');}
    if(size?.width!==1080||size?.height!==1920)return bad('Story image must be 1080 × 1920.');
    const sha=await inventorySaleDigest(bytes),key=`studio/inventory/${p.post_id}/${sha}.jpg`;await env.MEDIA.put(key,bytes,{httpMetadata:{contentType:'image/jpeg'}});
    const guard=inventoryPromotionGuard(JSON.parse(p.snapshot_json).source);
@@ -46,7 +46,7 @@ export async function onRequestPost({request,env}){
    // Validate the same exact receipt the publisher will check, without creating a publication.
    const changed=await env.DB.prepare("UPDATE inventory_sale_promotions SET state='reviewed',reviewed_by=?,reviewed_at=?,updated_at=? WHERE menu_item_id=? AND snapshot_hash=? AND jpeg_sha256=? AND state='ready_for_review'").bind(ctx.distinct_id,at,at,itemId,p.snapshot_hash,p.jpeg_sha256).run();
    if(changed?.meta?.changes!==1)return bad('Inventory changed. Refresh the Story preview.',409);
-   const check=await verifyInventoryStoryReview(env,{id:p.post_id,source:'inventory'});
+   const check=await verifyInventoryStoryReview(env,{id:p.post_id,source:'inventory',media_type:'STORIES',platform:'instagram'});
    if(!check.ok){await env.DB.prepare("UPDATE inventory_sale_promotions SET state='ready_for_review',reviewed_by=NULL,reviewed_at=NULL WHERE menu_item_id=? AND snapshot_hash=?").bind(itemId,p.snapshot_hash).run();return bad(check.error,409);}
    await env.DB.prepare('INSERT INTO inventory_sale_promotion_events(id,menu_item_id,post_id,snapshot_hash,action,actor_id,details_json,created_at)VALUES(?,?,?,?,?,?,?,?)').bind(crypto.randomUUID(),itemId,p.post_id,p.snapshot_hash,'owner_preview_approved',ctx.distinct_id,JSON.stringify({jpeg_sha256:p.jpeg_sha256,locale:p.locale,publication:false}),at).run();
    return json({ok:true,state:'reviewed',post_id:p.post_id},200,headers);
