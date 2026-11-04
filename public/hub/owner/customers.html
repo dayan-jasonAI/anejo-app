@@ -12,7 +12,7 @@
 <style>
   .cust-right { text-align:right; font-size:12px; color:var(--green); white-space:nowrap; }
   .cust-right b { display:block; font-size:13px; }
-  .oi-row { display:grid; grid-template-columns: 1fr 64px 84px 36px; gap:8px; margin-bottom:8px; align-items:center; }
+  .oi-row { display:grid; grid-template-columns: minmax(150px,1.4fr) minmax(130px,1fr) 64px 84px 36px; gap:8px; margin-bottom:8px; align-items:center; }
   .oi-row input { padding:9px; }
   .oi-row .rm { background:transparent;border:1px solid var(--line);color:var(--crit);border-radius:8px;cursor:pointer;height:38px; }
   .addr-row { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
@@ -50,6 +50,8 @@
 
   var esc = Hub.esc, $ = Hub.$;
   var searchT = 0;
+  var orderCatalog = [];
+  var orderCatalogByLabel = new Map();
 
   function refresh() { if (window.AnejoI18n) window.AnejoI18n.refresh(); }
 
@@ -455,14 +457,43 @@
     var div = document.createElement('div');
     div.className = 'oi-row';
     div.innerHTML =
+      '<input class="i-catalog" type="search" list="o-catalog-options" placeholder="Search catalog / Buscar catálogo" autocomplete="off" aria-label="Catalog item / Artículo del catálogo">' +
+      '<input class="i-sku" type="hidden" value="">' +
       '<input class="i-name" placeholder="Item" value="' + esc(item.name || '') + '">' +
       '<input class="i-qty" type="number" min="1" step="1" placeholder="Qty" value="' + (item.qty != null ? esc(item.qty) : '1') + '">' +
       '<input class="i-price" type="number" min="0" step="0.01" placeholder="Price $" value="">' +
       '<button class="rm" type="button" aria-label="Remove">✕</button>';
     div.querySelector('.rm').addEventListener('click', function () { div.remove(); preview(); });
     div.querySelectorAll('input').forEach(function (i) { i.addEventListener('input', preview); });
+    var catalogInput = div.querySelector('.i-catalog');
+    catalogInput.addEventListener('input', function () {
+      var selected = orderCatalogByLabel.get(catalogInput.value.trim());
+      div.querySelector('.i-sku').value = selected ? selected.id : '';
+      if (selected) {
+        div.querySelector('.i-name').value = selected.name;
+        div.querySelector('.i-price').value = (Number(selected.price_cents) / 100).toFixed(2);
+      }
+      preview();
+    });
     $('#o-lines').appendChild(div);
     refresh();
+  }
+
+  function loadOrderCatalog() {
+    Hub.api('/api/hub/owner/menu').then(function (res) {
+      if (!res || !res.ok || !Array.isArray(res.items)) return;
+      orderCatalog = res.items.filter(function (it) { return it && it.active !== 0 && it.active !== false; });
+      orderCatalogByLabel.clear();
+      var es = window.AnejoLang && window.AnejoLang.get() === 'es';
+      var opts = orderCatalog.map(function (it) {
+        var name = es ? (it.name_es || it.name || it.id) : (it.name || it.name_es || it.id);
+        var label = name + ' · SKU ' + it.id + ' · $' + (Number(it.price_cents || 0) / 100).toFixed(2);
+        orderCatalogByLabel.set(label, { id: it.id, name: name, price_cents: it.price_cents });
+        return '<option value="' + esc(label) + '"></option>';
+      }).join('');
+      var list = document.getElementById('o-catalog-options');
+      if (list) list.innerHTML = opts;
+    }).catch(function () { /* Manual custom lines remain available if catalog is offline. */ });
   }
 
   function collectLines() {
@@ -472,7 +503,12 @@
       var qty = Math.floor(Number(r.querySelector('.i-qty').value)) || 1;
       var priceUsd = r.querySelector('.i-price').value;
       var cents = priceUsd === '' ? 0 : Math.round(Number(priceUsd) * 100);
-      if (name) out.push({ name: name, qty: qty, price_cents: Number.isFinite(cents) && cents >= 0 ? cents : 0 });
+      if (name) {
+        var line = { name: name, qty: qty, price_cents: Number.isFinite(cents) && cents >= 0 ? cents : 0 };
+        var sku = r.querySelector('.i-sku').value;
+        if (sku) line.id = sku;
+        out.push(line);
+      }
     });
     return out;
   }
@@ -525,6 +561,8 @@
         $('#o-street').value = ''; $('#o-unit').value = ''; $('#o-city').value = '';
         $('#o-state').value = 'FL'; $('#o-zip').value = ''; $('#o-anotes').value = '';
         $('#o-date').value = todayStr();
+    var catalogList = document.createElement('datalist'); catalogList.id = 'o-catalog-options'; document.body.appendChild(catalogList);
+    loadOrderCatalog();
         preview();
         window.location.hash = '';
         loadList($('#q') ? $('#q').value.trim() : '');

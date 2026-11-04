@@ -1,5 +1,5 @@
 // /api/hub/owner/orders — manual order entry (phone / in-person sales).
-//   POST { customer_name, customer_email?, phone?, items:[{name,qty,price_cents?}],
+//   POST { customer_name, customer_email?, phone?, items:[{id?,name,qty,price_cents?}],
 //          delivery_date, delivery_window:'lunch'|'dinner', subtotal_cents?, fee_cents?,
 //          status?:'paid'|'pending', note?,
 //          address?:{street,unit?,city,state?,zip,notes?} }
@@ -95,10 +95,30 @@ export const onRequestPost = async ({ request, env }) => {
   if (rawItems.length > 40) return bad('Too many item lines.');
 
   const orderItems = [];
+  // Preserve only exact catalog IDs selected by the owner. Custom lines remain unlinked so
+  // inventory review can distinguish them; names are never used to guess a SKU.
+  let catalogRows = new Map();
+  const selectedIds = [...new Set(rawItems.map((it) => it && typeof it.id === 'string' ? it.id.trim() : '').filter(Boolean))];
+  if (selectedIds.length) {
+    try {
+      const marks = selectedIds.map(() => '?').join(',');
+      const found = await env.DB.prepare(
+        `SELECT id, name, name_es, price_cents FROM menu_items WHERE active = 1 AND id IN (${marks})`
+      ).bind(...selectedIds).all();
+      catalogRows = new Map(((found && found.results) || []).map((row) => [row.id, row]));
+    } catch {
+      return bad('The live catalog could not be checked. No order was created.', 503);
+    }
+    if (selectedIds.some((sku) => !catalogRows.has(sku))) return bad('A selected catalog item is no longer active. Refresh the catalog and try again.', 409);
+  }
   let computedSubtotal = 0;
   let itemCount = 0;
   for (const it of rawItems) {
-    const name = (it && it.name || '').toString().trim().slice(0, 120);
+    const sku = it && typeof it.id === 'string' ? it.id.trim() : '';
+    if (it && it.id != null && (typeof it.id !== 'string' || !sku)) return bad('Catalog item selection is invalid.');
+    const catalogRow = sku ? catalogRows.get(sku) : null;
+    if (sku && !catalogRow) return bad('A selected catalog item is no longer active. Refresh the catalog and try again.', 409);
+    const name = (catalogRow ? (catalogRow.name || catalogRow.name_es) : (it && it.name) || '').toString().trim().slice(0, 120);
     if (!name) return bad('Every item needs a name.');
     const qty = Math.floor(Number(it && it.qty));
     if (!Number.isFinite(qty) || qty < 1 || qty > 50) return bad(`Invalid quantity for ${name}.`);
@@ -109,7 +129,7 @@ export const onRequestPost = async ({ request, env }) => {
     }
     computedSubtotal += priceCents * qty;
     itemCount += qty;
-    orderItems.push({ name, qty, price_cents: priceCents });
+    orderItems.push({ ...(sku ? { id: sku, catalog_price_cents: Number(catalogRow.price_cents) } : {}), name, qty, price_cents: priceCents });
   }
 
   // Note + phone ride inside the items JSON as a trailing meta entry — the kitchen board
@@ -153,15 +173,16 @@ export const onRequestPost = async ({ request, env }) => {
     `INSERT INTO orders (id, square_order_id, payment_link_id, items, delivery_date, delivery_window,
         subtotal_cents, fee_cents, tax_pct, total_estimate_cents, status, customer_name, customer_email,
         customer_phone, delivery_street, delivery_unit, delivery_city, delivery_state, delivery_zip,
-        delivery_notes, delivery_lat, delivery_lng, geocoded_at, created_at, updated_at)
-     VALUES (?, NULL, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+        delivery_notes, delivery_lat, delivery_lng, geocoded_at, created_at, updated_at,
+        inventory_paid_at, inventory_paid_basis)
+     VALUES (?, NULL, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
   ).bind(
     orderId, JSON.stringify(orderItems), dateStr, win,
     subtotalCents, feeCents, taxPct, totalCents, status, customerName, customerEmail,
     phone,
     addr ? addr.street : null, addr ? addr.unit : null, addr ? addr.city : null,
     addr ? addr.state : null, addr ? addr.zip : null, addr ? addr.notes : null,
-    lat, lng, geocodedAt, t, t
+    lat, lng, geocodedAt, t, t, status === 'paid' ? t : null, status === 'paid' ? 'owner_paid' : null
   ).run();
 
   // The stored payment state controls the label: an unpaid phone order is not a paid sale.
