@@ -1,3 +1,4 @@
+/* global __dirname, Buffer, URL, process, localStorage, window, document, location, innerWidth, URLSearchParams, fetch, Event, console */
 /* Local joined inventory availability + order deep-link browser probe.
  * Uses the real stock-highlights GET against isolated SQLite; all other APIs are synthetic,
  * all network outside the local fixture server is blocked, and no checkout/provider is called.
@@ -60,6 +61,7 @@ function send(res, status, value, type = 'application/json; charset=utf-8') {
         DB.prepare('DELETE FROM inventory_sale_reservations WHERE menu_item_id=?').bind(SKU).run();
         if (next.reserved > 0) DB.prepare('INSERT INTO inventory_sale_reservations(order_id,menu_item_id,offer_revision,quantity,reserved_at) VALUES(?,?,?,?,?)').bind('browser-reservation',SKU,Number(saved.revision),next.reserved,Date.now()).run();
       }
+      if (next.enabled != null) DB.prepare('UPDATE inventory_sale_offers SET enabled=? WHERE menu_item_id=?').bind(next.enabled ? 1 : 0, SKU).run();
       if (next.expired != null) state.expired = !!next.expired;
       send(res,200,{ok:true}); return;
     }
@@ -87,7 +89,7 @@ function send(res, status, value, type = 'application/json; charset=utf-8') {
   await new Promise(resolve => server.listen(0,'127.0.0.1',resolve));
   const base = `http://127.0.0.1:${server.address().port}`;
   const context = await browser.newContext({ viewport:{width:375,height:850}, serviceWorkers:'block' });
-  await context.addInitScript(() => { try { localStorage.setItem('anejo:lang','en'); } catch {} window.confirm=()=>false; window.alert=()=>{}; });
+  await context.addInitScript(() => { try { localStorage.setItem('anejo:lang','en'); } catch { /* isolated browser storage may be unavailable */ } window.confirm=()=>false; window.alert=()=>{}; });
   const page = await context.newPage();
   const pageErrors = [];
   page.on('pageerror', error => pageErrors.push(error.message));
@@ -110,6 +112,8 @@ function send(res, status, value, type = 'application/json; charset=utf-8') {
     assert.ok(first.documentWidth <= first.viewport + 1, `English page horizontal overflow ${first.documentWidth}px > ${first.viewport}px`);
     const outDir = process.env.ANEJO_STOCK_AUDIT_OUT ? path.resolve(process.env.ANEJO_STOCK_AUDIT_OUT) : path.resolve(ROOT,'../anejo-deliverables/inventory-sales-recovery-2026-11-03/browser-stock');
     fs.mkdirSync(outDir,{recursive:true});
+    await page.waitForFunction(() => { const photo = document.querySelector('.stock-highlight-photo'); return photo && photo.complete && photo.naturalWidth > 0; }, null, { timeout:10000 });
+    assert.equal(await page.locator('.stock-highlight-photo').getAttribute('src'), '/assets/img/' + source.image, 'card loads the original catalog image');
     await page.screenshot({path:path.join(outDir,'order-stock-highlights-en-375.png'),fullPage:false});
 
     await page.locator('.stock-highlight-cta').click();
@@ -128,9 +132,9 @@ function send(res, status, value, type = 'application/json; charset=utf-8') {
     assert.equal(enriched.find(x=>x.id==='catering_emp-ham-10')?.sale_offer_revision,undefined);
 
     await page.evaluate(() => window.AnejoLang?.set('es'));
-    await page.waitForFunction(() => document.querySelector('.stock-highlights h2')?.textContent.includes('Cantidades'), null, { timeout:5000 });
+    await page.waitForFunction(() => document.querySelector('.stock-highlights h2')?.textContent.includes('Lotes'), null, { timeout:5000 });
     const spanish = await page.evaluate(() => ({ title:document.querySelector('.stock-highlights h2')?.textContent, name:document.querySelector('.stock-highlight-card h3')?.textContent, cta:document.querySelector('.stock-highlight-cta')?.textContent.trim(), width:innerWidth, documentWidth:document.documentElement.scrollWidth }));
-    assert.match(spanish.title,/Cantidades/);
+    assert.match(spanish.title,/Lotes/);
     assert.match(spanish.name,/Empanada de queso/);
     assert.match(spanish.cta,/entrega/i);
     assert.ok(spanish.documentWidth <= spanish.width + 1, `Spanish page horizontal overflow ${spanish.documentWidth}px > ${spanish.width}px`);
@@ -146,9 +150,10 @@ function send(res, status, value, type = 'application/json; charset=utf-8') {
     await setState({website_enabled:true,reserved:20,expired:false});
     await page.waitForTimeout(200);
     assert.equal(await page.locator('.stock-highlights').evaluate(el=>el.hidden),true,'fully reserved stock hides');
-    await setState({website_enabled:false,reserved:0,expired:false});
-    assert.equal(await page.locator('.stock-highlights').evaluate(el=>el.hidden),true,'off declaration is suppressed');
-    await setState({website_enabled:true,reserved:0,expired:true});
+    await setState({website_enabled:true,reserved:0,enabled:false,expired:false});
+    assert.equal(DB.one('SELECT enabled FROM inventory_sale_offers WHERE menu_item_id=?', SKU).enabled, 0);
+    assert.equal(await page.locator('.stock-highlights').evaluate(el=>el.hidden),true,'off declaration is suppressed while website flag remains enabled');
+    await setState({website_enabled:true,reserved:0,enabled:true,expired:true});
     await page.waitForTimeout(250);
     assert.equal(await page.locator('.stock-highlights').evaluate(el=>el.hidden),true,'expired declaration is suppressed');
 

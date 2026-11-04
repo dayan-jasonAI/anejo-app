@@ -481,8 +481,9 @@
         status.textContent = 'Saving owner review…';
         var reviewBody = {
           action:'review_photo', id:id, photo_key:button.getAttribute('data-key'), decision:button.getAttribute('data-review'),
-          expected_revision:item && item.revision, request_id:uuid()
+          expected_revision:item && item.revision
         };
+        reviewBody.request_id = requestId(reviewBody);
         postStable('/api/hub/kitchen/inventory', reviewBody).then(function (d) {
           if (d && d.ok) load(function (data) { var expected = reviewBody.decision === 'approve' ? 'approved' : 'rejected'; var fresh = (data.items || []).find(function (row) { return String(row.id) === String(id); }); rowStatus(document.querySelector('[data-card="' + CSS.escape(String(id)) + '"]'), fresh && fresh.photo_status === expected ? tx('Photo review saved and read back.', 'Revisión de foto guardada y confirmada.') : tx('Review was acknowledged, but readback is unknown.', 'La revisión fue aceptada, pero no se pudo confirmar al volver a leer.'), !(fresh && fresh.photo_status === expected)); });
           else if (d && d._unknown) { rowStatus(card, d.error, true); Array.prototype.forEach.call(buttons, function (b) { b.disabled = false; }); }
@@ -496,7 +497,8 @@
         if (!window.confirm('Archive this inventory item?')) return;
         var id = button.getAttribute('data-archive'), item = currentItems.find(function (it) { return String(it.id) === String(id); });
         button.disabled = true;
-        var archiveBody = { action:'archive', id:id, expected_revision:item && item.revision, request_id:uuid() };
+        var archiveBody = { action:'archive', id:id, expected_revision:item && item.revision };
+        archiveBody.request_id = requestId(archiveBody);
         postStable('/api/hub/kitchen/inventory', archiveBody).then(function (d) {
           if (d && d.ok) load(function (data) { var removed = !(data.items || []).some(function (row) { return String(row.id) === String(id); }); if (!removed) rowStatus(document.querySelector('[data-card="' + CSS.escape(String(id)) + '"]'), tx('Archive was acknowledged, but the item still appears in readback.', 'El archivo fue aceptado, pero el artículo aún aparece al volver a leer.'), true); });
           else if (d && d._unknown) { button.disabled = false; rowStatus(button.closest('[data-card]'), d.error, true); }
@@ -603,8 +605,9 @@
       expires_on:$('#a-expires').value || null,
       par_level:$('#a-par').value === '' ? null : Number($('#a-par').value),
       unit_cost_cents:$('#a-cost').value === '' ? null : Math.round(Number($('#a-cost').value) * 100),
-      vendor_id:$('#a-vendor').value || null, request_id:uuid()
+      vendor_id:$('#a-vendor').value || null
     };
+    upsertBody.request_id = requestId(upsertBody);
     postStable('/api/hub/kitchen/inventory', upsertBody).then(function (d) {
       button.disabled = false;
       if (d && d.ok) {
@@ -612,6 +615,7 @@
         load(function (data) {
           var fresh = (data.items || []).find(function (item) { return String(item.id) === String(d.id) && item.name === upsertBody.name; });
           if (!fresh) { status.textContent = tx('Save was acknowledged, but readback did not match. Form values were kept.', 'El guardado fue aceptado, pero la lectura no coincide. Se conservaron los valores del formulario.'); status.classList.add('inv-error'); return; }
+          var confirmedBody = Object.assign({}, upsertBody); delete confirmedBody.request_id; saveRequests.delete(JSON.stringify(confirmedBody));
           status.textContent = tx('Item added and read back.', 'Artículo agregado y confirmado al volver a leer.');
           ['a-name','a-unit','a-onhand','a-count','a-weight','a-expires','a-par','a-cost'].forEach(function (fieldId) { $('#' + fieldId).value = ''; }); $('#a-vendor').value = '';
         });

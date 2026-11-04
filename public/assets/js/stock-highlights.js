@@ -99,12 +99,12 @@
     var intro = document.createElement('div');
     var eyebrow = document.createElement('p');
     eyebrow.className = 'stock-highlights-eyebrow';
-    eyebrow.textContent = text('LIMITED MENU AVAILABILITY', 'EXISTENCIAS LIMITADAS DEL MENÚ');
+    eyebrow.textContent = text('FROM OUR KITCHEN', 'DE NUESTRA COCINA');
     var title = document.createElement('h2');
-    title.textContent = text('Recorded quantities', 'Cantidades registradas');
+    title.textContent = text('Limited batches. Full of flavor.', 'Lotes limitados. Mucho sabor.');
     var note = document.createElement('p');
     note.className = 'stock-highlights-note';
-    note.textContent = text('Recorded at the count time. Check current availability before ordering.', 'Registrado al momento del conteo. Consulta las existencias actuales antes de pedir.');
+    note.textContent = text('Claim your favorites while this batch is available. Choose your delivery at checkout.', 'Reserva tus favoritos mientras haya existencias. Elige tu entrega al pagar.');
     intro.append(eyebrow, title, note);
     heading.append(intro);
     root.append(heading);
@@ -169,7 +169,7 @@
     }
     var foot = document.createElement('p');
     foot.className = 'stock-highlights-footnote';
-    foot.textContent = text('Availability can change. Confirm current stock in the menu.', 'Las existencias pueden cambiar. Confirma la disponibilidad actual en el menú.');
+    foot.textContent = text('Quantities may change until checkout.', 'Las cantidades pueden cambiar hasta finalizar la compra.');
     root.append(foot);
 
     clearExpiry();
