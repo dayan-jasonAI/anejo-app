@@ -2,6 +2,7 @@
 (function () {
   "use strict";
   var dictionary = {
+    'Inventory story': 'Historia de inventario',
     "Catalog artwork exceeds the image limit.": "La imagen del catálogo supera el límite permitido.",
     "Catalog artwork is unavailable.": "La imagen del catálogo no está disponible.",
     "Choose English or Spanish.": "Elige inglés o español.",
