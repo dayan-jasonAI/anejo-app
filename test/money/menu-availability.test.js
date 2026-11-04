@@ -219,7 +219,8 @@ test('blank means NO LIMIT and zero means NONE LEFT — never conflated', () => 
   // sold-out item back on sale when someone cleared the box.
   assert.match(MIG60, /NULL means "no manual count"/);
   assert.match(HUBAPI, /if \(raw === '' \|\| raw == null\) next\.stock_count = null;/);
-  assert.match(INVAPI, /if \(raw !== '' && raw != null\)/);
+  assert.match(INVAPI, /if \(raw != null && !\(typeof raw === 'string' && raw\.trim\(\) === ''\)\)/);
+  assert.match(INVAPI, /if \(!Number\.isInteger\(b\.expected_revision\).*Finished-item count changed/);
 });
 
 test('what is LEFT is derived, never stored', () => {
@@ -231,7 +232,8 @@ test('what is LEFT is derived, never stored', () => {
 
 test('the kitchen can set counts from the inventory page', () => {
   assert.match(INVAPI, /action === 'menu_count'/);
-  assert.match(INVAPI, /UPDATE menu_items SET stock_count=\?, updated_at=\?, stock_counted_at=\?, inventory_revision=inventory_revision\+1,last_inventory_change_id=\? WHERE id=\? AND inventory_revision=\?/);
+  assert.match(INVAPI, /UPDATE menu_items SET stock_count=\?, availability=COALESCE\(\?,availability\), updated_at=\?, stock_counted_at=\?, inventory_revision=inventory_revision\+1,last_inventory_change_id=\? WHERE id=\? AND inventory_revision=\?/);
+  assert.match(INVAPI, /Finished-item count changed\. Refresh before saving\./);
   const INVPAGE = readFileSync(new URL('../../public/hub/kitchen/inventory.html', import.meta.url), 'utf8');
   assert.match(INVPAGE, /Ready to sell today/);
   assert.match(INVPAGE, /action:\s*'menu_count'/);

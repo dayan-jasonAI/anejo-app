@@ -6,7 +6,7 @@
   var API = '/api/hub/kitchen/inventory-sales';
   var page = document.getElementById('prepared');
   var sales = null, authority = 'loading', prepared = [], actorRole = null, section = null;
-  var controls = new Map(), drafts = new Map(), reviewDrafts = new Map(), websiteDraft = null, websiteMessage = '', promotions = [], offers = [], websiteEnabled = null;
+  var controls = new Map(), drafts = new Map(), countBases = new Map(), saleExpiries = new Map(), reviewDrafts = new Map(), websiteDraft = null, websiteMessage = '', promotions = [], offers = [], websiteEnabled = null;
   var processing = false, refreshQueued = false, renderQueue = Promise.resolve();
   var Hub = window.Hub, Kitchen = window.Kitchen;
   var esc = Hub && Hub.esc ? Hub.esc : function (value) { return String(value == null ? '' : value).replace(/[&<>"']/g, function (c) { return ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' })[c]; }); };
@@ -18,11 +18,6 @@
       node.textContent = node.getAttribute(isEs ? 'data-ivs-es' : 'data-ivs-en');
     });
   }
-  function uuid() {
-    if (window.crypto && window.crypto.randomUUID) return window.crypto.randomUUID();
-    var b = new Uint8Array(16); window.crypto.getRandomValues(b); b[6] = (b[6] & 15) | 64; b[8] = (b[8] & 63) | 128;
-    return Array.prototype.map.call(b, function (x, i) { return ([4,6,8,10].indexOf(i) >= 0 ? '-' : '') + ('0' + x.toString(16)).slice(-2); }).join('');
-  }
   function get(path) {
     if (!Kitchen || !Kitchen.get) return Promise.resolve({ ok:false, error:'Inventory sales are unavailable.' });
     return Kitchen.get(path);
@@ -31,6 +26,8 @@
     if (!Kitchen || !Kitchen.post) return Promise.resolve({ ok:false, error:'Inventory sales are unavailable.' });
     return Kitchen.post(API, body);
   }
+  function catalogPhoto(path) { return !path ? '' : path.indexOf('/assets/img/') === 0 ? path : '/assets/img/' + path.replace(/^\//, ''); }
+  function reviewKey(promo) { return promo.snapshot_hash + ':' + promo.jpeg_sha256; }
   function href(itemId, hash, jpeg) {
     return API + '?preview=' + encodeURIComponent(itemId) + '&snapshot=' + encodeURIComponent(hash) + (jpeg ? '&jpeg=1' : '');
   }
@@ -39,6 +36,7 @@
   function declaration(id) { return sales && Array.isArray(sales.declarations) ? sales.declarations.find(function (d) { return String(d.menu_item_id) === String(id); }) || null : null; }
   function promotion(id) { return promotions.find(function (p) { return String(p.menu_item_id) === String(id); }) || null; }
   function offer(id) { return offers.find(function (o) { return String(o.item_id) === String(id); }) || null; }
+  function staleSnapshot(promo, offerData) { return !!(promo && promo.state !== 'withdrawn' && (!offerData || Number(promo.offer_revision) !== Number(offerData.revision))); }
   function currentRevision(id) { var d = declaration(id); return d && Number.isInteger(Number(d.revision)) ? Number(d.revision) : null; }
   function ensureStyle() {
     if (document.getElementById('inventory-sales-css')) return;
@@ -60,7 +58,7 @@
   function controlMarkup(p, existing) {
     var id = String(p.id), decl = declaration(id), draft = drafts.get(id);
     var checked = draft ? draft.enabled : !!(decl && decl.enabled);
-    var hours = draft ? draft.hours : (decl && decl.sale_expires_at > Date.now() ? Math.max(4, Math.min(48, Math.ceil((decl.sale_expires_at - Date.now()) / 3600000))) : 24);
+    var hours = draft ? draft.hours : (decl && decl.sale_expires_at > Date.now() ? ([4,12,24,48].find(function (n) { return n >= Math.ceil((decl.sale_expires_at - Date.now()) / 3600000); }) || 48) : 24);
     var locale = draft ? draft.locale : ((promotion(id) && promotion(id).locale) || 'es');
     var controlsHtml = '<div class="ivs-sale-controls" data-ivs-sale="' + esc(id) + '">' +
       '<label class="ivs-toggle"><input type="checkbox" data-ivs-enabled' + (checked ? ' checked' : '') + (!sales ? ' disabled' : '') + '><span>' + txNode('Available for sale', 'Disponible para la venta') + '</span></label>' +
@@ -80,7 +78,7 @@
       var main = card.querySelector('.inv-prep-main'); if (!main) return;
       var salesControl = controlMarkup(p);
       main.insertAdjacentElement('afterend', salesControl);
-      var state = { id:String(p.id), decl:declaration(p.id), checkbox:salesControl.querySelector('[data-ivs-enabled]'), hours:salesControl.querySelector('[data-ivs-hours]'), locale:salesControl.querySelector('[data-ivs-locale]') };
+      var state = { id:String(p.id), decl:declaration(p.id), checkbox:salesControl.querySelector('[data-ivs-enabled]'), hours:salesControl.querySelector('[data-ivs-hours]'), locale:salesControl.querySelector('[data-ivs-locale]'), note:salesControl.querySelector('[data-ivs-sale-note]') };
       controls.set(state.id, state);
       function capture() {
         var prior = drafts.get(state.id);
@@ -106,7 +104,7 @@
       }
       if (!draft) {
         control.checkbox.checked = !!(decl && decl.enabled);
-        control.hours.value = String(decl && decl.sale_expires_at > Date.now() ? Math.max(4, Math.min(48, Math.ceil((decl.sale_expires_at - Date.now()) / 3600000))) : 24);
+        control.hours.value = String(decl && decl.sale_expires_at > Date.now() ? ([4,12,24,48].find(function (n) { return n >= Math.ceil((decl.sale_expires_at - Date.now()) / 3600000); }) || 48) : 24);
         var promo = promotion(id); if (promo && promo.locale) control.locale.value = promo.locale;
       }
       var state = card.querySelector('[data-ivs-declaration]');
@@ -118,33 +116,34 @@
     return enEs.apply(null, map[state] || ['No Story prepared','No hay un Story preparado']);
   }
   function promoCard(promo, item) {
-    var id = String(promo.menu_item_id), offerData = offer(id), menu = findPrepared(id) || item || {}, qty = offerData ? offerData.remaining : (menu.stock_count == null ? null : menu.stock_count);
+    var id = String(promo.menu_item_id), offerData = offer(id), menu = findPrepared(id) || item || {}, qty = offerData ? offerData.remaining : null;
     var image = (offerData && offerData.image) || menu.image || '';
     var displayName = promo.locale === 'es' ? (menu.name_es || offerData && offerData.name_es || menu.name || id) : (menu.name || offerData && offerData.name || id);
-    var label = qty == null ? enEs('No count set', 'Sin conteo') : String(qty);
+    var label = qty == null ? enEs('No active sale quantity', 'Sin cantidad de venta activa') : String(qty);
+    var stale = staleSnapshot(promo, offerData);
     var url = '/order?product=' + encodeURIComponent(id) + (offerData ? '&offer_revision=' + encodeURIComponent(offerData.revision) : '');
     var previewReady = ['ready_for_review','reviewed'].includes(promo.state) && !!promo.jpeg_sha256;
     var previewUrl = previewReady ? href(id, promo.snapshot_hash, true) : '';
     var owner = actorRole === 'owner';
-    var card = '<article class="ivs-promo" data-ivs-promo="' + esc(id) + '"><div class="ivs-promo-head">' + (image ? '<img class="ivs-photo" src="' + esc(image) + '" alt="' + esc(enEs('Catalog photo for ', 'Foto del catálogo para ') + (menu.name || promo.name || id)) + '" loading="lazy">' : '<div class="ivs-photo ivs-photo-empty" role="img" aria-label="' + esc(enEs('Catalog photo unavailable', 'Foto del catálogo no disponible')) + '"></div>') +
-      '<div class="ivs-promo-main"><strong>' + esc(displayName) + '</strong><span>' + esc(enEs('Current quantity: ', 'Cantidad actual: ') + label) + '</span><span class="ivs-state">' + esc(stateLabel(promo.state)) + '</span><span>' + esc(enEs('Website: ', 'Sitio web: ') + (websiteEnabled == null ? enEs('unknown', 'desconocido') : websiteEnabled ? enEs('active', 'activo') : enEs('paused', 'en pausa'))) + '</span></div></div>' +
+    var card = '<article class="ivs-promo" data-ivs-promo="' + esc(id) + '"><div class="ivs-promo-head">' + (image ? '<img class="ivs-photo" src="' + esc(catalogPhoto(image)) + '" alt="' + esc(enEs('Catalog photo for ', 'Foto del catálogo para ') + (menu.name || promo.name || id)) + '" loading="lazy">' : '<div class="ivs-photo ivs-photo-empty" role="img" aria-label="' + esc(enEs('Catalog photo unavailable', 'Foto del catálogo no disponible')) + '"></div>') +
+      '<div class="ivs-promo-main"><strong>' + esc(displayName) + '</strong><span>' + esc(enEs('Current listed quantity: ', 'Cantidad publicada actual: ') + label) + '</span><span class="ivs-state">' + esc(stale ? enEs('Story snapshot needs refresh', 'La instantánea del Story necesita actualizarse') : stateLabel(promo.state)) + '</span><span>' + esc(enEs('Website: ', 'Sitio web: ') + (websiteEnabled == null ? enEs('unknown', 'desconocido') : websiteEnabled ? enEs('active', 'activo') : enEs('paused', 'en pausa'))) + '</span></div></div>' +
       (previewReady ? '<img class="ivs-story-preview" src="' + esc(previewUrl) + '" alt="' + esc(enEs('Exact rendered Story preview', 'Vista previa exacta del Story renderizado')) + '"><a class="ivs-link" href="' + esc(previewUrl) + '" download="anejo-inventory-story-' + esc(id) + '.jpg">' + txNode('Download exact JPEG', 'Descargar JPEG exacto') + '</a>' : '') +
       '<p class="ivs-order-link"><a href="' + esc(url) + '" target="_blank" rel="noopener">' + esc(url) + '</a><small>' + esc(enEs('Customers choose delivery at checkout.', 'El cliente elige la entrega al finalizar la compra.')) + '</small></p>' +
       (promo.error ? '<p class="ivs-error" role="status">' + esc(promo.error) + '</p>' : '') +
-      '<div class="ivs-actions">' + (['preview_ready','ready_for_review'].includes(promo.state) && !promo.jpeg_sha256 ? '<button type="button" class="ivs-button" data-ivs-render="' + esc(id) + '">' + txNode('Render exact JPEG', 'Renderizar JPEG exacto') + '</button>' : '') +
-      (promo.state === 'error' || !promo.snapshot_hash ? '<button type="button" class="ivs-button" data-ivs-retry="' + esc(id) + '">' + txNode('Retry Story preparation', 'Reintentar preparación del Story') + '</button>' : '') +
-      (owner && previewReady && promo.state === 'ready_for_review' ? '<label class="ivs-review"><input type="checkbox" data-ivs-review="' + esc(id) + '" disabled' + (reviewDrafts.get(id) ? ' checked' : '') + '><span>' + txNode('I reviewed this Story', 'Revisé este Story') + '</span></label><button type="button" class="ivs-button" data-ivs-approve="' + esc(id) + '" disabled>' + txNode('Approve Story', 'Aprobar Story') + '</button>' : '') +
+      '<div class="ivs-actions">' + (!stale && ['preview_ready','ready_for_review'].includes(promo.state) && !promo.jpeg_sha256 ? '<button type="button" class="ivs-button" data-ivs-render="' + esc(id) + '">' + txNode('Render exact JPEG', 'Renderizar JPEG exacto') + '</button>' : '') +
+      (stale || promo.state === 'error' || !promo.snapshot_hash ? '<button type="button" class="ivs-button" data-ivs-retry="' + esc(id) + '">' + txNode(stale ? 'Refresh current Story' : 'Retry Story preparation', stale ? 'Actualizar Story actual' : 'Reintentar preparación del Story') + '</button>' : '') +
+      (owner && !stale && previewReady && promo.state === 'ready_for_review' ? '<label class="ivs-review"><input type="checkbox" data-ivs-review="' + esc(id) + '" disabled' + (reviewDrafts.get(id) === reviewKey(promo) ? ' checked' : '') + '><span>' + txNode('I reviewed this Story', 'Revisé este Story') + '</span></label><button type="button" class="ivs-button" data-ivs-approve="' + esc(id) + '" disabled>' + txNode('Approve Story', 'Aprobar Story') + '</button>' : '') +
       '</div>' + (owner && promo.state === 'reviewed' ? '<p class="ivs-confirmed">' + esc(enEs('Reviewed. Schedule or publish from ', 'Revisada. Programa o publica desde ')) + '<a href="/hub/owner/social.html">' + esc('/hub/owner/social.html') + '</a>.</p>' : '') + '</article>';
     return card;
   }
   function websiteCard() {
-    var mount = section.querySelector('.ivs-website');
+    var mount = section.querySelector('.ivs-website'), oldDetails = mount.querySelector('details'), keepOpen = !!(oldDetails && oldDetails.open) || !!websiteDraft;
     if (websiteEnabled == null) { mount.innerHTML = '<p class="ivs-unavailable">' + esc(enEs('Website availability could not be verified.', 'No se pudo verificar la disponibilidad del sitio web.')) + '</p>'; return; }
     var isOwner = actorRole === 'owner';
     var enabled = websiteDraft ? websiteDraft.enabled : !!websiteEnabled;
     var reviewed = websiteDraft && websiteDraft.reviewed;
-    var exampleOffers = offers.map(function (o) { var name = window.AnejoLang && window.AnejoLang.get() === 'es' ? (o.name_es || o.name) : o.name; var order = '/order?product=' + encodeURIComponent(o.item_id) + '&offer_revision=' + encodeURIComponent(o.revision); return '<div class="ivs-site-preview-row"><img src="' + esc(o.image || '') + '" alt=""><span>' + esc(name || o.item_id) + ' · ' + esc(o.remaining) + '</span><a href="' + esc(order) + '" target="_blank" rel="noopener">' + esc(order) + '</a></div>'; }).join('');
-    mount.innerHTML = '<details class="ivs-website-card"><summary>' + txNode('Website stock alerts: ' + (enabled ? 'active' : 'paused'), 'Alertas de existencias del sitio web: ' + (enabled ? 'activas' : 'en pausa')) + '</summary>' +
+    var exampleOffers = offers.map(function (o) { var name = window.AnejoLang && window.AnejoLang.get() === 'es' ? (o.name_es || o.name) : o.name; var order = '/order?product=' + encodeURIComponent(o.item_id) + '&offer_revision=' + encodeURIComponent(o.revision); return '<div class="ivs-site-preview-row"><img src="' + esc(catalogPhoto(o.image)) + '" alt=""><span>' + esc(name || o.item_id) + ' · ' + esc(o.remaining) + '</span><a href="' + esc(order) + '" target="_blank" rel="noopener">' + esc(order) + '</a></div>'; }).join('');
+    mount.innerHTML = '<details class="ivs-website-card"' + (keepOpen ? ' open' : '') + '><summary>' + txNode('Website stock alerts: ' + (enabled ? 'active' : 'paused'), 'Alertas de existencias del sitio web: ' + (enabled ? 'activas' : 'en pausa')) + '</summary>' +
       (isOwner ? '<div class="ivs-website-body"><p>' + esc(enEs('Preview: current listed quantities appear on order pages. Customers choose delivery using the existing checkout options.', 'Vista previa: las cantidades publicadas aparecen en las páginas de pedido. El cliente elige la entrega con las opciones existentes.')) + '</p><div class="ivs-site-preview">' + (exampleOffers || '<span>' + esc(enEs('No active sale quantities to preview.', 'No hay cantidades de venta activas para mostrar.')) + '</span>') + '</div><label class="ivs-toggle"><input type="checkbox" data-ivs-website-value' + (enabled ? ' checked' : '') + '><span>' + txNode('Enable website stock alerts', 'Activar alertas de existencias del sitio web') + '</span></label><label class="ivs-review"><input type="checkbox" data-ivs-website-reviewed' + (reviewed ? ' checked' : '') + '><span>' + txNode('I reviewed this website card', 'Revisé esta tarjeta del sitio web') + '</span></label><button class="ivs-button" type="button" data-ivs-website-save' + (reviewed ? '' : ' disabled') + '>' + txNode('Review and save setting', 'Revisar y guardar configuración') + '</button><span class="ivs-website-status" role="status" aria-live="polite">' + esc(websiteMessage) + '</span></div>' : '<p class="ivs-website-body">' + esc(enEs('Only the owner can change this setting.', 'Solo el propietario puede cambiar esta configuración.')) + '</p>') + '</details>';
     if (isOwner) {
       var review = mount.querySelector('[data-ivs-website-reviewed]'), save = mount.querySelector('[data-ivs-website-save]');
@@ -181,7 +180,7 @@
   }
   function wirePromotionActions() {
     Array.prototype.forEach.call(section.querySelectorAll('[data-ivs-review]'), function (input) {
-      input.addEventListener('change', function () { var id = input.getAttribute('data-ivs-review'), button = section.querySelector('[data-ivs-approve="' + CSS.escape(id) + '"]'); if (input.checked) reviewDrafts.set(id, true); else reviewDrafts.delete(id); if (button) button.disabled = !input.checked; });
+      input.addEventListener('change', function () { var id = input.getAttribute('data-ivs-review'), button = section.querySelector('[data-ivs-approve="' + CSS.escape(id) + '"]'); if (input.checked) reviewDrafts.set(id, reviewKey(promotion(id))); else reviewDrafts.delete(id); if (button) button.disabled = !input.checked; });
     });
     Array.prototype.forEach.call(section.querySelectorAll('[data-ivs-approve]'), function (button) {
       button.addEventListener('click', function () {
@@ -202,8 +201,8 @@
     if (!node) { node = document.createElement('p'); node.className = 'ivs-action-status'; node.setAttribute('role', 'status'); node.setAttribute('aria-live', 'polite'); node.setAttribute('data-ivs-action-status', ''); card.appendChild(node); }
     node.textContent = message || ''; node.classList.toggle('ivs-error', !!error);
   }
-  function fetchSvg(id) {
-    var promo = promotion(id); if (!promo || !promo.snapshot_hash) return Promise.reject(new Error(enEs('Current Story snapshot is unavailable.', 'La instantánea actual del Story no está disponible.')));
+  function fetchSvg(id, promo) {
+    promo = promo || promotion(id); if (!promo || !promo.snapshot_hash) return Promise.reject(new Error(enEs('Current Story snapshot is unavailable.', 'La instantánea actual del Story no está disponible.')));
     return fetch(href(id, promo.snapshot_hash, false), { credentials:'same-origin', cache:'no-store' }).then(function (response) {
       if (!response.ok) throw new Error(enEs('Current Story preview could not be loaded.', 'No se pudo cargar la vista previa actual del Story.'));
       return response.text();
@@ -214,9 +213,11 @@
       var card = section.querySelector('[data-ivs-promo="' + CSS.escape(String(id)) + '"]');
       if (!window.InventoryStoryCard || typeof window.InventoryStoryCard.rasterize !== 'function') { setCardStatus(card, enEs('Story renderer is unavailable. Reload after the renderer loads.', 'El renderizador de Story no está disponible. Vuelve a cargar cuando esté disponible.'), true); return; }
       setCardStatus(card, enEs('Rendering the exact catalog Story…', 'Renderizando el Story exacto del catálogo…'));
-      return fetchSvg(id).then(function (svg) { return window.InventoryStoryCard.rasterize(svg); }).then(function (dataUrl) {
+      var captured = promotion(id);
+      return fetchSvg(id, captured).then(function (svg) { return window.InventoryStoryCard.rasterize(svg); }).then(function (dataUrl) {
         var promo = promotion(id);
-        return post({ op:'render', item_id:id, snapshot_hash:promo.snapshot_hash, data_url:dataUrl });
+        if (!promo || !captured || promo.snapshot_hash !== captured.snapshot_hash) throw new Error(enEs('Inventory changed. Refresh the Story preview.', 'El inventario cambió. Actualiza la vista previa del Story.'));
+        return post({ op:'render', item_id:id, snapshot_hash:captured.snapshot_hash, data_url:dataUrl });
       }).then(function (result) {
         if (!result || !result.ok) { setCardStatus(card, (result && result.error) || enEs('JPEG render was not saved.', 'No se guardó el render JPEG.'), true); return; }
         setCardStatus(card, enEs('JPEG saved; loading exact readback…', 'JPEG guardado; cargando lectura exacta…'));
@@ -227,7 +228,7 @@
   }
   function retryStory(id) {
     var promo = promotion(id), card = section.querySelector('[data-ivs-promo="' + CSS.escape(String(id)) + '"]');
-    if (promo && ['preview_ready','ready_for_review'].includes(promo.state) && promo.snapshot_hash) return renderExact(id);
+    if (promo && !staleSnapshot(promo, offer(id)) && ['preview_ready','ready_for_review'].includes(promo.state) && promo.snapshot_hash) return renderExact(id);
     var control = controls.get(String(id)), locale = control ? control.locale.value : ((promo && promo.locale) || 'es');
     setCardStatus(card, enEs('Retrying Story preparation…', 'Reintentando la preparación del Story…'));
     return post({ op:'reconcile', item_id:id, locale:locale, force:true }).then(function (result) {
@@ -238,7 +239,7 @@
   function tryRenderReady() {
     if (processing) { refreshQueued = true; return; }
     processing = true;
-    var candidates = promotions.filter(function (p) { return ['preview_ready','ready_for_review'].includes(p.state) && !p.jpeg_sha256; });
+    var candidates = promotions.filter(function (p) { return ['preview_ready','ready_for_review'].includes(p.state) && !p.jpeg_sha256 && !staleSnapshot(p, offer(p.menu_item_id)); });
     var chain = Promise.resolve();
     candidates.forEach(function (p) { chain = chain.then(function () { return renderExact(p.menu_item_id); }); });
     chain.finally(function () { processing = false; if (refreshQueued) { refreshQueued = false; refresh(); } });
@@ -268,26 +269,41 @@
     }
     // An unchecked row with no existing declaration is a normal count only.
     if (!enabled && !decl) return { stock_count:quantity };
-    var savedDraft = drafts.get(id);
-    var saleExpected = savedDraft ? savedDraft.revision : (decl ? Number(decl.revision) : null);
+    var savedDraft = drafts.get(id), countBase = countBases.get(id);
+    if (countBase && countBase.saleRevision == null && decl && !savedDraft) {
+      if (control.note) control.note.textContent = enEs('Count can save, but the sale declaration was not observed when these edits began. Refresh before changing sale availability.', 'El conteo se puede guardar, pero no se observó la declaración de venta cuando comenzaron estos cambios. Actualiza antes de cambiar la disponibilidad.');
+      return { stock_count:quantity };
+    }
+    var saleExpected = countBase && countBase.saleRevision != null ? countBase.saleRevision : savedDraft ? savedDraft.revision : (decl ? Number(decl.revision) : null);
     var ttl = Math.max(4, Math.min(48, Number(control.hours.value) || 24));
     var forSale = enabled && quantity != null && quantity > 0;
-    return { stock_count:quantity, for_sale:forSale, sale_expected_revision:saleExpected, sale_expires_at:Date.now() + ttl * 60 * 60 * 1000, locale:control.locale.value === 'en' ? 'en' : 'es' };
+    if (control.note) control.note.textContent = enabled && !forSale ? enEs('A positive finished count is required to list this item.', 'Se requiere un conteo positivo de productos terminados para publicar este artículo.') : '';
+    var locale = control.locale.value === 'en' ? 'en' : 'es';
+    var bodyRevision = copy.expected_revision != null ? Number(copy.expected_revision) : item && item.inventory_revision != null ? Number(item.inventory_revision) : null;
+    var intentKey = JSON.stringify([id, bodyRevision, quantity, forSale, saleExpected, ttl, locale]);
+    var pinned = saleExpiries.get(id);
+    if (!pinned || pinned.key !== intentKey) { pinned = { key:intentKey, expiresAt:Date.now() + ttl * 60 * 60 * 1000 }; saleExpiries.set(id, pinned); }
+    return { stock_count:quantity, for_sale:forSale, sale_expected_revision:saleExpected, sale_expires_at:pinned.expiresAt, locale:locale };
   }
   function onFinishedSaved(event) {
     var detail = event && event.detail; if (!detail || !detail.body || detail.body.action !== 'menu_count') return;
     var body = detail.body, id = String(body.id);
+    countBases.delete(id);
     // The stock count has already been persisted and read back by the parent page. Story work is a separate queue.
     refresh().then(function (data) {
       if (body.for_sale === undefined) return;
       if (!data || data.ok !== true || !Array.isArray(data.declarations)) { live(enEs('Sale availability readback is unavailable. Your selection remains.', 'No se pudo verificar la disponibilidad guardada. Se conserva tu selección.'), true); return; }
       var decl = declaration(id), saved = body.for_sale ? !!(decl && decl.enabled) : !decl || !decl.enabled;
-      if (saved) drafts.delete(id);
+      if (saved) { drafts.delete(id); saleExpiries.delete(id); }
       else live(enEs('Count saved, but sale availability did not match readback. Your selection remains.', 'El conteo se guardó, pero la venta no coincide con la lectura. Se conserva tu selección.'), true);
     });
   }
   function onRendered(event) {
     prepared = event && event.detail && Array.isArray(event.detail.prepared) ? event.detail.prepared : prepared;
+    countBases.forEach(function (base, id) {
+      var item = findPrepared(id), field = document.getElementById('pq-' + id);
+      if (item && field && Number(item.inventory_revision) !== Number(base.inventoryRevision) && (field.value === '' ? item.stock_count == null : Number(field.value) === Number(item.stock_count))) countBases.delete(id);
+    });
     decoratePrepared(); refresh();
   }
   function init() {
@@ -295,6 +311,12 @@
     ensureStyle(); ensureSection();
     window.InventorySales = { prepareSave:prepareSave, refresh:refresh };
     decoratePrepared(); refresh();
+    page.addEventListener('input', function (event) {
+      if (!event.target || !/^pq-/.test(event.target.id || '')) return;
+      var id = String(event.target.id.slice(3)); if (countBases.has(id)) return;
+      var item = findPrepared(id);
+      countBases.set(id, { inventoryRevision:Number(item && item.inventory_revision), saleRevision:currentRevision(id) });
+    });
     document.addEventListener('inventory:rendered', onRendered);
     document.addEventListener('inventory:finished-saved', onFinishedSaved);
     document.addEventListener('anejo:langchange', function () { localize(document); });

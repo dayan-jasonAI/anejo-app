@@ -16,6 +16,7 @@ import { evaluatePromo, recordRedemption, autoCustomerCodeFor, claimPromoUse, re
 import { applyVolumeDiscount } from '../_lib/catering-pricing.js';
 import { loadMenu, AVAILABILITY } from '../_lib/menu.js';
 import { validateDailyOrder, DAILY_PREFIX } from '../_lib/daily_lunch.js';
+import { reconcileInventoryPromotion } from '../_lib/inventory_sale_promotions.js';
 import { createOrderReceipt } from '../_lib/order-receipt.js';
 import { InventorySaleError, saleOfferSnapshot, stockReservationStatements } from '../_lib/inventory_sales.js';
 
@@ -241,7 +242,7 @@ export function classifyAddressCheck(g, addr, failStatus) {
   return { suspect: false, reason: null, suggestion: null };
 }
 
-export const onRequestPost = async ({ request, env }) => {
+export const onRequestPost = async ({ request, env, waitUntil }) => {
   // Abuse guard: cap checkout creations per IP (each creates a Square order/payment link).
   const limited = await limitOr429(env, request, { name: 'checkout', limit: 15, windowSec: 60 });
   if (limited) return limited;
@@ -257,6 +258,8 @@ export const onRequestPost = async ({ request, env }) => {
   if (items.some(it => it && Object.hasOwn(it, 'sale_offer_revision') && (!Number.isSafeInteger(it.sale_offer_revision) || it.sale_offer_revision < 1))) {
     return bad('Invalid sale offer revision.', 400);
   }
+
+  if (items.some(it => typeof it?.id === 'string' && it.id.startsWith(DAILY_PREFIX) && Object.hasOwn(it, 'sale_offer_revision'))) return bad('Daily lunch uses its published service date, not a finished-stock offer.', 409);
 
   const hasDaily = items.some(it => typeof it?.id === 'string' && it.id.startsWith(DAILY_PREFIX));
   let daily = null;
@@ -839,6 +842,16 @@ export const onRequestPost = async ({ request, env }) => {
       // order's promo_code to apply the points multiplier and pay any affiliate commission.
       if (promo && !await recordRedemption(env, { evaluated: promo, orderId, customerEmail: sessEmail })) throw Error('Promo recording was not confirmed.');
       receiptToken = await createOrderReceipt(env, orderId).catch(() => null);
+      // Refresh unpublished quantity cards after the durable stock reservation.
+      // This never publishes, and a media failure must not change an already saved checkout.
+      if (stockStatements.length) {
+        const refresh = Promise.allSettled([...new Set(orderItems.map(item => item.id))].map(async itemId => {
+          const prior = await env.DB.prepare('SELECT locale FROM inventory_sale_promotions WHERE menu_item_id=?').bind(itemId).first();
+          if (prior) await reconcileInventoryPromotion(env, { itemId, locale: prior.locale });
+        }));
+        if (typeof waitUntil === 'function') waitUntil(refresh);
+        else await refresh;
+      }
     } catch (_) {
       // Never expose a payable link without the full durable kitchen ticket. A link
       // may exist at Square, but is withheld here; no payment request was made and

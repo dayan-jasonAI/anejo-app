@@ -6,6 +6,7 @@ function shopPhoto(i){return '/assets/img/'+(i.img||(isBowl(i.id)?'bowl_'+i.id+'
 function shopEnabled(i){return i.available!==false && (!isBowl(i.id)|| !(mode==='ondemand'&&avail&&remainingFor(i.id)<=0));}
 window.renderShopCatalog=function(){
  const all=CATALOG.flatMap(g=>g.items);shopGroups=AnejoShop.group(all);const query=($('shopSearch')?.value||'').toLowerCase();
+ const productLink=new URLSearchParams(location.search).get('product');const linkedGroup=productLink&&!shopAutoOpened?AnejoShop.resolveGroup(shopGroups,productLink):null;if(linkedGroup)selectedCategory=linkedGroup.category;
  const cat=selectedCategory==='traditional'?'meals':selectedCategory==='all'?'meals':selectedCategory;
  if(cat==='ten')shopGroups=AnejoShop.tenDollarGroups(all);
  $('shopCategories').innerHTML=[['daily','$10 Daily Meal','Comida diaria · $10'],['ten','$10 Menu','Menú de $10'],...AnejoShop.sections].map(([k,en,es])=>`<button class="${cat===k?'active':''}" onclick="selectCategory('${k}')" aria-pressed="${cat===k}">${L(en,es)}</button>`).join('');
@@ -20,17 +21,17 @@ window.renderShopCatalog=function(){
 };
 function openShop(key,edit=false){
  shopActive=AnejoShop.resolveGroup(shopGroups,key);if(!shopActive)return;shopEditing=edit;shopDraft={};
- const valid=shopActive.variants.filter(shopEnabled);if(!valid.length)return;const initial=valid.find(i=>i.aliases?.includes(key))||valid[0];
+ const valid=shopActive.variants.filter(shopEnabled);if(!valid.length)return;const initial=valid.find(i=>i.id===key)||valid.find(i=>i.aliases?.includes(key))||valid[0];
  if(edit)shopActive.variants.forEach(i=>{if(addons[i.id])shopDraft[i.id]=addons[i.id]});// New orders require an explicit choice; never add a default filling.
  $('shopModalTitle').textContent=shopName(shopActive);$('shopModalImage').src=shopPhoto(initial);$('shopModalImage').alt=shopName(shopActive);
  const formats=[...new Map(shopActive.variants.map(i=>[i.format,L(i.format,i.formatEs)])).entries()];
  $('shopFormat').innerHTML=formats.map(([value,label])=>`<option value="${escHtml(value)}">${escHtml(label)}</option>`).join('');$('shopFormat').value=(shopActive.variants.find(i=>shopDraft[i.id])||initial).format;
  $('shopScheduled').textContent=shopActive.variants.some(i=>/^(traditional_|catering_)/.test(i.id))?L('Prepared for scheduled delivery. Adding this item selects scheduled delivery for your order.','Preparado para entrega programada. Al agregarlo, tu pedido pasa a entrega programada.'):'';
- renderShopChoices();$('shopDialog').showModal();
+ renderShopChoices();$('shopModalImage').src=shopPhoto(initial);$('shopDialog').showModal();const linkedChoice=$('shopChoices').querySelector('[data-shop-sku="'+CSS.escape(initial.id)+'"]');if(linkedChoice){linkedChoice.scrollIntoView({block:'nearest'});linkedChoice.querySelector('button:last-child')?.focus({preventScroll:true});}
 }
 function renderShopChoices(){
  if(!shopActive)return;const format=$('shopFormat').value;const photoItem=shopActive.variants.find(i=>i.format===format);if(photoItem){$('shopModalImage').src=shopPhoto(photoItem);$('shopModalImage').alt=shopName(shopActive)+' · '+L(photoItem.format,photoItem.formatEs);}
- $('shopChoices').innerHTML=shopActive.variants.filter(i=>i.format===format).map(i=>`<div class="shop-choice"><div><strong>${escHtml(shopActive.variants.length>1?L(i.flavor,i.flavorEs):shopName(shopActive))}</strong><p>${escHtml(L(i.desc,i.descEs))}</p><b>${money(i.price)}</b>${shopEnabled(i)?'':`<small>${L('Unavailable','No disponible')}</small>`}</div><div class="stepper"><button aria-label="${escHtml(L('Remove one ','Quitar uno ')+i.flavor)}" onclick="shopChange('${esc(i.id)}',-1)">−</button><span>${shopDraft[i.id]||0}</span><button aria-label="${escHtml(L('Add one ','Agregar uno ')+i.flavor)}" ${shopEnabled(i)?'':'disabled'} onclick="shopChange('${esc(i.id)}',1)">+</button></div></div>`).join('');
+ $('shopChoices').innerHTML=shopActive.variants.filter(i=>i.format===format).map(i=>`<div class="shop-choice" data-shop-sku="${escHtml(i.id)}"><div><strong>${escHtml(shopActive.variants.length>1?L(i.flavor,i.flavorEs):shopName(shopActive))}</strong><p>${escHtml(L(i.desc,i.descEs))}</p><b>${money(i.price)}</b>${shopEnabled(i)?'':`<small>${L('Unavailable','No disponible')}</small>`}</div><div class="stepper"><button aria-label="${escHtml(L('Remove one ','Quitar uno ')+i.flavor)}" onclick="shopChange('${esc(i.id)}',-1)">−</button><span>${shopDraft[i.id]||0}</span><button aria-label="${escHtml(L('Add one ','Agregar uno ')+i.flavor)}" ${shopEnabled(i)?'':'disabled'} onclick="shopChange('${esc(i.id)}',1)">+</button></div></div>`).join('');
  const total=shopActive.variants.reduce((s,i)=>s+Math.round(i.price*100)*(shopDraft[i.id]||0),0);$('shopApply').textContent=L(shopEditing?'Save changes':'Add to order',shopEditing?'Guardar cambios':'Agregar al pedido')+' · '+money(total/100);$('shopApply').disabled=!total&&!shopEditing;
 }
 function shopMax(id){return /^(traditional_|catering_)/.test(id)?5000:20;}

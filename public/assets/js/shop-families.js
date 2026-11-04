@@ -29,7 +29,7 @@
   return {key:(category==='catering'?'catering-':'')+key,category,name,nameEs,flavor:flavor[0],flavorEs:flavor[1],format:format[0],formatEs:format[1],aliases};
  }
  function group(items){const map=new Map();for(const item of items){const m=describe(item);if(!map.has(m.key))map.set(m.key,{...m,aliases:[],variants:[]});const family=map.get(m.key);family.aliases.push(...m.aliases);family.variants.push({...item,...m});}return [...map.values()];}
- function resolveGroup(groups,key){return groups.find(g=>g.key===key)||groups.find(g=>g.aliases.includes(key));}
+ function resolveGroup(groups,key){return groups.find(g=>g.variants.some(i=>i.id===key))||groups.find(g=>g.key===key)||groups.find(g=>g.aliases.includes(key));}
  function tenDollarGroups(items){return group(items.filter(i=>Number.isFinite(i.price)&&Math.round(i.price*100)===1000));}
  root.AnejoShop={sections,describe,group,tenDollarGroups,resolveGroup};if(typeof module!=='undefined')module.exports=root.AnejoShop;
 })(typeof window!=='undefined'?window:globalThis);

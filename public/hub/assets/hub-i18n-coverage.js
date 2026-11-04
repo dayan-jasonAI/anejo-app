@@ -2,6 +2,9 @@
 (function () {
   "use strict";
   var dictionary = {
+    'AÑEJO CATERING CO.': 'AÑEJO CATERING CO.',
+    'anejocateringco.com/order': 'anejocateringco.com/order',
+    '{value} inventory story': 'Story de inventario de {value}',
     'Check or retry the same reviewed request for': 'Consulta o reintenta la misma solicitud revisada para',
     'Send this exact text as a': 'Envía este texto exacto como',
     'PUBLIC Instagram comment reply': 'Respuesta PÚBLICA a un comentario de Instagram',

@@ -190,6 +190,12 @@
     var bytes = new Uint8Array(16); window.crypto.getRandomValues(bytes); bytes[6] = (bytes[6] & 15) | 64; bytes[8] = (bytes[8] & 63) | 128;
     return Array.prototype.map.call(bytes, function (b, i) { return ([4,6,8,10].indexOf(i) >= 0 ? '-' : '') + ('0' + b.toString(16)).slice(-2); }).join('');
   }
+  var saveRequests = new Map();
+  function requestId(body) {
+    var key = JSON.stringify(body), prior = saveRequests.get(key);
+    if (!prior) { prior = uuid(); saveRequests.set(key, prior); }
+    return prior;
+  }
   function postStable(path, body) {
     return K.post(path, body).then(function (result) {
       if (!result || result._networkError) return K.post(path, body);
@@ -428,8 +434,9 @@
         var body = {
           action:'count', id:id, on_hand:values[0], count_quantity:values[1], total_weight_grams:values[2],
           expires_on:card.querySelector('.i-expires').value || null,
-          expected_revision:baseRevision === '' || baseRevision == null ? (item && item.revision) : Number(baseRevision), request_id:uuid()
+          expected_revision:baseRevision === '' || baseRevision == null ? (item && item.revision) : Number(baseRevision)
         };
+        body.request_id = requestId(body);
         button.disabled = true; rowStatus(card, tx('Saving counts…', 'Guardando cantidades…'), false);
         postStable('/api/hub/kitchen/inventory', body).then(function (d) {
           button.disabled = false;
@@ -506,9 +513,9 @@
       var label = p.stock_count == null ? tx('No limit set', 'Sin límite establecido') + (remaining != null ? ' · ' + remaining + tx(' left today', ' disponibles hoy') : '') : (remaining != null ? remaining + tx(' left of ', ' disponibles de ') + p.stock_count + tx(' today', ' hoy') : p.stock_count + tx(' stored count', ' cantidad guardada'));
       var availability = p.availability === 'available' ? tx('Available to order', 'Disponible para ordenar') : tx('Not available to order', 'No disponible para ordenar');
       var counted = p.stock_counted_at ? new Date(p.stock_counted_at).toLocaleString((window.AnejoLang && window.AnejoLang.get() === 'es' ? 'es-US' : 'en-US')) : tx('No count readback recorded', 'No hay lectura de conteo registrada');
-      var photo = p.image ? '<img class="inv-prep-photo" src="' + esc(p.image) + '" alt="' + esc(tx('Catalog photo for ', 'Foto del catálogo para ') + (p.name || p.name_es || '')) + '" loading="lazy">' : '<div class="inv-prep-photo" role="img" aria-label="' + esc(tx('Catalog photo unavailable', 'Foto del catálogo no disponible')) + '"></div>';
+      var photo = p.image ? '<img class="inv-prep-photo" src="' + esc(p.image.indexOf('/assets/img/') === 0 ? p.image : '/assets/img/' + p.image.replace(/^\//, '')) + '" alt="' + esc(tx('Catalog photo for ', 'Foto del catálogo para ') + (p.name || p.name_es || '')) + '" loading="lazy">' : '<div class="inv-prep-photo" role="img" aria-label="' + esc(tx('Catalog photo unavailable', 'Foto del catálogo no disponible')) + '"></div>';
       var draft = preparedDrafts.get(String(p.id)); var inputValue = draft ? draft.value : (p.stock_count == null ? '' : p.stock_count);
-      return '<div class="card inv-prep-card" data-menu-id="' + esc(p.id) + '" data-inventory-revision="' + esc(p.inventory_revision) + '">' + photo + '<div class="inv-prep-main"><strong data-page-en="' + esc(p.name || p.name_es || '') + '" data-page-es="' + esc(p.name_es || p.name || '') + '">' + esc(tx(p.name || p.name_es || '', p.name_es || p.name || '')) + '</strong><div class="inv-meta">' + esc(label) + '</div><div class="inv-meta">' + esc(availability) + ' · ' + esc(counted) + ' · revision ' + esc(p.inventory_revision) + '</div></div>' +
+      return '<div class="card inv-prep-card" data-menu-id="' + esc(p.id) + '" data-inventory-revision="' + esc(p.inventory_revision) + '">' + photo + '<div class="inv-prep-main"><strong data-page-en="' + esc(p.name || p.name_es || '') + '" data-page-es="' + esc(p.name_es || p.name || '') + '">' + esc(tx(p.name || p.name_es || '', p.name_es || p.name || '')) + '</strong><div class="inv-meta">' + esc(label) + '</div><div class="inv-meta">' + esc(availability) + ' · ' + esc(counted) + ' · ' + tx('revision ', 'revisión ') + esc(p.inventory_revision) + '</div></div>' +
         '<input type="number" min="0" max="9999" step="1" inputmode="numeric" placeholder="—" aria-label="' + esc(tx('Today’s finished count for ', 'Cantidad de productos terminados de hoy para ') + (p.name || p.name_es || '')) + '" id="pq-' + esc(p.id) + '" value="' + esc(inputValue) + '">' +
         '<button class="btn ghost" type="button" data-prep="' + esc(p.id) + '">' + tx('Set', 'Guardar') + '</button></div><div class="inv-prep-state" role="status" aria-live="polite" data-prep-status="' + esc(p.id) + '"></div>';
     }).join('') : '<div class="hub-empty">No prepared menu items were returned.</div>';
@@ -524,12 +531,14 @@
         draft.value = value; preparedDrafts.set(String(id), draft);
         var body = { action:'menu_count', id:id, stock_count:value, expected_revision:draft.revision, inventory_revision:draft.revision };
         if (window.InventorySales && typeof window.InventorySales.prepareSave === 'function') {
-          var extra = window.InventorySales.prepareSave(body, prepared);
-          if (extra && typeof extra === 'object') body = Object.assign({}, body, extra);
+          try {
+            var extra = window.InventorySales.prepareSave(body, prepared);
+            if (extra && typeof extra === 'object') body = Object.assign({}, body, extra);
+          } catch (error) { status.classList.add('inv-error'); status.textContent = error.message; return; }
         }
         body.expected_revision = draft.revision;
         body.inventory_revision = draft.revision;
-        body.request_id = uuid();
+        body.request_id = requestId(body);
         button.disabled = true; status.classList.remove('inv-error'); status.textContent = tx('Saving count…', 'Guardando cantidad…');
         postStable('/api/hub/kitchen/inventory', body).then(function (d) {
           button.disabled = false;

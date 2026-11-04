@@ -159,6 +159,12 @@ export const onRequestPost = async ({ request, env, waitUntil, context }) => {
   const t = now();
   const by = (staff && staff.id) || ctx.distinct_id || null;
 
+  const saleWork = (options) => {
+    const work = applyInventorySaleIntent(env, options);
+    const schedule = typeof waitUntil === 'function' ? waitUntil : context?.waitUntil;
+    if (typeof schedule === 'function') schedule.call(context, work.catch(() => null));
+    return work;
+  };
   const idempotency = await inventoryRequest(env, by, action, b);
   if (idempotency.conflict) return bad('Request ID is invalid or was already used with different details.', 409);
   if (idempotency.replay) {
@@ -166,7 +172,7 @@ export const onRequestPost = async ({ request, env, waitUntil, context }) => {
     delete replay._original_at;
     if (action === 'menu_count' && Object.hasOwn(b || {}, 'for_sale')) {
       let sales;
-      try { sales = await applyInventorySaleIntent(env, { body: b, changeId: replay.change_id, actorId: by, at: idempotency.replay._original_at, locale: b.locale || 'es' }); }
+      try { sales = await saleWork({ body: b, changeId: replay.change_id, actorId: by, at: idempotency.replay._original_at, locale: b.locale || 'es' }); }
       catch (error) { sales = { ok: false, state: 'error', error: String(error?.message || 'Sale promotion could not be prepared.') }; }
       replay.sales_status = sales?.ok ? sales.state || 'ready' : 'error';
       replay.sales_result = sales;
@@ -292,7 +298,7 @@ export const onRequestPost = async ({ request, env, waitUntil, context }) => {
     const savedAfter = { ...after, last_inventory_change_id: change.changeId, availability };
     let sales = { ok: true, state: 'not_requested' };
     if (saleIntent) {
-      try { sales = await applyInventorySaleIntent(env, { body: b, changeId: change.changeId, actorId: by, at: t, locale: saleIntent.locale }); }
+      try { sales = await saleWork({ body: b, changeId: change.changeId, actorId: by, at: t, locale: saleIntent.locale }); }
       catch (error) { sales = { ok: false, state: 'error', error: String(error?.message || 'Sale promotion could not be prepared.') }; }
     }
     return finish(change, { ok: true, id: itemId, stock_count: next, inventory_revision: savedAfter.inventory_revision, item: savedAfter, sales_status: sales?.ok ? sales.state || 'ready' : 'error', sales_result: sales, prepared: await preparedStock(env) });
