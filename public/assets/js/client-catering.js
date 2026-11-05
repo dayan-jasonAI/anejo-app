@@ -38,7 +38,7 @@
       sent: 'Sent. We will come back to you — nothing has been charged.',
       failed: 'That did not send. Please call us.',
       reach: 'Last minute? Call us — it always reaches a person.',
-      call: 'Call 561-778-7474', email: 'Email us',
+      call: 'Call 561-235-2909', email: 'Email us',
       loading: 'Loading the menu…', addSel: 'Add', none: 'Nothing selected yet.',
       pickQty: 'Quantity',
       opening: 'Opening secure payment…', paymentFailed: 'Payment could not be opened. Please try again.',
@@ -66,7 +66,7 @@
       sent: 'Enviado. Le responderemos — no se ha cobrado nada.',
       failed: 'No se pudo enviar. Por favor llámenos.',
       reach: '¿Última hora? Llámenos — siempre contesta una persona.',
-      call: 'Llamar 561-778-7474', email: 'Escríbanos',
+      call: 'Llamar 561-235-2909', email: 'Escríbanos',
       loading: 'Cargando el menú…', addSel: 'Agregar', none: 'Nada seleccionado todavía.',
       pickQty: 'Cantidad',
       opening: 'Abriendo el pago seguro…', paymentFailed: 'No se pudo abrir el pago. Inténtelo nuevamente.',
@@ -229,7 +229,7 @@
 
       (isPast ? '' :
         '<p class="cc-reach">' + esc(t.reach) + '<br>' +
-        '<a href="tel:5617787474">' + esc(t.call) + '</a> · ' +
+        '<a href="tel:5612352909">' + esc(t.call) + '</a> · ' +
         '<a href="mailto:dayan@anejocateringco.com?subject=' +
           encodeURIComponent((lang === 'es' ? 'Mi evento ' : 'My event ') + (e.event_date || '')) +
         '">' + esc(t.email) + '</a></p>') +

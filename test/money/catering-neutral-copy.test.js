@@ -11,6 +11,6 @@ test('catering communications are event-neutral and safely include the real loca
  for(const lang of ['en','es'])for(const kind of ['pre_event_checkin','post_delivery_review']){const r=cateringExperienceEmail({q:{lang,customer_name:'Example'},kind,feedbackUrl:'https://example.test',accountUrl:'https://example.test'});assert.doesNotMatch(r.text+r.subject,/celebrat|celebra/i);}
 });
 test('band print structure is three 16 by 3-inch bands per landscape sheet, with reusable spare positions',()=>{
- const html=renderEventBands({snapshot:{theme:'blush',title:'Company lunch',phone:'561-778-7474',lines:[{name:'<Chicken & rice>'}]}});
+ const html=renderEventBands({snapshot:{theme:'blush',title:'Company lunch',phone:'561-235-2909',lines:[{name:'<Chicken & rice>'}]}});
  assert.equal((html.match(/<article class="band/g)||[]).length,3);assert.equal((html.match(/class="band standard"/g)||[]).length,2);assert.match(html,/16in;height:3in/);assert.match(html,/top:7.5in/);assert.match(html,/size:17in 11in/);assert.match(html,/100 lb glossy/);assert.match(html,/&lt;Chicken &amp; rice&gt;/);assert.match(html,/Company lunch/);assert.equal((html.match(/aria-label="Scan to visit Añejo"/g)||[]).length,6);
 });

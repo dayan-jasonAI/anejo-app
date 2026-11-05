@@ -53,7 +53,7 @@ test('catering city prefill decodes safely, is bounded, and preserves existing u
 test('public business contacts use Dayan-confirmed business number', () => {
   for (const path of ['index.html', 'lunch-count.html', 'legal/privacy.html', 'legal/refund.html', 'legal/terms.html', 'assets/js/i18n.js', 'assets/js/chat.js', ...cityFiles.filter((path) => !path.includes('service-areas') && !path.includes('areas-de-servicio'))]) {
     const html = read(path);
-    assert.ok(html.includes('561-778-7474'), path);
+    assert.ok(html.includes('561-235-2909'), path);
     assert.ok(!/561[- .]?567[- .]?1047/.test(html), path + ': personal number must not be public');
   }
 });
