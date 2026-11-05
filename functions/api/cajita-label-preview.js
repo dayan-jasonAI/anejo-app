@@ -11,7 +11,7 @@ export async function onRequestPost({request}){
  if(!body||Array.isArray(body)||typeof body!=='object'||Object.keys(body).some(k=>!['theme','title','lines'].includes(k)))return error('Only template style, wording and dish names may be previewed.');
  const text=(v,max)=>typeof v==='string'&&v.trim().length>0&&v.length<=max&&!Array.from(v).some(c=>c.charCodeAt(0)<32||c.charCodeAt(0)===127);
  if(!['ivory','blush','signature'].includes(body.theme)||!text(body.title,48)||!Array.isArray(body.lines)||body.lines.length<1||body.lines.length>3||!body.lines.every(n=>text(n,80)))return error('Choose a template, wording up to 48 characters and one to three dish names up to 80 characters.');
- const html=renderEventBands({snapshot:{theme:body.theme,title:body.title.trim(),phone:'561-778-7474',lines:body.lines.map(name=>({name:name.trim()}))}});
+ const html=renderEventBands({snapshot:{theme:body.theme,title:body.title.trim(),phone:'561-235-2909',lines:body.lines.map(name=>({name:name.trim()}))}});
  return json({ok:true,html,preview_only:true,approved:false,custom_artwork_included:false},200,headers);
 }
 export const onRequestGet=()=>error('Use the template preview controls.',405);

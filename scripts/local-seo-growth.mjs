@@ -206,7 +206,7 @@ function serviceSchema({ city, canonical, name, description, lang = 'en' }) {
         '@id': `${site}/#restaurant`,
         name: 'Añejo Catering Co.',
         url: site,
-        telephone: '+1-561-778-7474',
+        telephone: '+1-561-235-2909',
         servesCuisine: ['Cuban', 'Cuban-American', 'Mediterranean', 'Healthy'],
       },
       areaServed: {
@@ -801,7 +801,7 @@ No Google Business Profile / Google Maps management connector is available in th
 - Primary category to confirm in GBP: Caterer
 - Secondary categories to add where available: Cuban restaurant, Meal delivery, Health food restaurant, Mediterranean restaurant, Event catering service
 - Service area emphasis: Palm Beach County and Broward County, Florida
-- Phone: 561-778-7474
+- Phone: 561-235-2909
 - Public description draft:
 
 Añejo Catering Co. provides Cuban catering, Cuban food, personalized Cajitas, party trays, and Mediterranean-inspired Añejo Fit bowls for events, offices, private gatherings, and celebrations across Palm Beach County and Broward County. Request custom catering for lechón, congrí, tamales, croquetas, empanadas, Cajitas, healthy bowls, and group meals. Quotes are confirmed by event date, guest count, menu, delivery route, and availability.

@@ -183,7 +183,7 @@ test('her account shows her events, her requests, and what she was told', () => 
   for (const control of ['add_items', 'guests', 'cajita', 'dietary', 'message']) {
     assert.ok(ui.includes(`'${control}'`), `she can ask about ${control}`);
   }
-  assert.match(ui, /tel:5617787474/, 'and reach a person');
+  assert.match(ui, /tel:5612352909/, 'and reach a person');
 });
 
 test('her account speaks the language she was sold in', () => {
