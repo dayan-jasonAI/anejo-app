@@ -40,6 +40,7 @@
     dialog.querySelector('.lunch-promo-close').setAttribute('aria-label', text('Close daily lunch announcement', 'Cerrar anuncio del almuerzo diario'));
   }
   async function openPromo() {
+    if (await window.AnejoCroquetaPromo) return;
     try { if (sessionStorage.getItem(key)) return; } catch (_) { /* Storage is optional. */ }
     try {
       const response = await fetch('/api/daily-lunch', { cache: 'no-store' });

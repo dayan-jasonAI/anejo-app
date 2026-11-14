@@ -7,8 +7,8 @@ import { square, squareConfigured } from '../_lib/square.js';
 import { limitOr429 } from '../_lib/ratelimit.js';
 import { geocode, formatAddress, geoConfigured, lastGeocodeFailure, addressWasCorrected } from '../_lib/geo.js';
 import { loadOrderingSettings, onDemandConfig, windowState, remainingByBowl } from '../_lib/ondemand.js';
-import { loadOperating, zipAllowed, scheduleOpenFor } from '../_lib/operating.js';
-import { validateCateringNotice } from '../_lib/catering-notice.js';
+import { loadOperating, zipAllowed, scheduleOpenFor, etDayParts, deliveryDays, isClosed } from '../_lib/operating.js';
+import { cateringEventTimestamp, validateCateringNotice } from '../_lib/catering-notice.js';
 import { BOWL_BY_NAME, BOWL_LABEL, scaledBowlMacros } from '../_lib/bowlspec.js';
 import { currentUser } from '../_lib/session.js';
 import { rewardsSummary } from '../_lib/rewards.js';
@@ -334,6 +334,9 @@ export const onRequestPost = async ({ request, env, waitUntil }) => {
     return bad('Traditional and catering items require scheduled delivery. Please choose a delivery date.', 409);
   }
 
+  const isCroquetaBox = item => /^traditional_croq-box12-(fry|eat)-(jamon|pollo|res|chorizo|sausage|tuna)$/.test(item.id);
+  const onlyCroquetaBoxes = orderItems.length > 0 && orderItems.every(isCroquetaBox);
+
   let win, dateStr, fulfillmentMode, fulfillLabel;
   // Hoisted: assigned on the scheduled branch, reused for the zip check on BOTH branches. As a
   // const inside the else-block it made every on-demand order throw ReferenceError at the reuse.
@@ -400,11 +403,19 @@ export const onRequestPost = async ({ request, env, waitUntil }) => {
     // checkout silently refused at a fossilised 6 PM: worse than either bug alone, because every
     // customer between the two hours is told the site lied to them.
     schedOps = await loadOperating(env);
-    if (orderItems.some(item => /^(catering_|traditional_)/.test(item.id))) {
+    const now = new Date();
+    const sameDayBox = onlyCroquetaBoxes && dateStr === etDayParts(now).date;
+    if (sameDayBox) {
+      const startsAt = cateringEventTimestamp(dateStr, schedOps[win + '_start']);
+      if (!deliveryDays(schedOps).includes(dow) || isClosed(schedOps, dateStr) ||
+          startsAt === null || startsAt < now.getTime() + 2 * 3600000) {
+        return bad('Croqueta boxes need two hours of prep before delivery. Please choose a later window. / Las cajas de croquetas requieren dos horas de preparación. Elige un horario posterior.');
+      }
+    } else if (!onlyCroquetaBoxes && orderItems.some(item => /^(catering_|traditional_)/.test(item.id))) {
       const notice = validateCateringNotice({ eventDate: dateStr, defaultEventTime: schedOps[win + '_start'] });
       if (!notice.ok) return bad('Catering requires at least 48 hours notice. Choose a later delivery window. / El catering requiere al menos 48 horas de anticipación. Elige una entrega posterior.');
     }
-    const gate = scheduleOpenFor(schedOps, dateStr);
+    const gate = sameDayBox ? { ok: true } : scheduleOpenFor(schedOps, dateStr, now);
     if (!gate.ok) {
       const hr = Number(schedOps.order_by_hour) || 18;
       const hh = `${hr % 12 || 12} ${hr >= 12 ? 'PM' : 'AM'}`;
@@ -502,7 +513,8 @@ export const onRequestPost = async ({ request, env, waitUntil }) => {
 
   // Order minimum + flat delivery fee (configurable via env).
   const orderMinCents = daily ? 1000 : Math.round(Number(env.ORDER_MIN_USD || 25) * 100);
-  if (subtotalCents < orderMinCents) return bad(`Order minimum is $${(orderMinCents / 100).toFixed(2)}. Please add a little more.`);
+  const hasCroquetaBox = orderItems.some(isCroquetaBox);
+  if (subtotalCents < orderMinCents && !hasCroquetaBox) return bad(`Order minimum is $${(orderMinCents / 100).toFixed(2)}. Please add a little more.`);
   let feeCents = daily ? daily.fee_cents : Math.round(Number(env.DELIVERY_FEE_USD || 5) * 100);
 
   // FL state 6% + Palm Beach County 1% surtax = 7% by default; override via SALES_TAX_PCT.

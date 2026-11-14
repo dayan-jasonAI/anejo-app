@@ -20,3 +20,13 @@
 .lunch-promo-close {position:absolute;right:10px;top:10px;display:grid;place-items:center;width:44px;height:44px;padding:0;border:1px solid #bcaa7b;background:#f8f3e9;color:#193c2e;font:28px/1 Georgia,serif;cursor:pointer;border-radius:50%;}
 .lunch-promo :focus-visible {outline:3px solid #b47b21;outline-offset:3px;}
 @media(max-width:650px){.lunch-promo {width:calc(100vw - 24px);max-height:calc(100dvh - 24px);}.lunch-promo-layout{grid-template-columns:1fr;}.lunch-promo-photo{width:100%;max-height:43dvh;object-fit:contain;background:#e5d7bd;}.lunch-promo-copy{padding:21px 25px;}.lunch-promo-emblem{display:none;}.lunch-promo h2{font-size:34px;}.lunch-promo-price{font-size:54px;margin:7px 0;}.lunch-promo-intro{font-size:14px;margin-bottom:12px;}.lunch-promo-meal{padding:10px 0;margin-bottom:14px;}.lunch-promo-eyebrow{margin-bottom:7px;}}
+
+.croqueta-box-promo {width:min(860px,calc(100vw - 32px));}
+.croqueta-box-promo .lunch-promo-copy {padding-top:46px;}
+.croqueta-box-promo .lunch-promo-price {font-size:52px;}
+@media(max-width:650px){
+  .croqueta-box-promo .lunch-promo-photo {height:min(38dvh,360px);background:#2c281f;}
+  .croqueta-box-promo .lunch-promo-copy {padding:20px 24px;}
+  .croqueta-box-promo .lunch-promo-price {font-size:44px;}
+  .croqueta-box-promo h2 {font-size:32px;}
+}

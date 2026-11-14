@@ -649,7 +649,7 @@ footer {
 </script>
 <link rel="alternate" hreflang="en" href="https://anejocateringco.com/"><link rel="alternate" hreflang="es" href="https://anejocateringco.com/es/"><link rel="alternate" hreflang="x-default" href="https://anejocateringco.com/">
 <link rel="stylesheet" href="/assets/css/home-family.css?v=20261001-menu">
-<link rel="stylesheet" href="/assets/css/daily-lunch-promo.css?v=20261001">
+<link rel="stylesheet" href="/assets/css/daily-lunch-promo.css?v=20261114">
 <script type="application/ld+json">{
   "@context": "https://schema.org",
   "@type": "ItemList",
@@ -1531,7 +1531,21 @@ document.querySelectorAll('#navLinks a').forEach(a => {
   <script src="/assets/js/fuelcore.js" defer></script>
   <script src="/assets/js/logo-life.js" defer></script>
 <script src="/assets/js/home-premium.js?v=20261001" defer></script>
-<script src="/assets/js/daily-lunch-promo.js?v=20261001" defer></script>
+<dialog id="croqueta-box-promo" class="lunch-promo croqueta-box-promo" aria-labelledby="croqueta-box-title" aria-describedby="croqueta-box-intro">
+  <div class="lunch-promo-layout">
+    <img class="lunch-promo-photo" width="1254" height="1254" alt="">
+    <div class="lunch-promo-copy">
+      <h2 id="croqueta-box-title"></h2>
+      <p class="lunch-promo-price"></p>
+      <p id="croqueta-box-intro" class="lunch-promo-intro"></p>
+      <a class="lunch-promo-cta" href="/order?product=croquetas-box-12"></a>
+      <p class="lunch-promo-footnote"></p>
+    </div>
+  </div>
+  <button class="lunch-promo-close" type="button" autofocus>×</button>
+</dialog>
+<script src="/assets/js/croqueta-box-promo.js?v=20261114" defer></script>
+<script src="/assets/js/daily-lunch-promo.js?v=20261114" defer></script>
 <script src="/assets/js/stock-highlights.js?v=20261103-1"></script>
 </body>
 </html>

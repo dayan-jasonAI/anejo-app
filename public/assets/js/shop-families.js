@@ -2,10 +2,21 @@
 (function(root){
  const sections=[['meals','Lunch & dinner','Almuerzo y cena'],['appetizers','Appetizers','Aperitivos'],['sides','Sides','Acompañamientos'],['desserts','Desserts','Postres'],['catering','Catering','Catering'],['fit','Añejo Fit','Añejo Fit'],['sauces','Sauces','Salsas']];
  const flavors={queso:['Cheese','Queso'],perro:['Hot dog','Perro caliente'],atun:['Tuna','Atún'],'jamon-queso':['Ham & cheese','Jamón y queso'],dulce:['Dulce de leche','Dulce de leche'],pollo:['Chicken','Pollo'],res:['Beef','Res'],jamon:['Ham','Jamón'],chorizo:['Chorizo','Chorizo'],sausage:['Sausage','Salchicha'],tuna:['Tuna','Atún'],chicken:['Chicken','Pollo'],beef:['Beef','Res'],ham:['Ham','Jamón'],cheese:['Cheese','Queso'],guava:['Guava & cheese','Guayaba y queso'],'ham-cheese':['Ham & cheese','Jamón y queso'],'guava-only':['Guava','Guayaba'],'ropa-vieja':['Ropa vieja','Ropa vieja'],'pulled-pork':['Pulled pork','Lechón'],fresa:['Strawberry','Fresa'],chocolate:['Chocolate','Chocolate']};
+ const croquetaBoxPattern = /^traditional_croq-box12-(fry|eat)-(jamon|pollo|res|chorizo|sausage|tuna)$/;
+ const isCroquetaBox = id => croquetaBoxPattern.test(id);
  function describe(it){
   const id=it.id,catering=id.startsWith('catering_'),base=id.replace(/^(traditional_|catering_)/,''),stem=base.replace(/-\d+$/,'');
   let key=base,category=catering?'catering':'sides',name=it.name,nameEs=it.nameEs||it.name_es||name,flavor=['Classic','Clásico'],format=['Individual','Individual'],aliases=[];
   const n=base.match(/-(\d+)$/)?.[1];if(n)format=[n+' servings',n+' porciones'];
+  const box = id.match(croquetaBoxPattern);
+  if (box) {
+    return {
+      key:'croquetas-box-12', category:'appetizers', name:'Croquetas · Box of 12', nameEs:'Croquetas · Caja de 12',
+      flavor:flavors[box[2]][0], flavorEs:flavors[box[2]][1],
+      format:box[1]==='fry'?'Ready to fry':'Ready to eat',
+      formatEs:box[1]==='fry'?'Listas para freír':'Listas para comer', aliases:[],
+    };
+  }
   if(id==='sauce_extra'||base.startsWith('dip-')){key=id==='sauce_extra'?'dip-signature':base.replace(/-bulk$/,'');category='sauces';format=base.endsWith('-bulk')?['16 fl oz','16 fl oz']:['2 fl oz','2 fl oz'];name=it.name;nameEs=it.nameEs||it.name_es||name;}
   else if(id.startsWith('fit_')){key='fit-drinks';category='fit';name='Fit drinks';nameEs='Bebidas Fit';flavor=[it.name,it.nameEs||it.name_es||it.name];format=['12 fl oz bottle','Botella de 12 fl oz'];}
   else if(!/^(traditional_|catering_)/.test(id)){category='fit';}
@@ -31,5 +42,5 @@
  function group(items){const map=new Map();for(const item of items){const m=describe(item);if(!map.has(m.key))map.set(m.key,{...m,aliases:[],variants:[]});const family=map.get(m.key);family.aliases.push(...m.aliases);family.variants.push({...item,...m});}return [...map.values()];}
  function resolveGroup(groups,key){return groups.find(g=>g.variants.some(i=>i.id===key))||groups.find(g=>g.key===key)||groups.find(g=>g.aliases.includes(key));}
  function tenDollarGroups(items){return group(items.filter(i=>Number.isFinite(i.price)&&Math.round(i.price*100)===1000));}
- root.AnejoShop={sections,describe,group,tenDollarGroups,resolveGroup};if(typeof module!=='undefined')module.exports=root.AnejoShop;
+ root.AnejoShop={sections,describe,group,tenDollarGroups,resolveGroup,isCroquetaBox};if(typeof module!=='undefined')module.exports=root.AnejoShop;
 })(typeof window!=='undefined'?window:globalThis);
