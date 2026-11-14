@@ -4,7 +4,7 @@ import { onRequestPost } from '../../functions/api/checkout.js';
 import { makeD1 } from '../helpers/d1.js';
 
 // Contract fixtures only: no provider requests, customer messages or actual payments.
-async function checkout({ pct = 10, perk = null, providerDiscount, providerTotal, providerFailure = false, claim = 1, itemId = 'sides_test', qty = 3, price = 1000, orderWrite = 1, redemptionWrite = 1, noDB = false, promoCode = 'TEST', retrieveFailure = false, retrieveDiscount, retrieveTotal } = {}) {
+async function checkout({ pct = 10, perk = null, providerDiscount, providerTotal, providerFailure = false, claim = 1, itemId = 'sides_test', qty = 3, price = 1000, delivery = null, orderWrite = 1, redemptionWrite = 1, noDB = false, promoCode = 'TEST', retrieveFailure = false, retrieveDiscount, retrieveTotal } = {}) {
   let sent; const saved = []; let released = 0;
   const DB = makeD1([
     [/SELECT \* FROM menu_items/, () => [{ id: itemId, name: 'Test food', kind: 'addon', price_cents: price, active: 1 }]],
@@ -35,7 +35,7 @@ async function checkout({ pct = 10, perk = null, providerDiscount, providerTotal
   };
   try {
     const date = new Date(); date.setUTCDate(date.getUTCDate() + 10); if (date.getUTCDay() === 0) date.setUTCDate(date.getUTCDate() + 1);
-    const response = await onRequestPost({ env: { DB: noDB ? undefined : DB, SQUARE_ENV: 'sandbox', SQUARE_ACCESS_TOKEN: 'fixture', SQUARE_LOCATION_ID: 'fixture' }, request: new Request('https://example.com/api/checkout', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ items: [{ id: itemId, qty, price_cents: 1 }], promo_code: promoCode, discount_cents: 999999, delivery: { date: date.toISOString().slice(0, 10), window: 'lunch' }, address: { street: '123 Main St', city: 'West Palm Beach', zip: '33401' }, contact: { first_name: 'Test' } }) }) });
+    const response = await onRequestPost({ env: { DB: noDB ? undefined : DB, SQUARE_ENV: 'sandbox', SQUARE_ACCESS_TOKEN: 'fixture', SQUARE_LOCATION_ID: 'fixture' }, request: new Request('https://example.com/api/checkout', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ items: [{ id: itemId, qty, price_cents: 1 }], promo_code: promoCode, discount_cents: 999999, delivery: delivery || { date: date.toISOString().slice(0, 10), window: 'lunch' }, address: { street: '123 Main St', city: 'West Palm Beach', zip: '33401' }, contact: { first_name: 'Test' } }) }) });
     return { response, result: await response.json(), sent, saved, released };
   } finally { globalThis.fetch = oldFetch; }
 }
@@ -101,4 +101,38 @@ test('missing related order and unavailable retrieval never expose discounted pa
 test('retrieved order lacking advertised discount never exposes payment', async () => {
   const r = await checkout({ retrieveDiscount: 0, retrieveTotal: 3710 });
   assert.equal(r.response.status, 502); assert.equal(r.result.url, undefined); assert.equal(r.released, 1); assert.equal(r.saved.length, 0);
+});
+
+test('one croqueta box reaches Square at the catalog price below the regular minimum', async () => {
+  for (const preparation of ['eat', 'fry']) {
+    const id = `traditional_croq-box12-${preparation}-jamon`;
+    const sale = await checkout({ itemId: id, qty: 1, price: 1800, pct: 0 });
+    assert.equal(sale.response.status, 200, JSON.stringify(sale.result));
+    assert.equal(sale.sent.order.line_items[0].quantity, '1');
+    assert.equal(sale.sent.order.line_items[0].base_price_money.amount, 1800);
+    assert.equal(JSON.parse(sale.saved[0][3])[0].id, id);
+    assert.equal(sale.saved[0][10], 2426);
+  }
+  const regular = await checkout({ itemId: 'traditional_croq-jamon', qty: 12, price: 150, pct: 0 });
+  assert.equal(regular.response.status, 400);
+  assert.match(regular.result.error, /Order minimum/);
+  assert.equal(regular.sent, undefined);
+});
+
+
+test('same-day croqueta boxes require a delivery window at least two hours away', async t => {
+  t.mock.timers.enable({ apis: ['Date'], now: new Date('2026-11-16T13:00:00-05:00') });
+  const box = { itemId: 'traditional_croq-box12-fry-pollo', qty: 1, price: 1800, pct: 0 };
+  const date = '2026-11-16';
+  const dinner = await checkout({ ...box, delivery: { date, window: 'dinner' } });
+  assert.equal(dinner.response.status, 200, JSON.stringify(dinner.result));
+  assert.equal(dinner.sent.order.line_items[0].base_price_money.amount, 1800);
+  const lunch = await checkout({ ...box, delivery: { date, window: 'lunch' } });
+  assert.equal(lunch.response.status, 400);
+  assert.match(lunch.result.error, /two hours of prep/);
+  assert.equal(lunch.sent, undefined);
+  const regular = await checkout({ ...box, itemId: 'traditional_croq-pollo', price: 2600, delivery: { date, window: 'dinner' } });
+  assert.equal(regular.response.status, 400);
+  assert.match(regular.result.error, /48 hours/);
+  assert.equal(regular.sent, undefined);
 });

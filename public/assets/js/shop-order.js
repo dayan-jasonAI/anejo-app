@@ -24,10 +24,19 @@ function openShop(key,edit=false){
  const valid=shopActive.variants.filter(shopEnabled);if(!valid.length)return;const initial=valid.find(i=>i.id===key)||valid.find(i=>i.aliases?.includes(key))||valid[0];
  if(edit)shopActive.variants.forEach(i=>{if(addons[i.id])shopDraft[i.id]=addons[i.id]});// New orders require an explicit choice; never add a default filling.
  $('shopModalTitle').textContent=shopName(shopActive);$('shopModalImage').src=shopPhoto(initial);$('shopModalImage').alt=shopName(shopActive);
- const formats=[...new Map(shopActive.variants.map(i=>[i.format,L(i.format,i.formatEs)])).entries()];
- $('shopFormat').innerHTML=formats.map(([value,label])=>`<option value="${escHtml(value)}">${escHtml(label)}</option>`).join('');$('shopFormat').value=(shopActive.variants.find(i=>shopDraft[i.id])||initial).format;
- $('shopScheduled').textContent=shopActive.variants.some(i=>/^(traditional_|catering_)/.test(i.id))?L('Prepared for scheduled delivery. Adding this item selects scheduled delivery for your order.','Preparado para entrega programada. Al agregarlo, tu pedido pasa a entrega programada.'):'';
+ renderShopFormats((shopActive.variants.find(i=>shopDraft[i.id])||initial).format);
+ $('shopScheduled').textContent=shopActive.key === 'croquetas-box-12'
+   ? L('Same-day delivery when two hours of prep fit your window.', 'Entrega el mismo día cuando hay dos horas para preparar tu pedido.')
+   : shopActive.variants.some(i=>/^(traditional_|catering_)/.test(i.id))?L('Prepared for scheduled delivery. Adding this item selects scheduled delivery for your order.','Preparado para entrega programada. Al agregarlo, tu pedido pasa a entrega programada.'):'';
  renderShopChoices();$('shopModalImage').src=shopPhoto(initial);$('shopDialog').showModal();const linkedChoice=$('shopChoices').querySelector?.('[data-shop-sku="'+CSS.escape(initial.id)+'"]');if(linkedChoice){linkedChoice.scrollIntoView({block:'nearest'});linkedChoice.querySelector('button:last-child')?.focus({preventScroll:true});}
+}
+function renderShopFormats(selected){
+ const formats = new Map(shopActive.variants.map(item => [item.format, L(item.format, item.formatEs)]));
+ $('shopFormat').innerHTML = [...formats].map(([value, label]) => `<option value="${escHtml(value)}">${escHtml(label)}</option>`).join('');
+ $('shopFormat').value = selected;
+ const box = shopActive.key === 'croquetas-box-12';
+ $('shopFormatLabel').textContent = box ? L('Preparation', 'Preparación') : L('Size', 'Tamaño');
+ $('shopChoicesLabel').textContent = box ? L('Choose your filling and number of boxes', 'Elige el relleno y la cantidad de cajas') : L('Choose fillings or flavors and quantities', 'Elige rellenos o sabores y cantidades');
 }
 function renderShopChoices(){
  if(!shopActive)return;const format=$('shopFormat').value;const photoItem=shopActive.variants.find(i=>i.format===format);if(photoItem){$('shopModalImage').src=shopPhoto(photoItem);$('shopModalImage').alt=shopName(shopActive)+' · '+L(photoItem.format,photoItem.formatEs);}
@@ -57,6 +66,6 @@ function shopReview(){window.AnejoShopMeasurement?.step('view_cart');const detai
 $('shopDialog').addEventListener('click',e=>{if(e.target===$('shopDialog'))$('shopDialog').close()});
 $('shopSearch').addEventListener('input',renderCatalog);
 $('shopFormat').addEventListener('change',renderShopChoices);
-document.addEventListener('anejo:langchange',()=>{renderCatalog();if(shopActive)renderShopChoices()});
+document.addEventListener('anejo:langchange',()=>{renderCatalog();if(shopActive){renderShopFormats($('shopFormat').value);renderShopChoices()}});
 const shopOriginalCart=renderCart;renderCart=function(){shopOriginalCart();if(bowls.length||Object.values(addons).some(n=>n>0)||dailySelection)$('checkoutDetails').open=true;renderShopSuggestions();const count=(dailySelection?dailySelection.qty:0)+bowls.reduce((s,b)=>s+(b.qty||1),0)+Object.values(addons).reduce((s,n)=>s+n,0);$('shopCartBar').hidden=!count;$('shopCartBar').textContent=L('View order','Ver pedido')+' · '+count+' · '+($('cartSubtotal').textContent||'$0.00');};
 renderCatalog();renderCart();
