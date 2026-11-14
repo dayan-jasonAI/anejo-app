@@ -23,7 +23,9 @@
 .ahero-slides{position:absolute;inset:0}
 .ahero-slide{position:absolute;inset:0;margin:0;opacity:0;transition:opacity 1.1s var(--ease-out)}
 .ahero-slide.is-active{opacity:1}
+.ahero-slide picture{display:block;height:100%}
 .ahero-slide img{width:100%;height:100%;object-fit:cover;transform:scale(1);transition:transform 0s linear 1.2s}
+.ahero-slide[data-order-href] img{object-position:center 40%}
 .ahero-slide.is-active img{transform:scale(1.07);transition:transform 8s ease-out}
 .hero.ahero::after{content:'';position:absolute;inset:0;pointer-events:none;background:linear-gradient(180deg,rgba(13,13,13,.62) 0%,rgba(13,13,13,.34) 18%,rgba(13,13,13,.7) 42%,rgba(13,13,13,.9) 64%,rgba(13,13,13,.95) 100%)}
 /* The copy sits over the busiest part of the photo on a phone: the scrim darkens exactly where the words are,
