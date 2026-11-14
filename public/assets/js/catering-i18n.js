@@ -42,6 +42,7 @@
     'Meet La Cajita · The newest addition to the Añejo family →': 'Conoce La Cajita · La nueva integrante de la familia Añejo →',
     'La Cajita · The newest addition to our family': 'La Cajita · La nueva integrante de nuestra familia',
     'Pause background': 'Pausar fondo', 'Play background': 'Reproducir fondo',
+    'Croquetas 12-pack': 'Caja de 12 croquetas', 'Order your 12-pack': 'Pide tu caja de 12',
     'Customize & order →': 'Personalizar y pedir →',
 
     "For your everyday.": "Para tu día a día.",

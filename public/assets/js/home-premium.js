@@ -26,10 +26,18 @@
     var slides = document.querySelectorAll('.ahero-slide');
     var label = document.querySelector('.ahero-label');
     var btn = document.querySelector('.ahero-pause');
+    var order = document.querySelector('[data-hero-order]');
     if (!slides.length) return;
     var i = 0;
     var paused = reduce;
-    function setLabel() { if (label) label.textContent = t(slides[i].getAttribute('data-label') || ''); }
+    function paintSlide() {
+      var slide = slides[i];
+      if (label) label.textContent = t(slide.getAttribute('data-label') || '');
+      if (order) {
+        order.href = slide.getAttribute('data-order-href') || '/order';
+        order.textContent = t(slide.getAttribute('data-order-label') || 'Order Now');
+      }
+    }
     function setBtn() {
       if (!btn) return;
       btn.setAttribute('aria-pressed', String(paused));
@@ -41,14 +49,18 @@
       slides[i].classList.remove('is-active');
       i = n;
       slides[i].classList.add('is-active');
-      setLabel();
+      paintSlide();
     }
     if (btn) btn.addEventListener('click', function () { paused = !paused; setBtn(); });
-    document.addEventListener('anejo:langchange', function () { setLabel(); setBtn(); });
-    setLabel();
+    document.addEventListener('anejo:langchange', function () { paintSlide(); setBtn(); });
+    paintSlide();
     setBtn();
     if (slides.length > 1) {
-      setInterval(function () { if (!paused && !document.hidden) go((i + 1) % slides.length); }, 6000);
+      setInterval(function () {
+        // Keep the destination stable while the visitor is about to activate the order link.
+        var usingOrder = order && (order === document.activeElement || (window.matchMedia('(hover: hover)').matches && order.matches(':hover')));
+        if (!paused && !document.hidden && !usingOrder) go((i + 1) % slides.length);
+      }, 6000);
     }
   })();
 
