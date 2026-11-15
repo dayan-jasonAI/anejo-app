@@ -22,14 +22,16 @@ export const onRequestGet = async ({ request, env, params }) => {
     return json({ error: 'Not found.' }, 404);
   }
 
-  const obj = await getMedia(env, key);
-  if (!obj) return json({ error: 'Not found.' }, 404);
+  const etag = new URL(request.url).searchParams.get('review_etag');
+  const options = etag ? { onlyIf: { etagMatches: etag } } : undefined;
+  const obj = await getMedia(env, key, options);
+  if (!obj || (etag && (!obj.body || obj.etag !== etag))) return json({ error: 'Not found.' }, 404);
 
   const contentType =
     (obj.httpMetadata && obj.httpMetadata.contentType) || contentTypeForKey(key);
   const headers = {
     'Content-Type': contentType,
-    'Cache-Control': 'private, max-age=3600',
+    'Cache-Control': etag ? 'private, no-store' : 'private, max-age=3600',
   };
   if (obj.httpEtag) headers.ETag = obj.httpEtag;
   return new Response(obj.body, { status: 200, headers });

@@ -12,6 +12,7 @@
 <link rel="stylesheet" href="/hub/owner/assets/marketing-library.css?v=asset-review-2">
 <link rel="stylesheet" href="/hub/owner/assets/marketing-photo-picker.css?v=photo-polish-2">
 <link rel="stylesheet" href="/hub/owner/assets/marketing-photo-enhance.css?v=photo-polish-2">
+<link rel="stylesheet" href="/hub/owner/assets/social-recurrence.css?v=1">
 <!-- The two Añejo brand faces, the SAME link the public site uses (public/index.html). They are
      not here to restyle the hub — hub.css pins its own system font stack and nothing below
      changes that. They are here because the branding tool typesets real Cormorant Garamond and
@@ -234,6 +235,7 @@
 <script src="/hub/owner/assets/marketing-image-orientation.js?v=browser-srgb-1"></script>
 <script src="/hub/owner/assets/marketing-photo-normalize.js?v=browser-srgb-2"></script>
 <script src="/hub/owner/assets/marketing-branding.js?v=editorial-plan-1"></script>
+<script src="/hub/owner/assets/social-recurrence.js?v=1"></script>
 
 <!-- ============================================================================================
      MODULE: Teach > Team Lead — copied from the old team.html almost unchanged. Only the mount
@@ -1545,6 +1547,10 @@
 
   function postCard(p) {
     if (p.status === 'archived') return '<div class="post" data-queue-card="'+esc(p.id)+'" data-queue-status="archived" tabindex="-1"><div class="post-head"><b>Removed draft</b></div><p>'+esc((p.caption || 'Untitled draft').slice(0,160))+'</p><p class="hint">Removed from the active queue. Restoring keeps it unscheduled.</p><button type="button" class="btn ghost" data-restore="'+esc(p.id)+'">Restore draft</button></div>';
+    if (p.source === 'recurring' && p.status !== 'published') {
+      return '<div class="post" data-queue-card="'+esc(p.id)+'" data-queue-status="'+esc(p.status)+'"><p>Recurring Instagram post</p><p class="hint">'+esc(when(p))+'</p>'+
+        (p.error ? '<p class="hint">'+esc(p.error)+'</p>' : '')+'</div>';
+    }
     var mtype = p.media_type || null;   // null = legacy/undeclared (migrations/0080) — image/carousel by slide count, as always
     var slideCap = (mtype === 'REELS' || mtype === 'STORIES') ? 1 : 10;   // Meta allows no carousel for either
     var isFeed = mtype !== 'REELS' && mtype !== 'STORIES';   // branding + carousel generation are feed-post concepts only
@@ -1572,6 +1578,8 @@
       // Slides. One photo is a normal post; 2-10 is a carousel, and the ORDER is editorial — the
       // strip shows it and the arrows change it. All of it locks once the post is live.
       slideStrip(p) +
+      ((p.media || []).length && ['draft','failed','published'].includes(p.status) && !['inventory','recurring'].includes(p.source)
+        ? '<button type="button" class="btn ghost" data-open-recurring="'+esc(p.id)+'">Repeat schedule</button>' : '') +
       coverNote(p) +
       (isFeed ? '<details class="queue-advanced"><summary>Advanced creative tools / Herramientas creativas avanzadas</summary>' +
         (['draft','failed'].includes(p.status) ? '<button type="button" class="btn ghost" data-dryrun="' + esc(p.id) + '">Test Instagram upload (no publish)</button><p class="hint">Checks saved media processing at Meta. Does not publish or schedule.</p><p data-dryrun-result="' + esc(p.id) + '" role="status" hidden></p>' : '') +
@@ -1718,8 +1726,9 @@
             '<p class="hint">Up to 2,200 characters. Hashtags count toward it.</p></div>' +
           '<div class="form-row"><label>Schedule (optional)</label><input id="sched" type="datetime-local">' +
             '<p class="hint">Leave empty to save as a draft you publish by hand.</p></div>' +
-          '<button class="btn gold block" id="save">Save post</button><button class="btn ghost" id="recover-composer-save" type="button">Recover previous save</button><button class="btn ghost" id="resolve-composer-save" type="button">Resolve without retry</button>' +
+          '<button class="btn gold block" id="save">Save post</button><button class="btn ghost" id="save-repeat" type="button">Save and set repeat</button><button class="btn ghost" id="recover-composer-save" type="button">Recover previous save</button><button class="btn ghost" id="resolve-composer-save" type="button">Resolve without retry</button>' +
         '</div></div>' +
+      '<section class="hub-section" id="social-recurring" translate="no"></section>' +
       '<div class="hub-section" id="post-queue"><h2 tabindex="-1" id="post-queue-title">Posts / Publicaciones</h2>' +
         '<p class="hint">Latest 60 posts returned · Últimas 60 publicaciones devueltas</p><div class="pt-chips queue-filters" role="group" aria-label="Filter posts / Filtrar publicaciones">' +
         [['drafts','Drafts / Borradores'],['scheduled','Scheduled / Programadas'],['attention','Attention / Atención'],['live','Live / Publicadas'],['all','All / Todas'],['archived','Removed / Eliminadas']].map(function (f) { return '<button type="button" data-queue-filter="' + f[0] + '" aria-pressed="false">' + f[1] + '</button>'; }).join('') + '</div><p id="queue-count" class="hint" role="status"></p><p id="queue-empty" hidden>No matching posts in this loaded list. / No hay publicaciones coincidentes en esta lista.</p>' +
@@ -1727,6 +1736,7 @@
       '</div>';
 
     wire();
+    window.AnejoSocialRecurrence?.mount(document.getElementById('social-recurring'));
     document.querySelectorAll('[data-queue-filter]').forEach(function (b) { b.onclick = function () { window.MarketingTabs.filterQueue(b.getAttribute('data-queue-filter')); }; });
     window.MarketingTabs.routeQueue();
     if (window.AnejoI18n) window.AnejoI18n.refresh();
@@ -2026,25 +2036,37 @@
     if(recoverSave)recoverSave.onclick=async function(){recoverSave.disabled=true;try{await recoverComposerRequest();}catch(e){Hub.toast(e.message);}finally{recoverSave.disabled=false;}};
     var resolveSave=document.getElementById('resolve-composer-save');
     if(resolveSave)resolveSave.onclick=async function(){resolveSave.disabled=true;try{await resolveComposerRequest();}catch(e){Hub.toast(e.message);}finally{resolveSave.disabled=false;}};
+    document.querySelectorAll('[data-open-recurring]').forEach(function (button) {
+      button.onclick = function () { window.AnejoSocialRecurrence?.open(button.dataset.openRecurring, button); };
+    });
     var save = document.getElementById('save');
-    if (save) save.addEventListener('click', function () {
+    var saveRepeat = document.getElementById('save-repeat');
+    function saveInstagramPost(repeat) {
       var key = (document.getElementById('mkey') || {}).value || '';
       var cap = (document.getElementById('cap') || {}).value || '';
       var s = (document.getElementById('sched') || {}).value || '';
       var mtype = (document.getElementById('mtypesel') || {}).value || '';
       if (!key.trim()) { Hub.toast(mtype === 'REELS' ? 'Paste a video key first.' : 'Pick an image first.'); return; }
-      var when = s ? Date.parse(s) : null;
-      if (s && !Number.isFinite(when)) { Hub.toast('Pick a valid date and time.'); return; }
+      var when = s && !repeat ? Date.parse(s) : null;
+      if (s && !repeat && !Number.isFinite(when)) { Hub.toast('Pick a valid date and time.'); return; }
       if (when && !window.confirm('Schedule this photo and caption for ' + whenLabel(when) + '? It will post publicly without asking again.')) return;
       save.disabled = true;
+      saveRepeat.disabled = true;
       saveComposerRequest({ op:'draft', media_key:key.trim(), media_type: mtype || null, caption:cap, scheduled_at: Number.isFinite(when) ? when : null },{mkey:key,cap:cap,sched:s,mtypesel:mtype})
         .then(function (r) {
           save.disabled = false;
+          saveRepeat.disabled = false;
           if (!r || !r.ok) { Hub.toast((r && r.error) || 'Could not save'); return; }
           Hub.toast(r.replayed ? 'Previous save confirmed. Refresh the queue for its current status.' : r.status === 'scheduled' ? 'Scheduled' : 'Saved as a draft');
-          load();
-        }).catch(function(error){save.disabled=false;Hub.toast(error.message);});
-    });
+          return load().then(function () {
+            if (!repeat || !r.id) return;
+            var trigger = document.querySelector('[data-open-recurring="'+CSS.escape(r.id)+'"]') || document.getElementById('save-repeat');
+            if (trigger) return window.AnejoSocialRecurrence?.open(r.id,trigger);
+          });
+        }).catch(function(error){save.disabled=false;saveRepeat.disabled=false;Hub.toast(error.message);});
+    }
+    if (save) save.addEventListener('click', function () { saveInstagramPost(false); });
+    if (saveRepeat) saveRepeat.addEventListener('click', function () { saveInstagramPost(true); });
 
     Array.prototype.forEach.call(document.querySelectorAll('[data-pub]'), function (b) {
       b.addEventListener('click', function () {
@@ -2085,7 +2107,7 @@
     });
   }
 
-  function load() { Owner.get('/api/hub/owner/social' + (queueFilter === 'archived' ? '?archived=1' : '')).then(function (d) { DATA = d; render(); }); }
+  function load() { return Owner.get('/api/hub/owner/social' + (queueFilter === 'archived' ? '?archived=1' : '')).then(function (d) { DATA = d; render(); }); }
   window.MarketingTabs.createInstagram = load;
 })();
 </script>

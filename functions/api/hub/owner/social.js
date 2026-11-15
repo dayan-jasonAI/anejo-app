@@ -212,6 +212,9 @@ export const onRequestPost = async ({ request, env }) => {
   let b;
   try { b = await request.json(); } catch { return bad('Invalid JSON body.'); }
   const op = (b && b.op) || '';
+  if (String(b?.id || '').startsWith('recurring_post_') && op !== 'audit') {
+    return bad('Manage this post from its recurring schedule.', 409);
+  }
 
   // Stage a post from a Studio image + caption. Nothing leaves the building yet.
   if (op === 'draft_receipt' || op === 'draft_abandon') {

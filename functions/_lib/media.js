@@ -97,10 +97,10 @@ export async function putMedia(env, { kind, dataUrl, bytes, contentType, ext, ro
 }
 
 // Fetch an R2 object by key. Returns null when the binding or object is absent.
-export async function getMedia(env, key) {
+export async function getMedia(env, key, options) {
   try {
     if (!env || !env.MEDIA || !key) return null;
-    return await env.MEDIA.get(key);
+    return options ? await env.MEDIA.get(key, options) : await env.MEDIA.get(key);
   } catch {
     return null;
   }
