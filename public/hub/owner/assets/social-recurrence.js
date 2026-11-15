@@ -97,7 +97,7 @@
 
   function previewMarkup(snapshot) {
     const media = snapshot.media.map(item => {
-      const src = '/api/hub/media/' + item.key.split('/').map(encodeURIComponent).join('/');
+      const src = '/api/hub/media/' + item.key.split('/').map(encodeURIComponent).join('/') + '?review_etag=' + encodeURIComponent(item.etag);
       return /\.(mp4|mov)$/i.test(item.key)
         ? '<video controls playsinline preload="metadata" src="'+escape(src)+'" aria-label="'+escape(t('video'))+'" data-repeat-aria="video"></video>'
         : '<img src="'+escape(src)+'" alt="'+escape(t('photo'))+'" data-repeat-alt="photo">';
@@ -245,7 +245,7 @@
     try {
       const result = await Hub.api(api+'?post='+encodeURIComponent(postId));
       if (result?.ok) showEditor(result,trigger);
-      else Hub.toast(t(result?.error || 'recurrence_unavailable'));
+      else Hub.toast(t(result?.error));
     } finally { busy = false; }
   }
 

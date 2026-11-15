@@ -1,6 +1,6 @@
 #social-recurring:empty { display: none; }
 #social-recurring .post p { overflow-wrap: anywhere; }
-.repeat-dialog { width: min(560px, calc(100% - 24px)); max-height: calc(100dvh - 28px); padding: 20px; border: 1px solid var(--line); border-radius: 16px; color: var(--green); background: #fff; }
+.repeat-dialog { box-sizing: border-box; width: min(560px, calc(100% - 24px)); max-height: calc(100dvh - 28px); inset: 0; margin: auto; padding: 20px; border: 1px solid var(--line); border-radius: 16px; color: var(--green); background: #fff; }
 .repeat-dialog::backdrop { background: rgb(13 13 13 / 54%); }
 .repeat-dialog h2 { margin: 0 0 6px; }
 .repeat-dialog form > .hint { margin-bottom: 14px; }
@@ -12,6 +12,7 @@
 .repeat-day label { display: flex; gap: 8px; min-height: 44px; align-items: center; }
 .repeat-day input[type="checkbox"] { width: 18px; height: 18px; min-height: 0; accent-color: var(--green); }
 .repeat-day input[type="time"] { padding: 6px 8px; }
+.repeat-day input[type="time"]:disabled { visibility: hidden; }
 .repeat-media { display: flex; gap: 8px; max-width: 100%; overflow: auto; }
 .repeat-media img, .repeat-media video { max-width: min(240px,100%); max-height: 280px; object-fit: contain; border-radius: 8px; }
 .repeat-caption { white-space: pre-wrap; overflow-wrap: anywhere; }
