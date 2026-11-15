@@ -25,6 +25,7 @@ import { igConfigured } from '../../../_lib/instagram.js';
 import { publishSocialPost } from '../../../_lib/social_publish.js';
 import { recordSocialTick } from '../../../_lib/social_heartbeat.js';
 import { capture } from '../../../_lib/track.js';
+import { claimRecurrence, dueRecurrence } from '../../../_lib/social_recurrence.js';
 
 // A social post is tied to a moment — a lunch window, a drop, a weekend. Two hours late is a
 // different post. Same threshold as campaigns, for the same reason.
@@ -74,24 +75,36 @@ async function runTick(request, env) {
     const late = t - Number(p.scheduled_at || 0);
     if (late > GRACE_MS) {
       await env.DB.prepare(
-        "UPDATE social_posts SET status='draft', error=?, updated_at=? WHERE id=? AND status='scheduled'"
+        "UPDATE social_posts SET status='draft', error=?, updated_at=? WHERE id=? AND status='scheduled' AND scheduled_at=?"
       ).bind(
         `Not posted: it came due ${Math.round(late / 60000)} minutes late, past the ${Math.round(GRACE_MS / 60000)}-minute window. Posting it now would put it out at the wrong time of day, so it is back to draft.`,
-        t, p.id
+        t, p.id, p.scheduled_at
       ).run();
       missed.push({ id: p.id, late_minutes: Math.round(late / 60000) });
     }
   }
 
-  const work = due.filter((p) => !missed.some((m) => m.id === p.id)).slice(0, PER_TICK);
+  let work = due.filter((p) => !missed.some((m) => m.id === p.id)).slice(0, PER_TICK);
+  const series = await dueRecurrence(env, t);
+  let recurringPost;
+  if (series && (t - series.next_at > GRACE_MS || !work.length || series.next_at < work[0].scheduled_at)) {
+    const claimed = await claimRecurrence(env, series, t, GRACE_MS);
+    if (claimed?.missed) missed.push({ id: series.id, late_minutes: Math.round((t - series.next_at) / 60000) });
+    if (claimed?.post) {
+      recurringPost = claimed.post;
+      work = [recurringPost];
+    }
+  }
 
   for (const p of work) {
     // Same claim the manual button uses — this is the mutex, and it has to be taken before the
     // ~20 seconds of container work, not after.
-    const claim = await env.DB.prepare(
-      "UPDATE social_posts SET status='publishing', error=NULL, updated_at=? WHERE id=? AND status='scheduled'"
-    ).bind(now(), p.id).run();
-    if (!claim || !claim.meta || claim.meta.changes !== 1) continue;   // a click got there first
+    if (p !== recurringPost) {
+      const claim = await env.DB.prepare(
+        "UPDATE social_posts SET status='publishing', error=NULL, updated_at=? WHERE id=? AND status='scheduled' AND scheduled_at=?"
+      ).bind(now(), p.id, p.scheduled_at).run();
+      if (!claim || !claim.meta || claim.meta.changes !== 1) continue;
+    }
 
     // The SAME publish path the owner's button uses — single image or carousel decided inside it.
     // The tick knowing how to publish differently from the button is exactly the drift the shared
@@ -110,5 +123,5 @@ async function runTick(request, env) {
     published.push({ id: p.id, permalink: res.permalink || null });
   }
 
-  return json({ ok: true, at: t, checked: due.length, paid_inventory, published, failed, missed });
+  return json({ ok: true, at: t, checked: due.length + Number(!!series), paid_inventory, published, failed, missed });
 };

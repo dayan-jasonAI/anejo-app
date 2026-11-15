@@ -31,7 +31,7 @@ export const onRequestGet = async ({ env, params }) => {
   let post = null;
   try {
     post = await env.DB.prepare(
-      `SELECT m.media_key, p.status FROM social_post_media m
+      `SELECT m.media_key, m.recurring_etag, p.status FROM social_post_media m
          JOIN social_posts p ON p.id = m.post_id
         WHERE m.public_token = ? LIMIT 1`
     ).bind(token).first();
@@ -47,8 +47,9 @@ export const onRequestGet = async ({ env, params }) => {
   // to come back — so the URL stops working and a leaked token ages into uselessness.
   if (post.status === 'published' || post.status === 'failed' || post.status === 'archived') return notFound();
 
-  const obj = await getMedia(env, post.media_key);
-  if (!obj) return notFound();
+  const options = post.recurring_etag ? { onlyIf: { etagMatches: post.recurring_etag } } : undefined;
+  const obj = await getMedia(env, post.media_key, options);
+  if (!obj || (post.recurring_etag && (!obj.body || obj.etag !== post.recurring_etag))) return notFound();
 
   return new Response(obj.body, {
     headers: {
