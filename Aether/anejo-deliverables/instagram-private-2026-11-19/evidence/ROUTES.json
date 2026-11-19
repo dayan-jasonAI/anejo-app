@@ -1,0 +1,90 @@
+[
+  {
+    "path": "/api/menu",
+    "url": "https://anejocateringco.com/api/menu",
+    "status": 200,
+    "file": "Aether/anejo-deliverables/instagram-private-2026-11-19/evidence/public-0.json",
+    "bytes": 91661,
+    "checked": "2026-11-19T20:57:55.247138+00:00"
+  },
+  {
+    "path": "/api/stock-highlights",
+    "url": "https://anejocateringco.com/api/stock-highlights",
+    "status": 200,
+    "file": "Aether/anejo-deliverables/instagram-private-2026-11-19/evidence/public-1.json",
+    "bytes": 62,
+    "checked": "2026-11-19T20:57:54.978067+00:00"
+  },
+  {
+    "path": "/order?product=croquetas-box-12",
+    "url": "https://anejocateringco.com/order?product=croquetas-box-12",
+    "status": 200,
+    "file": "Aether/anejo-deliverables/instagram-private-2026-11-19/evidence/public-2.html",
+    "bytes": 82083,
+    "checked": "2026-11-19T20:57:54.994573+00:00"
+  },
+  {
+    "path": "/catering?occasion=corporate",
+    "url": "https://anejocateringco.com/catering?occasion=corporate",
+    "status": 200,
+    "file": "Aether/anejo-deliverables/instagram-private-2026-11-19/evidence/public-3.html",
+    "bytes": 49877,
+    "checked": "2026-11-19T20:57:54.948698+00:00"
+  },
+  {
+    "path": "/affiliate",
+    "url": "https://anejocateringco.com/affiliate",
+    "status": 200,
+    "file": "Aether/anejo-deliverables/instagram-private-2026-11-19/evidence/public-4.html",
+    "bytes": 10679,
+    "checked": "2026-11-19T20:57:54.957703+00:00"
+  },
+  {
+    "path": "/client/dashboard",
+    "url": "https://anejocateringco.com/client/dashboard",
+    "status": 200,
+    "file": "Aether/anejo-deliverables/instagram-private-2026-11-19/evidence/public-5.html",
+    "bytes": 28130,
+    "checked": "2026-11-19T20:57:55.656298+00:00"
+  },
+  {
+    "path": "/cajita-builder",
+    "url": "https://anejocateringco.com/cajita-builder",
+    "status": 200,
+    "file": "Aether/anejo-deliverables/instagram-private-2026-11-19/evidence/public-6.html",
+    "bytes": 18168,
+    "checked": "2026-11-19T20:57:55.478616+00:00"
+  },
+  {
+    "path": "/order?category=ten",
+    "url": "https://anejocateringco.com/order?category=ten",
+    "status": 200,
+    "file": "Aether/anejo-deliverables/instagram-private-2026-11-19/evidence/public-7.html",
+    "bytes": 82083,
+    "checked": "2026-11-19T20:57:55.229308+00:00"
+  },
+  {
+    "path": "/api/daily-lunch",
+    "url": "https://anejocateringco.com/api/daily-lunch",
+    "status": 200,
+    "file": "Aether/anejo-deliverables/instagram-private-2026-11-19/evidence/public-8.json",
+    "bytes": 5642,
+    "checked": "2026-11-19T20:57:55.456464+00:00"
+  },
+  {
+    "path": "/",
+    "url": "https://anejocateringco.com/",
+    "status": 200,
+    "file": "Aether/anejo-deliverables/instagram-private-2026-11-19/evidence/public-9.html",
+    "bytes": 97967,
+    "checked": "2026-11-19T20:57:55.730632+00:00"
+  },
+  {
+    "path": "/subscribe",
+    "url": "https://anejocateringco.com/subscribe",
+    "status": 200,
+    "file": "Aether/anejo-deliverables/instagram-private-2026-11-19/evidence/public-10.html",
+    "bytes": 32618,
+    "checked": "2026-11-19T20:57:55.502021+00:00"
+  }
+]

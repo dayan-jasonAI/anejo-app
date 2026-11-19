@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5">
+<meta name="theme-color" content="#0D0D0D">
+<title>Subscribe — Añejo Catering Co.</title>
+<meta name="description" content="Subscribe to weekly Cuban-American meal-prep — 5, 10, or 12 macro-friendly bowls delivered across Palm Beach County. Cancel anytime.">
+<link rel="canonical" href="https://anejocateringco.com/subscribe">
+<link rel="icon" type="image/png" href="/assets/img/favicon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Josefin+Sans:wght@300;400;500;600;700&family=Cormorant+Garamond:ital,wght@0,500;0,600;1,400;1,500&display=swap" rel="stylesheet">
+<style>
+:root{--black:#0D0D0D;--green:#1A3D2E;--gold:#C8BC6E;--gold-deep:#C08418;--gold-dark:#8B6B3E;--cream:#F5F2EC;--cream-dark:#EAE5D8;--ink:#1A1A1A;--muted:#6b6b6b;--line:rgba(26,61,46,.15)}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Josefin Sans',-apple-system,sans-serif;background:var(--cream);color:var(--ink);line-height:1.6;-webkit-font-smoothing:antialiased}
+.serif-i{font-family:'Cormorant Garamond',Georgia,serif;font-style:italic}
+nav{position:sticky;top:0;z-index:50;background:rgba(13,13,13,.95);backdrop-filter:blur(10px);border-bottom:1px solid rgba(198,168,91,.2)}
+.nav-inner{max-width:760px;margin:0 auto;padding:14px 24px;display:flex;align-items:center;justify-content:space-between}
+.logo{display:flex;align-items:center;gap:11px;color:var(--gold);text-decoration:none;font-family:'Cormorant Garamond',Georgia,serif;font-weight:600;letter-spacing:6px;font-size:22px}
+.logo-emblem{height:36px}
+.nav-back{color:var(--cream);text-decoration:none;font-size:12px;letter-spacing:1.5px;text-transform:uppercase}
+.nav-back:hover{color:var(--gold)}
+.hero{background:var(--black);color:var(--cream);padding:48px 24px 36px;text-align:center}
+.hero .eyebrow{font-size:11px;letter-spacing:4px;text-transform:uppercase;color:var(--gold);font-weight:600;margin-bottom:12px}
+.hero h1{font-size:clamp(28px,5vw,40px);font-weight:300}
+.hero h1 strong{color:var(--gold);font-weight:600}
+.wrap{max-width:520px;margin:0 auto;padding:32px 24px 72px}
+.plan-card{background:#fff;border:1px solid var(--line);border-top:4px solid var(--gold);border-radius:12px;padding:28px}
+.plan-pick{display:flex;gap:10px;margin-bottom:22px;flex-wrap:wrap}
+.plan-opt{flex:1;min-width:130px;border:1px solid var(--line);border-radius:10px;padding:14px;cursor:pointer;text-align:center;transition:all .15s}
+.plan-opt:hover{border-color:var(--gold)}
+.plan-opt.sel{border-color:var(--gold);background:#fff8e9;box-shadow:0 0 0 1px var(--gold)}
+.plan-opt .pname{font-weight:600;color:var(--green);font-size:15px}
+.plan-opt .pprice{color:var(--gold-dark);font-weight:700;margin-top:4px}
+.plan-opt .pper{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1px}
+.who{font-size:13px;color:var(--muted);margin-bottom:18px}
+.b-input{width:100%;padding:11px 12px;border:1px solid var(--line);border-radius:8px;background:var(--cream);font:inherit;margin-bottom:12px}
+.b-input:focus,#card-container:focus-within{outline:none;border-color:var(--gold);box-shadow:0 0 0 3px rgba(200,188,110,.18)}
+.input-error{border-color:#9b2226!important;box-shadow:0 0 0 3px rgba(155,34,38,.15)!important}
+.who strong{color:var(--green)}
+label.fld{display:block;font-size:11px;letter-spacing:1px;text-transform:uppercase;color:var(--green);font-weight:600;margin:0 0 6px}
+#card-container{border:1px solid var(--line);border-radius:8px;padding:4px 10px;background:var(--cream);min-height:52px}
+.summary{display:flex;justify-content:space-between;font-weight:700;color:var(--green);font-size:16px;margin:20px 0 4px;padding-top:14px;border-top:2px solid var(--line)}
+.fine{font-size:12px;color:var(--muted);margin-top:6px;line-height:1.5}
+.sched{border:1px solid var(--line);border-left:4px solid var(--gold);border-radius:8px;background:#fff8e9;padding:12px 14px;font-size:13.5px;line-height:1.5;color:var(--ink)}
+.sched b{color:var(--green)}
+.sched .days{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.sched .day{font-size:11px;font-weight:600;letter-spacing:.5px;background:var(--green);color:var(--cream);border-radius:5px;padding:3px 8px}
+.sched .day.off{background:transparent;color:#b9b4a6;border:1px dashed var(--line)}
+.btn{display:block;width:100%;text-align:center;margin-top:18px;padding:15px 20px;border-radius:999px;font-family:inherit;font-size:13px;letter-spacing:2px;text-transform:uppercase;font-weight:700;border:none;cursor:pointer;background:linear-gradient(135deg,var(--gold),var(--gold-deep));color:#1c1606;box-shadow:0 8px 22px rgba(192,132,24,.28);transition:transform .15s ease,box-shadow .15s ease}
+.btn:hover:not(:disabled){transform:translateY(-1px);box-shadow:0 10px 26px rgba(192,132,24,.34)}
+.btn:disabled{opacity:.6;cursor:not-allowed;transform:none;box-shadow:none}
+@media(prefers-reduced-motion:reduce){.btn{transition:none}.btn:hover:not(:disabled){transform:none}}
+.msg{margin-top:14px;font-size:14px;min-height:1px}
+.msg.err{color:#9b2226}
+.ok-card{text-align:center;background:#fff;border:1px solid var(--line);border-top:4px solid var(--gold);border-radius:12px;padding:40px 32px}
+.ok-card .check{width:64px;height:64px;border-radius:50%;background:var(--green);display:flex;align-items:center;justify-content:center;margin:0 auto 20px}
+.ok-card .check svg{width:32px;height:32px;stroke:var(--gold);stroke-width:3;fill:none}
+.ok-card h2{color:var(--green);font-weight:600;margin-bottom:10px}
+.ok-card p{color:var(--muted);font-size:14px}
+.apple-pay-btn{display:block;width:100%;height:48px;border-radius:8px;cursor:pointer;-webkit-appearance:-apple-pay-button;appearance:-apple-pay-button;-apple-pay-button-type:subscribe;-apple-pay-button-style:black}
+#gpay-button{width:100%;min-height:48px}
+#gpay-button + .apple-pay-btn,.apple-pay-btn + #gpay-button{margin-top:8px}
+.wallet-or{display:flex;align-items:center;text-align:center;color:var(--muted);font-size:11px;letter-spacing:1.5px;text-transform:uppercase;margin:12px 0 14px}
+.wallet-or:before,.wallet-or:after{content:"";flex:1;height:1px;background:var(--line)}
+.wallet-or span{padding:0 10px}
+</style>
+<script type="application/ld+json">
+{
+ "@context": "https://schema.org",
+ "@type": "BreadcrumbList",
+ "itemListElement": [
+  {
+   "@type": "ListItem",
+   "position": 1,
+   "name": "Home",
+   "item": "https://anejocateringco.com/"
+  },
+  {
+   "@type": "ListItem",
+   "position": 2,
+   "name": "Subscribe",
+   "item": "https://anejocateringco.com/subscribe"
+  }
+ ]
+}
+</script>
+<script src="/assets/js/i18n.js?v=i18n-8778200b231cabe2" charset="utf-8" data-anejo-language-bootstrap></script></head>
+<body>
+<nav><div class="nav-inner"><a href="/" class="logo"><img class="logo-emblem" src="/assets/img/emblem.png" alt="Añejo emblem"><span>AÑEJO</span></a><a href="/" class="nav-back">← Back</a></div></nav>
+
+<header class="hero">
+  <div class="eyebrow">Weekly Meal-Plan Subscription</div>
+  <h1>Subscribe to your <strong>Añejo plan</strong>.</h1>
+  <div style="display:inline-flex;align-items:center;gap:8px;margin-top:14px;background:var(--gold);color:var(--black);font-weight:700;font-size:13px;letter-spacing:1.5px;text-transform:uppercase;padding:9px 18px;border-radius:999px;box-shadow:0 4px 16px rgba(0,0,0,.28)">🌿 Cooked and delivered fresh daily</div>
+</header>
+
+<div class="wrap" id="wrap">
+  <div class="plan-card" id="form">
+    <div class="who" id="who"></div>
+    <div id="buyerFields"></div>
+
+    <label class="fld">Choose your weekly plan</label>
+    <div class="plan-pick" id="planPick"></div>
+
+    <label class="fld">Your delivery schedule</label>
+    <div id="schedule" class="sched"></div>
+    <div id="windowPick" style="display:none;margin-top:12px">
+      <label class="fld">Choose your delivery window <span style="color:#9b2226">*</span></label>
+      <div class="plan-pick" id="winPick"></div>
+    </div>
+
+    <label class="fld">Delivery address</label>
+    <input class="b-input" id="a_street" type="text" autocomplete="address-line1" placeholder="Street address">
+    <input class="b-input" id="a_unit" type="text" autocomplete="address-line2" placeholder="Apt / unit / suite (optional)">
+    <div style="display:flex;gap:10px">
+      <input class="b-input" id="a_city" type="text" autocomplete="address-level2" placeholder="City" style="flex:2">
+      <input class="b-input" id="a_state" type="text" autocomplete="address-level1" placeholder="State" value="FL" style="flex:1">
+      <input class="b-input" id="a_zip" type="text" inputmode="numeric" autocomplete="postal-code" placeholder="ZIP" style="flex:1">
+    </div>
+    <input class="b-input" id="a_notes" type="text" placeholder="Gate code, drop-off notes (optional)">
+
+    <div id="walletWrap" style="display:none">
+      <button id="applePayBtn" class="apple-pay-btn" type="button" style="display:none" aria-label="Subscribe with Apple Pay"></button>
+      <div id="gpay-button" style="display:none"></div>
+      <div class="wallet-or"><span>or pay with card</span></div>
+    </div>
+
+    <label class="fld" for="card-container">Card</label>
+    <div id="card-container"></div>
+
+    <div class="summary"><span>Billed weekly</span><span id="sumPrice">—</span></div>
+    <p class="fine">Recurring weekly until you cancel. Cancel anytime — see our <a href="/legal/refund">Refund &amp; Cancellation policy</a>. Delivery only · Palm Beach County · on your plan's delivery days (shown above).</p>
+
+    <button class="btn" id="subBtn" disabled>Start subscription</button>
+    <div class="msg" id="msg" role="alert" aria-live="assertive"></div>
+  </div>
+</div>
+
+<script>
+// weeklyUsd = the tier's LIST price. The server is authoritative: /api/square-config publishes it
+// from plans.js (which now resolves it from D1), and /api/subscriptions/create charges from the
+// same place — so the number here is a FIRST-PAINT FALLBACK only, to avoid blank price cards before
+// the fetch lands. init() overwrites it and re-renders. If the two ever disagree, the server wins.
+const TIERS = {
+  plan_5:  { label:'5 bowls / week',  bowls:5,  weeklyUsd:99,  price:99 },
+  plan_10: { label:'10 bowls / week', bowls:10, weeklyUsd:189, price:189 },
+  plan_12: { label:'12 bowls / week', bowls:12, weeklyUsd:219, price:219 },
+};
+const qs = new URLSearchParams(location.search);
+const clientId = qs.get('client') || '';
+// When arriving from a personalized plan, each bowl is portion-sized to the member's goal
+// and priced from that (pbp = per-bowl price). Re-price the tiers off it so the quote matches.
+const perBowl = parseFloat(qs.get('pbp'));
+const bowlOz = parseInt(qs.get('oz'), 10);
+const avocado = qs.get('avo') === '1';
+let avoUsd = 2; // ½-avocado add-on per bowl; replaced by the server's value when it sends one
+// Displayed price for every tier. A sized quote (pbp) beats the list price — the server prices
+// sized subscriptions the same way — and the avocado add-on is charged per bowl on top of either.
+function applyPricing(){
+  Object.values(TIERS).forEach(t => {
+    const base = perBowl > 0 ? perBowl * t.bowls : t.weeklyUsd;
+    t.price = Math.round((base + (avocado ? avoUsd * t.bowls : 0)) * 100) / 100;
+  });
+}
+applyPricing();
+// Per-tier delivery schedule. First-paint fallback only — overwritten from /api/square-config
+// (server PLAN_TIERS) on load, so this never drifts. chooseWindow tiers (1 bowl/day) REQUIRE
+// the customer to pick Lunch or Dinner.
+const SCHED = {
+  plan_5:  { bowlsPerDay:1, deliverDows:[1,2,3,4,5],   chooseWindow:true  },  // Mon–Fri
+  plan_10: { bowlsPerDay:2, deliverDows:[1,2,3,4,5],   chooseWindow:false },  // Mon–Fri · lunch+dinner
+  plan_12: { bowlsPerDay:2, deliverDows:[1,2,3,4,5,6], chooseWindow:false },  // Mon–Sat · lunch+dinner
+};
+const DOWS = [['Mon',1],['Tue',2],['Wed',3],['Thu',4],['Fri',5],['Sat',6]];
+// Default recommendation is the 12-bowl plan.
+let planTier = TIERS[qs.get('plan')] ? qs.get('plan') : 'plan_12';
+let chosenWindow = null;   // set only for chooseWindow tiers; required before checkout
+let cardReady = false;
+let card = null;
+let paymentsObj = null;   // Square payments instance (card + Apple Pay + Google Pay all use it)
+let googlePay = null;     // Square Google Pay instance (rebuilt when the plan total changes)
+
+// EN/ES for JS-built strings (static HTML is translated by i18n.js via its dictionary). Mirrors
+// the order.html pattern: pick by AnejoLang, re-render on the langchange event + window load.
+function curLang(){ return (window.AnejoLang && window.AnejoLang.get && window.AnejoLang.get()==='es') ? 'es' : 'en'; }
+function L(en, es){ return curLang()==='es' ? es : en; }
+const DOW_ES = { Mon:'Lun', Tue:'Mar', Wed:'Mié', Thu:'Jue', Fri:'Vie', Sat:'Sáb', Sun:'Dom' };
+function dow(nm){ return curLang()==='es' ? (DOW_ES[nm]||nm) : nm; }
+
+function fmtPrice(n){ return (Math.round(Number(n)*100)/100).toFixed(2).replace(/\.00$/,''); }
+function renderPlans(){
+  document.getElementById('planPick').innerHTML = Object.entries(TIERS).map(([k,t])=>
+    `<div class="plan-opt${k===planTier?' sel':''}" data-k="${k}" onclick="pickPlan('${k}')">
+       <div class="pname">${t.label.split(' / ')[0]}</div><div class="pprice">$${fmtPrice(t.price)}</div><div class="pper">${L('per week','por semana')}</div></div>`).join('');
+  document.getElementById('sumPrice').textContent = '$'+fmtPrice(TIERS[planTier].price)+L(' / wk',' / sem');
+  renderSchedule();
+  refreshWallets();   // keep the Google Pay sheet's total in sync with the selected plan
+}
+function renderSchedule(){
+  const s = SCHED[planTier];
+  const lastDow = s.deliverDows[s.deliverDows.length-1];
+  const span = (lastDow===6) ? L('Monday–Saturday','Lunes–Sábado') : L('Monday–Friday','Lunes–Viernes');
+  const perDay = s.bowlsPerDay===2
+    ? L('<b>2 bowls per day</b> — one at lunch (11–2) and one at dinner (5–8)','<b>2 bowls por día</b> — uno en el almuerzo (11–2) y uno en la cena (5–8)')
+    : L('<b>1 bowl per day</b>, in your chosen window','<b>1 bowl por día</b>, en tu horario elegido');
+  const chips = DOWS.map(([nm,n])=>`<span class="day${s.deliverDows.indexOf(n)<0?' off':''}">${dow(nm)}</span>`).join('')
+    + `<span class="day off">${dow('Sun')}</span>`;
+  document.getElementById('schedule').innerHTML =
+    L('Cooked & delivered fresh daily, spaced across the week. Delivered','Cocinado y entregado fresco a diario, distribuido durante la semana. Entregado')+` <b>${span}</b> · ${perDay}.` +
+    `<div class="days">${chips}</div>`;
+  // 1-bowl tiers must pick a window; 2-bowl tiers get both automatically.
+  const wp = document.getElementById('windowPick');
+  if (s.chooseWindow){
+    wp.style.display='';
+    document.getElementById('winPick').innerHTML = [['lunch',L('Lunch','Almuerzo'),'11–2'],['dinner',L('Dinner','Cena'),'5–8']].map(([w,nm,hr])=>
+      `<div class="plan-opt${w===chosenWindow?' sel':''}" onclick="pickWindow('${w}')"><div class="pname">${nm}</div><div class="pper">${hr}</div></div>`).join('');
+  } else { wp.style.display='none'; chosenWindow=null; }
+  updateSubBtn();
+}
+function pickWindow(w){ chosenWindow=w; renderSchedule(); }
+window.pickWindow = pickWindow;
+// Enable checkout only when the card is ready AND (for 1-bowl tiers) a window is chosen.
+function updateSubBtn(){
+  const btn = document.getElementById('subBtn');
+  const needWindow = SCHED[planTier].chooseWindow && !chosenWindow;
+  if (btn) btn.disabled = !cardReady || needWindow;
+}
+function pickPlan(k){ planTier=k; renderPlans(); }
+window.pickPlan = pickPlan;
+
+function renderWho(){
+  document.getElementById('who').innerHTML = (clientId
+    ? L('Subscribing as <strong>your trainer\'s member</strong>. Your plan is delivered weekly.','Te suscribes como <strong>miembro de tu entrenador</strong>. Tu plan se entrega cada semana.')
+    : L('Weekly Añejo bowls, delivered. Cancel anytime.','Bowls Añejo cada semana, entregados. Cancela cuando quieras.'))
+    + (bowlOz ? L(' Your bowls are portion-sized to your goal: <strong>'+bowlOz+' oz each</strong>.',' Tus bowls están porcionados a tu meta: <strong>'+bowlOz+' oz cada uno</strong>.') : '')
+    + (avocado ? L(' <strong>½ avocado added to every bowl</strong> (+$'+fmtPrice(avoUsd)+' each).',' <strong>½ aguacate añadido a cada bowl</strong> (+$'+fmtPrice(avoUsd)+' c/u).') : '');
+}
+renderWho();
+if(!clientId){
+  document.getElementById('buyerFields').innerHTML =
+    '<label class="fld" for="b_name">Your name</label><input class="b-input" id="b_name" type="text" autocomplete="name" required>'+
+    '<label class="fld" for="b_email">Email</label><input class="b-input" id="b_email" type="email" autocomplete="email" required>'+
+    '<label class="fld" for="b_phone">Mobile <span style="text-transform:none;letter-spacing:0;color:var(--muted)">(optional)</span></label><input class="b-input" id="b_phone" type="tel" autocomplete="tel">'+
+    '<label style="display:flex;gap:9px;align-items:flex-start;margin:10px 0 0;font-size:13px;line-height:1.45;cursor:pointer;text-transform:none;letter-spacing:0">'+
+      '<input type="checkbox" id="b_sms" style="margin-top:2px;width:auto;flex:none">'+
+      '<span>Yes, text me order &amp; delivery updates from A&ntilde;ejo Catering Co. at this number.</span></label>'+
+    '<p style="margin:7px 0 0;font-size:11.5px;line-height:1.5;color:var(--muted)">Message frequency varies (you may get a text for each order &amp; delivery). Msg &amp; data rates may apply. Reply HELP for help, STOP to cancel anytime. Consent is not a condition of purchase. <a href="/legal/terms">Terms</a> &middot; <a href="/legal/privacy">Privacy</a>.</p>'+
+    // SEPARATE marketing permission. The box above is transactional (order & delivery updates);
+    // under the TCPA a promotional text needs its own express written opt-in, so this is a second,
+    // unchecked box with its own disclosure. Never pre-check it, never merge the two.
+    '<label style="display:flex;gap:9px;align-items:flex-start;margin:14px 0 0;font-size:13px;line-height:1.45;cursor:pointer;text-transform:none;letter-spacing:0">'+
+      '<input type="checkbox" id="b_mktg_sms" style="margin-top:2px;width:auto;flex:none">'+
+      '<span>Yes, text me exclusive offers and promotions from A&ntilde;ejo Catering Co. at this number.</span></label>'+
+    '<p style="margin:7px 0 0;font-size:11.5px;line-height:1.5;color:var(--muted)">Separate from order updates — this is marketing. By checking this box you agree to receive recurring automated promotional texts (about 2–4 per month) at the number provided. Consent is not a condition of any purchase. Msg &amp; data rates may apply. Reply HELP for help, STOP to cancel anytime. <a href="/legal/terms#sms">Terms</a> &middot; <a href="/legal/privacy">Privacy</a>.</p>';
+}
+
+renderPlans();
+
+async function init(){
+  const msg = document.getElementById('msg');
+  let cfg;
+  try { cfg = await (await fetch('/api/square-config')).json(); }
+  catch { msg.className='msg err'; msg.textContent=L('Could not load payment config.','No se pudo cargar la configuración de pago.'); return; }
+  // Sync the delivery schedule AND the weekly price from the server (authoritative) so the copies
+  // above are just first-paint fallbacks — neither the day grid, the window rules, nor the money
+  // can drift from plans.js. weeklyCents is what /api/subscriptions/create will actually charge.
+  if (cfg.tiers) {
+    Object.entries(cfg.tiers).forEach(([k, t]) => {
+      if (SCHED[k]) SCHED[k] = { bowlsPerDay: t.bowlsPerDay, deliverDows: t.days, chooseWindow: t.chooseWindow };
+      if (TIERS[k] && Number.isFinite(t.weeklyCents) && t.weeklyCents > 0) TIERS[k].weeklyUsd = t.weeklyCents / 100;
+    });
+    if (Number.isFinite(cfg.avocadoAddonCents) && cfg.avocadoAddonCents >= 0) avoUsd = cfg.avocadoAddonCents / 100;
+    applyPricing();
+    renderPlans();   // re-renders the price cards + the schedule
+    renderWho();     // the avocado line quotes the add-on price
+  }
+  if (!cfg.applicationId || !cfg.locationId){ msg.className='msg err'; msg.textContent=L('Payments are not configured yet.','Los pagos aún no están configurados.'); return; }
+
+  const sdk = cfg.env === 'production' ? 'https://web.squarecdn.com/v1/square.js' : 'https://sandbox.web.squarecdn.com/v1/square.js';
+  await new Promise((res,rej)=>{ const s=document.createElement('script'); s.src=sdk; s.onload=res; s.onerror=rej; document.head.appendChild(s); });
+
+  try {
+    paymentsObj = window.Square.payments(cfg.applicationId, cfg.locationId);
+    card = await paymentsObj.card();
+    await card.attach('#card-container');
+    cardReady = true; updateSubBtn();
+    // Digital wallets — each shows only on a capable device, tokenizes through the same Square SDK,
+    // and posts to the same endpoint as the card. Card field stays the path everywhere else.
+    // Apple Pay (Safari on iOS/macOS with a Wallet card):
+    try {
+      if (window.ApplePaySession && window.ApplePaySession.canMakePayments()) {
+        document.getElementById('applePayBtn').style.display='block';
+        document.getElementById('applePayBtn').addEventListener('click', payWithApplePay);
+        document.getElementById('walletWrap').style.display='block';
+      }
+    } catch(_){ /* Apple Pay unavailable */ }
+    // Google Pay (Chrome / Android with a saved card). Built now + rebuilt on plan change so the
+    // Google Pay sheet always shows the current weekly total.
+    document.getElementById('gpay-button').addEventListener('click', payWithGooglePay);
+    await buildGooglePay();
+  } catch (e) {
+    msg.className='msg err'; msg.textContent=L('Could not load the card field: ','No se pudo cargar el campo de tarjeta: ')+(e.message||e);
+  }
+}
+
+// Shared validation + body assembly (used by both the card and Apple Pay). Returns the body, or
+// null after showing the relevant field error.
+function collectBody(){
+  const msg=document.getElementById('msg');
+  msg.className='msg'; msg.textContent='';
+  document.querySelectorAll('.input-error').forEach(e=>e.classList.remove('input-error'));
+  const fail=(el,m)=>{ msg.className='msg err'; msg.textContent=m; if(el){ el.classList.add('input-error'); el.focus(); } };
+  let body;
+  if (clientId) { body = { clientId, planTier }; }
+  else {
+    const name=(document.getElementById('b_name')||{}).value||'', email=(document.getElementById('b_email')||{}).value||'';
+    const phone=(document.getElementById('b_phone')||{}).value||'';
+    const smsConsent=!!(document.getElementById('b_sms')||{}).checked;
+    const mktgSmsConsent=!!(document.getElementById('b_mktg_sms')||{}).checked;
+    if(!name.trim()){ fail(document.getElementById('b_name'),L('Please enter your name.','Por favor ingresa tu nombre.')); return null; }
+    if(!email.trim()){ fail(document.getElementById('b_email'),L('Please enter your email.','Por favor ingresa tu correo electrónico.')); return null; }
+    body = { planTier, buyer:{ name:name.trim(), email:email.trim(), phone:phone.trim(), sms_consent:smsConsent, marketing_sms_consent:mktgSmsConsent } };
+  }
+  if (bowlOz) body.bowlSizeOz = bowlOz;
+  if (avocado) body.avocado = true;
+  // Direct subscriber: forward the macro plan generated on the calculator so the kitchen gets each
+  // weekly delivery itemized with THIS client's bowls, scaled macros + per-ingredient weights.
+  if (!clientId) {
+    try {
+      var stash = JSON.parse(sessionStorage.getItem('anejo:lastPlan') || 'null');
+      if (stash && stash.plan && stash.plan.bowl_rotation) body.plan = stash.plan;
+    } catch (e) { /* no stashed plan — server falls back to a generic line */ }
+  }
+  // Delivery address — required so every weekly order can be routed.
+  var addr = {
+    street:(document.getElementById('a_street')||{}).value||'', unit:(document.getElementById('a_unit')||{}).value||'',
+    city:(document.getElementById('a_city')||{}).value||'', state:((document.getElementById('a_state')||{}).value||'FL'),
+    zip:(document.getElementById('a_zip')||{}).value||'', notes:(document.getElementById('a_notes')||{}).value||''
+  };
+  if(!addr.street.trim()){ fail(document.getElementById('a_street'),L('Please enter your delivery street address.','Por favor ingresa tu dirección de entrega.')); return null; }
+  if(!addr.city.trim()){ fail(document.getElementById('a_city'),L('Please enter your delivery city.','Por favor ingresa tu ciudad de entrega.')); return null; }
+  if(!/^\d{5}$/.test(addr.zip.trim())){ fail(document.getElementById('a_zip'),L('Please enter a valid 5-digit ZIP code.','Por favor ingresa un código postal válido de 5 dígitos.')); return null; }
+  body.address = { street:addr.street.trim(), unit:addr.unit.trim(), city:addr.city.trim(), state:addr.state.trim()||'FL', zip:addr.zip.trim(), notes:addr.notes.trim() };
+  if (SCHED[planTier].chooseWindow) {
+    if (chosenWindow !== 'lunch' && chosenWindow !== 'dinner') {
+      fail(document.getElementById('windowPick'), L('Please choose a delivery window — Lunch or Dinner.','Por favor elige un horario de entrega — Almuerzo o Cena.'));
+      document.getElementById('windowPick').scrollIntoView({ block:'center', behavior:'smooth' });
+      return null;
+    }
+    body.delivery = { window: chosenWindow };
+  } else {
+    body.delivery = { windows: ['lunch','dinner'] };
+  }
+  return body;
+}
+
+// Shared submit: send the tokenized payment to the server, then render success/failure.
+async function finishSub(sourceId, body, btn, lbl){
+  const msg=document.getElementById('msg');
+  btn.disabled=true; btn.textContent=L('Processing…','Procesando…');
+  body.sourceId = sourceId;
+  try {
+    const r = await fetch('/api/subscriptions/create',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify(body)});
+    const data = await r.json();
+    if (!r.ok || !data.ok) throw new Error(data.error || L('Subscription could not be started.','No se pudo iniciar la suscripción.'));
+    document.getElementById('wrap').innerHTML =
+      '<div class="ok-card"><div class="check"><svg viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg></div>'+
+      '<h2>'+L("You're subscribed!",'¡Estás suscrito!')+'</h2><p>'+
+      L('Your '+TIERS[planTier].label+' plan ($'+fmtPrice(TIERS[planTier].price)+'/wk) is active. You\'ll get a confirmation by email and your first delivery on your next scheduled day.',
+        'Tu plan de '+TIERS[planTier].label.replace('/ week','/ semana')+' ($'+fmtPrice(TIERS[planTier].price)+'/sem) está activo. Recibirás una confirmación por correo y tu primera entrega en tu próximo día programado.')+
+      '</p><a href="/client/dashboard" style="display:inline-block;margin-top:16px;padding:12px 24px;border-radius:6px;background:#C6A85B;color:#0D0D0D;text-decoration:none;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;font-size:12px">'+L('View my account \u2192','Ver mi cuenta \u2192')+'</a></div>';
+  } catch (e) {
+    msg.className='msg err'; msg.textContent=e.message||L('Something went wrong.','Algo salió mal.'); btn.disabled=false; btn.textContent=lbl;
+  }
+}
+
+// Pay with card
+document.getElementById('subBtn').addEventListener('click', async ()=>{
+  const btn=document.getElementById('subBtn'), msg=document.getElementById('msg');
+  if (!card){ return; }
+  const body = collectBody(); if(!body) return;
+  const lbl=btn.textContent;
+  btn.disabled=true; btn.textContent=L('Processing…','Procesando…');
+  try {
+    const tok = await card.tokenize();
+    if (tok.status !== 'OK') throw new Error(L('Please check your card details.','Por favor revisa los datos de tu tarjeta.'));
+    await finishSub(tok.token, body, btn, lbl);
+  } catch (e) {
+    msg.className='msg err'; msg.textContent=e.message||L('Something went wrong.','Algo salió mal.'); btn.disabled=false; btn.textContent=lbl;
+  }
+});
+
+// Pay with Apple Pay (button shown only on capable devices; wired in init()).
+async function payWithApplePay(){
+  const subBtn=document.getElementById('subBtn'), msg=document.getElementById('msg');
+  if (!paymentsObj){ return; }
+  const body = collectBody(); if(!body) return;       // runs the same validations + shows the same errors
+  const lbl=subBtn.textContent;
+  try {
+    const req = paymentsObj.paymentRequest({ countryCode:'US', currencyCode:'USD',
+      total:{ amount: Number(TIERS[planTier].price).toFixed(2), label:'Añejo Weekly Plan' } });
+    const ap = await paymentsObj.applePay(req);
+    const tok = await ap.tokenize();
+    if (tok.status !== 'OK'){ return; }                 // user cancelled the sheet
+    await finishSub(tok.token, body, subBtn, lbl);
+  } catch (e) {
+    msg.className='msg err'; msg.textContent=e.message||L('Apple Pay could not be completed — please use a card.','Apple Pay no se pudo completar — usa una tarjeta.');
+  }
+}
+
+// (Re)build the Google Pay button with the CURRENT weekly total. Called once at init and again on
+// every plan change, so the Google Pay sheet never shows a stale amount. No-ops if GP is unavailable.
+async function buildGooglePay(){
+  if (!paymentsObj) return;
+  try {
+    if (googlePay){ try { await googlePay.destroy(); } catch(_){} googlePay=null; }
+    const req = paymentsObj.paymentRequest({ countryCode:'US', currencyCode:'USD',
+      total:{ amount: Number(TIERS[planTier].price).toFixed(2), label:'Añejo Weekly Plan' } });
+    googlePay = await paymentsObj.googlePay(req);
+    await googlePay.attach('#gpay-button', { buttonColor:'black', buttonType:'long', buttonSizeMode:'fill' });
+    document.getElementById('gpay-button').style.display='block';
+    document.getElementById('walletWrap').style.display='block';
+  } catch(_){ /* Google Pay unavailable on this browser/device → card stays the path */ }
+}
+// Rebuild GP on plan change (called from renderPlans). Only rebuilds if GP was set up.
+function refreshWallets(){ if (googlePay) buildGooglePay(); }
+
+// Pay with Google Pay (button attached by Square; wired in init()).
+async function payWithGooglePay(){
+  const subBtn=document.getElementById('subBtn'), msg=document.getElementById('msg');
+  if (!googlePay){ return; }
+  const body = collectBody(); if(!body) return;          // same validations + same field errors
+  const lbl=subBtn.textContent;
+  try {
+    const tok = await googlePay.tokenize();
+    if (tok.status !== 'OK'){ return; }                  // user cancelled
+    await finishSub(tok.token, body, subBtn, lbl);
+  } catch (e) {
+    msg.className='msg err'; msg.textContent=e.message||L('Google Pay could not be completed — please use a card.','Google Pay no se pudo completar — usa una tarjeta.');
+  }
+}
+
+init();
+// Re-render JS-built strings on language toggle + once i18n.js has loaded/applied a persisted lang.
+document.addEventListener('anejo:langchange', function(){ renderPlans(); renderWho(); });
+window.addEventListener('load', function(){ renderPlans(); renderWho(); });
+</script>
+
+<script src="/assets/js/announce.js" defer></script>
+<script src="/assets/js/consent.js"></script>
+  <script src="/assets/js/chat.js?v=20261105-phone" defer></script>
+<script>(function(){function c(){var b=a.contentDocument||(a.contentWindow&&a.contentWindow.document);if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'a5d22149cab71277',t:'MTc5NTEyMTg3NQ=='};var l=window.parent.location,o;try{o=new URL(l.origin).origin}catch(e){try{o=new URL(new URL(l.href).origin).origin}catch(e){o=''}}var u='/cdn-cgi/challenge-platform/scripts/jsd/main.js?ray=a5d22149cab71277',a=document.createElement('script');a.src=o?new URL(u,o).href:u;document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script><script type="module" src="https://static.cloudflareinsights.com/beacon.min.js/vce701823e78c4301a35b7e07294d87301792088814092" integrity="sha512-UKNk8GbxkABxKcXYuLkO16EleLGUkcvJWtpSNmExE0Too3ZaFAxTscNWEc1OdAv5/BikHawapSCaiD2XCmp+Bw==" data-cf-beacon='{"version":"2024.11.0","token":"4b45df8c779848be8eb9390a21831bb4","r":1,"spa":2}' crossorigin="anonymous"></script>
+</body>
+</html>
